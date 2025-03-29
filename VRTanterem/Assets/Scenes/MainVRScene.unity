@@ -132,7 +132,6 @@ GameObject:
   m_Component:
   - component: {fileID: 301446024}
   - component: {fileID: 301446023}
-  - component: {fileID: 301446022}
   m_Layer: 0
   m_Name: App Voice Experience
   m_TagString: Untagged
@@ -140,21 +139,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &301446022
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 301446021}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5333962c6911bbc4e8237d0639df4029, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  appVoiceExperience: {fileID: 301446023}
-  openAIWebRequest: {fileID: 7679562417771070149}
-  logRawTranscription: 1
 --- !u!114 &301446023
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1017,7 +1001,7 @@ PrefabInstance:
     - target: {fileID: 2514675399181695721, guid: f54012181eacade4ea242c65f804720f,
         type: 3}
       propertyPath: m_LocalPosition.z
-      value: 5.455
+      value: 5.315
       objectReference: {fileID: 0}
     - target: {fileID: 2514675399181695721, guid: f54012181eacade4ea242c65f804720f,
         type: 3}
@@ -1106,122 +1090,6 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 343011352}
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &2116961271
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2116961273}
-  - component: {fileID: 2116961272}
-  m_Layer: 0
-  m_Name: TTS
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &2116961272
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2116961271}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a6b3124b830442d45b9f357ff99b152f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  verboseLogging: 0
-  _audioSystem: {fileID: 0}
-  _runtimeCacheHandler: {fileID: 0}
-  _diskCacheHandler: {fileID: 0}
-  _events:
-    OnClipCreated:
-      m_PersistentCalls:
-        m_Calls: []
-    OnClipUnloaded:
-      m_PersistentCalls:
-        m_Calls: []
-    WebRequest:
-      OnRequestBegin:
-        m_PersistentCalls:
-          m_Calls: []
-      OnRequestCancel:
-        m_PersistentCalls:
-          m_Calls: []
-      OnRequestError:
-        m_PersistentCalls:
-          m_Calls: []
-      OnRequestFirstResponse:
-        m_PersistentCalls:
-          m_Calls: []
-      OnRequestReady:
-        m_PersistentCalls:
-          m_Calls: []
-      OnRequestComplete:
-        m_PersistentCalls:
-          m_Calls: []
-    Stream:
-      OnStreamBegin:
-        m_PersistentCalls:
-          m_Calls: []
-      OnStreamReady:
-        m_PersistentCalls:
-          m_Calls: []
-      OnStreamClipUpdate:
-        m_PersistentCalls:
-          m_Calls: []
-      OnStreamComplete:
-        m_PersistentCalls:
-          m_Calls: []
-      OnStreamCancel:
-        m_PersistentCalls:
-          m_Calls: []
-      OnStreamError:
-        m_PersistentCalls:
-          m_Calls: []
-    Download:
-      OnDownloadBegin:
-        m_PersistentCalls:
-          m_Calls: []
-      OnDownloadSuccess:
-        m_PersistentCalls:
-          m_Calls: []
-      OnDownloadCancel:
-        m_PersistentCalls:
-          m_Calls: []
-      OnDownloadError:
-        m_PersistentCalls:
-          m_Calls: []
-  RequestSettings:
-    _configuration: {fileID: 11400000, guid: 1e208dff7a0e2244daf2981a0f269e21, type: 2}
-    audioType: 1
-    audioStream: 1
-    useEvents: 1
-    audioStreamTimeoutMs: 10000
-    audioStreamPreloadCount: 5
-    audioReadyDuration: 1.5
-    audioMaxDuration: 15
-  _presetVoiceSettings: []
---- !u!4 &2116961273
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2116961271}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.04085538, y: 2.6468754, z: 4.6828074}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!224 &6431969398516365052
@@ -2749,7 +2617,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0.5}
   m_AnchorMax: {x: 0, y: 0.5}
-  m_AnchoredPosition: {x: 440, y: 430}
+  m_AnchoredPosition: {x: 439.99982, y: -446.0001}
   m_SizeDelta: {x: 730, y: 60}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &7679562417014403814
@@ -2770,7 +2638,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &7679562417106012183
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3530,7 +3398,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -0, y: -63}
+  m_AnchoredPosition: {x: -0, y: -17}
   m_SizeDelta: {x: 730, y: 793.4}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &7679562417661272527
@@ -3599,7 +3467,7 @@ RectTransform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7679562417704096493}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: -0}
+  m_LocalPosition: {x: 0, y: 0, z: -0.0002564575}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -3608,7 +3476,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -0, y: 418}
+  m_AnchoredPosition: {x: -0.00019433952, y: 430.9999}
   m_SizeDelta: {x: 730, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &7679562417704096493
@@ -3629,24 +3497,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &7679562417771070149
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7679562417771070154}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: bf0366f576359464589d50c67e1ffa2e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  apiKey: APIKEY
-  assistantID: ASSISTANID
-  initialMessage: Hello!
-  TMPResponseText: {fileID: 7679562417209752150}
-  TMPUserText: {fileID: 7679562416999354787}
-  ttsSpeaker: {fileID: 0}
 --- !u!4 &7679562417771070153
 Transform:
   m_ObjectHideFlags: 0
@@ -3671,7 +3521,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7679562417771070153}
-  - component: {fileID: 7679562417771070149}
+  - component: {fileID: 7679562417771070155}
   m_Layer: 0
   m_Name: OpenAIWebRequest
   m_TagString: Untagged
@@ -3679,6 +3529,24 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
+--- !u!114 &7679562417771070155
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7679562417771070154}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bf0366f576359464589d50c67e1ffa2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  apiKey: 
+  assistantID: 
+  userInput: "\xDCdv\xF6zl\xF6m!"
+  TMPResponseText: {fileID: 7679562417209752150}
+  TMPInputField: {fileID: 7679562417014403810}
+  TMPUserText: {fileID: 7679562416999354787}
 --- !u!114 &7679562418242494057
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4121,4 +3989,3 @@ SceneRoots:
   - {fileID: 1301572283}
   - {fileID: 705279249}
   - {fileID: 301446024}
-  - {fileID: 2116961273}
