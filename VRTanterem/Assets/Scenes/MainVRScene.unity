@@ -122,163 +122,6 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &301446021
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 301446024}
-  - component: {fileID: 301446023}
-  m_Layer: 0
-  m_Name: App Voice Experience
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &301446023
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 301446021}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 28779cfed47441a42a6cd4fb49c8dc89, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  ShouldWrap: 1
-  ShouldLog: 1
-  events:
-    _onRequestOptionSetup:
-      m_PersistentCalls:
-        m_Calls: []
-    _onRequestInitialized:
-      m_PersistentCalls:
-        m_Calls: []
-    _onRequestCreated:
-      m_PersistentCalls:
-        m_Calls: []
-    _onSend:
-      m_PersistentCalls:
-        m_Calls: []
-    _onMinimumWakeThresholdHit:
-      m_PersistentCalls:
-        m_Calls: []
-    _onMicDataSent:
-      m_PersistentCalls:
-        m_Calls: []
-    _onStoppedListeningDueToDeactivation:
-      m_PersistentCalls:
-        m_Calls: []
-    _onStoppedListeningDueToInactivity:
-      m_PersistentCalls:
-        m_Calls: []
-    _onStoppedListeningDueToTimeout:
-      m_PersistentCalls:
-        m_Calls: []
-    _onAborting:
-      m_PersistentCalls:
-        m_Calls: []
-    _onAborted:
-      m_PersistentCalls:
-        m_Calls: []
-    _onCanceled:
-      m_PersistentCalls:
-        m_Calls: []
-    _onRawResponse:
-      m_PersistentCalls:
-        m_Calls: []
-    _onPartialResponse:
-      m_PersistentCalls:
-        m_Calls: []
-    _onResponse:
-      m_PersistentCalls:
-        m_Calls: []
-    _onError:
-      m_PersistentCalls:
-        m_Calls: []
-    _onRequestCompleted:
-      m_PersistentCalls:
-        m_Calls: []
-    _onComplete:
-      m_PersistentCalls:
-        m_Calls: []
-    _onStartListening:
-      m_PersistentCalls:
-        m_Calls: []
-    _onStoppedListening:
-      m_PersistentCalls:
-        m_Calls: []
-    _onMicLevelChanged:
-      m_PersistentCalls:
-        m_Calls: []
-    _onPartialTranscription:
-      m_PersistentCalls:
-        m_Calls: []
-    _onFullTranscription:
-      m_PersistentCalls:
-        m_Calls: []
-    _onUserPartialTranscription:
-      m_PersistentCalls:
-        m_Calls: []
-    _onUserFullTranscription:
-      m_PersistentCalls:
-        m_Calls: []
-    _onByteDataReady:
-      m_PersistentCalls:
-        m_Calls: []
-    _onByteDataSent:
-      m_PersistentCalls:
-        m_Calls: []
-    _onValidatePartialResponse:
-      m_PersistentCalls:
-        m_Calls: []
-  witRuntimeConfiguration:
-    witConfiguration: {fileID: 11400000, guid: 1e208dff7a0e2244daf2981a0f269e21, type: 2}
-    minKeepAliveVolume: 0.0005
-    minKeepAliveTimeInSeconds: 2
-    minTranscriptionKeepAliveTimeInSeconds: 1
-    maxRecordingTime: 20
-    soundWakeThreshold: 0.0005
-    sampleLengthInMs: 10
-    micBufferLengthInSeconds: 1
-    maxConcurrentRequests: 5
-    sendAudioToWit: 1
-    customTranscriptionProvider: {fileID: 0}
-    alwaysRecord: 0
-    preferredActivationOffset: -0.5
-    transcribeOnly: 0
-    pubSubSettings:
-      PubSubTopicId: 
-      PublishOptions:
-        transcriptionResponses: 1
-        composerResponses: 1
-      SubscribeOptions:
-        transcriptionResponses: 1
-        composerResponses: 1
-  usePlatformServices: 0
-  enableConsoleLogging: 0
-  sendTranscriptionEventsForMessages: 0
---- !u!4 &301446024
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 301446021}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.505, y: 2.903, z: 4.613}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &343011351
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1092,6 +935,345 @@ Transform:
   - {fileID: 343011352}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &2084497925
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2084497928}
+  - component: {fileID: 2084497929}
+  - component: {fileID: 2084497927}
+  - component: {fileID: 2084497931}
+  - component: {fileID: 2084497930}
+  m_Layer: 0
+  m_Name: App Voice Experience
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2084497927
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2084497925}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28779cfed47441a42a6cd4fb49c8dc89, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ShouldWrap: 1
+  ShouldLog: 1
+  events:
+    _onRequestOptionSetup:
+      m_PersistentCalls:
+        m_Calls: []
+    _onRequestInitialized:
+      m_PersistentCalls:
+        m_Calls: []
+    _onRequestCreated:
+      m_PersistentCalls:
+        m_Calls: []
+    _onSend:
+      m_PersistentCalls:
+        m_Calls: []
+    _onMinimumWakeThresholdHit:
+      m_PersistentCalls:
+        m_Calls: []
+    _onMicDataSent:
+      m_PersistentCalls:
+        m_Calls: []
+    _onStoppedListeningDueToDeactivation:
+      m_PersistentCalls:
+        m_Calls: []
+    _onStoppedListeningDueToInactivity:
+      m_PersistentCalls:
+        m_Calls: []
+    _onStoppedListeningDueToTimeout:
+      m_PersistentCalls:
+        m_Calls: []
+    _onAborting:
+      m_PersistentCalls:
+        m_Calls: []
+    _onAborted:
+      m_PersistentCalls:
+        m_Calls: []
+    _onCanceled:
+      m_PersistentCalls:
+        m_Calls: []
+    _onRawResponse:
+      m_PersistentCalls:
+        m_Calls: []
+    _onPartialResponse:
+      m_PersistentCalls:
+        m_Calls: []
+    _onResponse:
+      m_PersistentCalls:
+        m_Calls: []
+    _onError:
+      m_PersistentCalls:
+        m_Calls: []
+    _onRequestCompleted:
+      m_PersistentCalls:
+        m_Calls: []
+    _onComplete:
+      m_PersistentCalls:
+        m_Calls: []
+    _onStartListening:
+      m_PersistentCalls:
+        m_Calls: []
+    _onStoppedListening:
+      m_PersistentCalls:
+        m_Calls: []
+    _onMicLevelChanged:
+      m_PersistentCalls:
+        m_Calls: []
+    _onPartialTranscription:
+      m_PersistentCalls:
+        m_Calls: []
+    _onFullTranscription:
+      m_PersistentCalls:
+        m_Calls: []
+    _onUserPartialTranscription:
+      m_PersistentCalls:
+        m_Calls: []
+    _onUserFullTranscription:
+      m_PersistentCalls:
+        m_Calls: []
+    _onByteDataReady:
+      m_PersistentCalls:
+        m_Calls: []
+    _onByteDataSent:
+      m_PersistentCalls:
+        m_Calls: []
+    _onValidatePartialResponse:
+      m_PersistentCalls:
+        m_Calls: []
+  witRuntimeConfiguration:
+    witConfiguration: {fileID: 11400000, guid: 53891fdc882ac8a408f04dadf6188c1f, type: 2}
+    minKeepAliveVolume: 0.0005
+    minKeepAliveTimeInSeconds: 5
+    minTranscriptionKeepAliveTimeInSeconds: 8
+    maxRecordingTime: 20
+    soundWakeThreshold: 0.0005
+    sampleLengthInMs: 10
+    micBufferLengthInSeconds: 1
+    maxConcurrentRequests: 5
+    sendAudioToWit: 1
+    customTranscriptionProvider: {fileID: 0}
+    alwaysRecord: 0
+    preferredActivationOffset: -0.5
+    transcribeOnly: 0
+    pubSubSettings:
+      PubSubTopicId: 
+      PublishOptions:
+        transcriptionResponses: 1
+        composerResponses: 1
+      SubscribeOptions:
+        transcriptionResponses: 1
+        composerResponses: 1
+  usePlatformServices: 0
+  enableConsoleLogging: 0
+  sendTranscriptionEventsForMessages: 0
+--- !u!4 &2084497928
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2084497925}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.476, y: 2.797, z: 4.923}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2084497929
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2084497925}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6adb2a85696dce240a3e8b34cb8aa878, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  appVoiceExperience: {fileID: 2084497927}
+  responseMatcher: {fileID: 2084497931}
+  transcriptionText: {fileID: 7679562416999354787}
+  wakeWordDetected:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 2084497930}
+        m_TargetAssemblyTypeName: UnityEngine.AudioSource, UnityEngine
+        m_MethodName: PlayOneShot
+        m_Mode: 2
+        m_Arguments:
+          m_ObjectArgument: {fileID: 8300000, guid: c362bffa4cd68f84bbd58b5203613aea,
+            type: 3}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.AudioClip, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+  completeTranscription:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 2084497930}
+        m_TargetAssemblyTypeName: UnityEngine.AudioSource, UnityEngine
+        m_MethodName: PlayOneShot
+        m_Mode: 2
+        m_Arguments:
+          m_ObjectArgument: {fileID: 8300000, guid: cb5d7f5e2755e6048a6cd4de0d944da9,
+            type: 3}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.AudioClip, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+--- !u!82 &2084497930
+AudioSource:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2084497925}
+  m_Enabled: 1
+  serializedVersion: 4
+  OutputAudioMixerGroup: {fileID: 0}
+  m_audioClip: {fileID: 0}
+  m_PlayOnAwake: 0
+  m_Volume: 1
+  m_Pitch: 1
+  Loop: 0
+  Mute: 0
+  Spatialize: 0
+  SpatializePostEffects: 0
+  Priority: 128
+  DopplerLevel: 1
+  MinDistance: 1
+  MaxDistance: 500
+  Pan2D: 0
+  rolloffMode: 0
+  BypassEffects: 0
+  BypassListenerEffects: 0
+  BypassReverbZones: 0
+  rolloffCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  panLevelCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  spreadCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  reverbZoneMixCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+--- !u!114 &2084497931
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2084497925}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 591c3d6f017c11b4faa41506d75635b9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Voice: {fileID: 2084497927}
+  ValidateEarly: 0
+  intent: wake_word
+  confidenceThreshold: 0.6
+  valueMatchers:
+  - path: entities.wake_word:wake_word[0].value
+    witValueReference: {fileID: 0}
+    contentRequired: 1
+    matchMethod: 0
+    comparisonMethod: 0
+    matchValue: 
+    floatingPointComparisonTolerance: 0.00009999999747378752
+    allowConfidenceOverlap: 0
+    confidenceRanges: []
+  formattedValueEvents: []
+  onMultiValueEvent:
+    m_PersistentCalls:
+      m_Calls: []
+  onDidNotMatch:
+    m_PersistentCalls:
+      m_Calls: []
+  onOutOfDomain:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!224 &6431969398516365052
 RectTransform:
   m_ObjectHideFlags: 0
@@ -3988,4 +4170,4 @@ SceneRoots:
   - {fileID: 7861578685782142131}
   - {fileID: 1301572283}
   - {fileID: 705279249}
-  - {fileID: 301446024}
+  - {fileID: 2084497928}
