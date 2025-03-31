@@ -102,6 +102,33 @@ public class OpenAIWebRequest : MonoBehaviour
         StartCoroutine(CreateThread());
     }
 
+    // OpenAIWebRequest.cs-ben hozzáadandó metódus
+    public void ProcessVoiceInput(string recognizedText)
+    {
+        Debug.Log($"Voice input received: {recognizedText}");
+
+        // A felismert szöveg megjelenítése
+        if (TMPUserText != null)
+        {
+            TMPUserText.text = "User: " + recognizedText;
+        }
+
+        // Opcionálisan: Átmásolhatjuk az input mezőbe is
+        if (TMPInputField != null)
+        {
+            TMPInputField.text = recognizedText;
+        }
+
+        // Közvetlen üzenetküldés indítása (ha ez a kívánt viselkedés)
+        if (!string.IsNullOrEmpty(recognizedText) && !string.IsNullOrWhiteSpace(assistantThreadId))
+        {
+            messageBuilder.Clear();
+            buffer.Clear();
+            StartCoroutine(SendMessageSequence(recognizedText));
+        }
+    }
+
+
     // Beállítja a közös HTTP fejléceket az OpenAI kérésekhez
     private void SetCommonHeaders(UnityWebRequest request)
     {

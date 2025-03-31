@@ -1,5 +1,18 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-3152274400047977180
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1c2918ba0e7451694416d42d69e0944, type: 3}
+  m_Name: WitComposerData
+  m_EditorClassIdentifier: 
+  canvases: []
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -10,49 +23,42 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ae5a46bda3295124c99b0e6537ac7252, type: 3}
-  m_Name: wit
+  m_Name: Wit
   m_EditorClassIdentifier: 
-  _clientAccessToken: SAGCLXEQAAKSYVLXFS3QFJSKBDZ3TOXU
+  _clientAccessToken: RIXPKXU6UHD25SDB53LYUPEAH4UYKO53
   editorVersionTag: 
   buildVersionTag: 
   _appInfo:
     name: wake_word
-    id: 1679655419310465
+    id: 1202007128286411
     lang: en
-    isPrivate: 1
-    createdAt: 2025-03-29T16:48:37-0700
+    isPrivate: 0
+    createdAt: 2025-03-30T03:08:13-0700
     trainingStatus: 1
-    lastTrainDuration: 48
-    lastTrainedAt: 2025-03-29T16:52:52-0700
-    nextTrainAt: 2025-03-29T16:52:04-0700
-    intents:
-    - id: 1380374426322476
-      name: wake_word
-      entities:
-      - name: wake_word:wake_word
-        id: 2438425279851041
+    lastTrainDuration: 0
+    lastTrainedAt: 1969-12-31T16:00:00-0800
+    nextTrainAt: 1969-12-31T16:00:00-0800
+    intents: []
     entities:
     - name: wake_word
-      id: 1635594600655667
+      id: 1400567207776287
       lookups:
       - free-text
       - keywords
       roles:
       - name: wake_word
-        id: 2438425279851041
+        id: 996694182051880
       keywords:
-      - keyword: hey
+      - keyword: assistant
         synonyms:
-        - hey
-        - hi
-      - keyword: hey quest
+        - assistant
+      - keyword: hello assistant
         synonyms:
-        - ey quest
-        - hey quest
-      - keyword: hey west
+        - hello
+        - hello assistant
+      - keyword: hey assistant
         synonyms:
-        - hey west
-        - quest listen
+        - hey assistant
     traits: []
     versionTags: []
     voices:
@@ -562,8 +568,8 @@ MonoBehaviour:
       - phoneme_events
       - word_events
   _configData:
-  - {fileID: 7594764488339412139}
-  _configurationId: 30c62fa9-f130-4559-804d-ddd5f1e06c89
+  - {fileID: -3152274400047977180}
+  _configurationId: e9709ff6-67c3-4d2a-b75a-7dc8d83d91e1
   _requestType: 0
   _requestTimeoutMs: 10000
   endpointConfiguration:
@@ -580,21 +586,8 @@ MonoBehaviour:
   isDemoOnly: 0
   useIntentAttributes: 1
   useConduit: 1
-  _manifestLocalPath: ConduitManifest-da6317c7-32ad-43ea-b7d7-fa050da8277b.json
+  _manifestLocalPath: ConduitManifest-a22976fa-0ea9-4f0e-86d9-a8bfe338522b.json
   excludedAssemblies:
   - Oculus.Voice.Demo, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
   - Meta.WitAi.Samples, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
   relaxedResolution: 0
---- !u!114 &7594764488339412139
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d1c2918ba0e7451694416d42d69e0944, type: 3}
-  m_Name: WitComposerData
-  m_EditorClassIdentifier: 
-  canvases: []
