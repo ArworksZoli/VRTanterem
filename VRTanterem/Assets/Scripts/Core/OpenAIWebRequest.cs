@@ -495,55 +495,91 @@ public class OpenAIWebRequest : MonoBehaviour
                                     try
                                     {
                                         JObject eventOrMessageObject = JObject.Parse(jsonString);
-                                        string eventType = eventOrMessageObject["event"]?.ToString(); // Lehet null/üres
-                                        string objectType = eventOrMessageObject["object"]?.ToString(); // Pl. "thread.message", "thread.run", stb.
+                                        string eventType = eventOrMessageObject["event"]?.ToString();
+                                        string objectType = eventOrMessageObject["object"]?.ToString();
 
-                                        // Logoljuk, mit kaptunk
                                         Debug.Log($"[STREAM DATA RECEIVED] EventType: '{eventType ?? "N/A"}', ObjectType: '{objectType ?? "N/A"}', RawJSON: {jsonString}");
 
-                                        // 1. Elsődleges kezelés: Standard Stream Események
-                                        if (!string.IsNullOrEmpty(eventType))
+                                        // --- ÚJ, RÉSZLETESEBB LOGIKAI SORREND ---
+
+                                        // 1. Kezeljük a DELTA üzeneteket az OBJEKTUM TÍPUS alapján
+                                        if (objectType == "thread.message.delta")
                                         {
+                                            Debug.Log("[Delta Check] ObjectType is 'thread.message.delta'. Processing content..."); // Új log
+                                            JArray contentDeltas = eventOrMessageObject["delta"]?["content"] as JArray;
+
+                                            if (contentDeltas != null)
+                                            {
+                                                Debug.Log($"[Delta Check] Found {contentDeltas.Count} item(s) in content delta array."); // Új log
+                                                foreach (var deltaItem in contentDeltas)
+                                                {
+                                                    string contentType = deltaItem["type"]?.ToString();
+                                                    Debug.Log($"[Delta Check] Processing delta item. Type: '{contentType ?? "NULL"}'"); // Új log
+                                                    if (contentType == "text")
+                                                    {
+                                                        var textToken = deltaItem["text"];
+                                                        var valueToken = textToken?["value"]; // Külön a value token
+                                                        string textDelta = valueToken?.ToString(); // Érték kinyerése
+
+                                                        // Részletes log a kinyert értékről
+                                                        Debug.Log($"[Delta Details] Text Token present: {textToken != null}. Value Token present: {valueToken != null}. Parsed textDelta: '{(textDelta == null ? "NULL" : (textDelta == "" ? "EMPTY_STRING" : textDelta))}'");
+
+                                                        // A régi log is maradhat összehasonlításnak:
+                                                        Debug.Log($"[MessageDelta - Handling by ObjectType] Received text delta: '{(textDelta ?? "NULL")}'");
+
+                                                        // Csak akkor frissítjük, ha tényleg van tartalom
+                                                        if (!string.IsNullOrEmpty(textDelta))
+                                                        {
+                                                            currentResponseChunk.Append(textDelta);
+                                                            if (TMPResponseText != null)
+                                                            {
+                                                                Debug.Log($"[UI Update Delta - Handling by ObjectType] Updating TMPResponseText. Current length: {currentResponseChunk.Length}");
+                                                                TMPResponseText.text = currentResponseChunk.ToString();
+                                                            }
+                                                            else { Debug.LogWarning("[UI Update Delta] TMPResponseText reference is NULL!"); } // Hiba, ha nincs UI elem
+                                                        }
+                                                        else
+                                                        {
+                                                            Debug.LogWarning("[Delta Details] textDelta is null or empty, skipping UI update for this delta."); // Figyelmeztetés, ha üres
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        Debug.Log($"[MessageDelta - Handling by ObjectType] Received non-text delta part. Type: '{contentType ?? "NULL"}'");
+                                                    }
+                                                } // foreach deltaItem
+                                            }
+                                            else { Debug.LogWarning("[Delta Check] contentDeltas array is NULL!"); } // Hiba, ha nincs content tömb
+                                        }
+                                        // 2. Kezeljük a Run Step eseményeket (csendben, csak logoljuk)
+                                        else if (objectType == "thread.run.step")
+                                        {
+                                            // Csak logoljuk, nem kell vele mást tenni a UI szempontjából
+                                            Debug.Log($"[RunStepLifecycle] Run step update received. Status: {eventOrMessageObject["status"]?.ToString()} Type: {eventOrMessageObject["type"]?.ToString()}");
+                                        }
+                                        // 3. Kezeljük a specifikus EVENT TÍPUSOKAT (ha vannak és nem delta/step)
+                                        else if (!string.IsNullOrEmpty(eventType))
+                                        {
+                                            // A switch (eventType) változatlan marad itt...
                                             switch (eventType)
                                             {
                                                 case "thread.run.created":
                                                     currentRunId = eventOrMessageObject["data"]?["id"]?.ToString();
                                                     Debug.Log($"[RunLifecycle] Run created with ID: {currentRunId}");
                                                     break;
-
-                                                case "thread.message.delta":
-                                                    JArray contentDeltas = eventOrMessageObject["data"]?["delta"]?["content"] as JArray;
-                                                    if (contentDeltas != null)
-                                                    {
-                                                        foreach (var deltaItem in contentDeltas)
-                                                        {
-                                                            if (deltaItem["type"]?.ToString() == "text")
-                                                            {
-                                                                string textDelta = deltaItem["text"]?["value"]?.ToString();
-                                                                Debug.Log($"[MessageDelta] Received text delta: '{(textDelta ?? "NULL")}'");
-                                                                if (!string.IsNullOrEmpty(textDelta))
-                                                                {
-                                                                    currentResponseChunk.Append(textDelta); // Építjük a választ
-                                                                    if (TMPResponseText != null)
-                                                                    {
-                                                                        TMPResponseText.text = currentResponseChunk.ToString(); // Frissítjük a UI-t
-                                                                        // Opcionális: Logoljuk a UI frissítést is
-                                                                        // Debug.Log($"[UI Update from Delta] TMPResponseText set to: '{currentResponseChunk.ToString()}'");
-                                                                    }
-                                                                }
-                                                            }
-                                                            else { Debug.Log($"[MessageDelta] Received non-text delta part. Type: '{deltaItem["type"]?.ToString()}'"); }
-                                                        }
-                                                    }
-                                                    break;
-
-                                                // Run állapotváltozások logolása
+                                                // A "thread.message.delta" case innen kivehető, mert fentebb kezeljük objectType alapján
                                                 case "thread.run.queued":
                                                 case "thread.run.in_progress":
                                                     Debug.Log($"[RunLifecycle] Run status changed: {eventType}");
                                                     break;
                                                 case "thread.run.completed":
                                                     Debug.Log($"[RunLifecycle] Run completed. Run ID: {eventOrMessageObject["data"]?["id"]?.ToString()}");
+                                                    // Ellenőrizzük, hogy a végén a UI tükrözi-e a teljes választ
+                                                    if (TMPResponseText != null && TMPResponseText.text != currentResponseChunk.ToString())
+                                                    {
+                                                        Debug.LogWarning("[Run Completed] Final UI text differs from assembled chunk. Forcing UI update.");
+                                                        TMPResponseText.text = currentResponseChunk.ToString();
+                                                    }
                                                     break;
                                                 case "thread.run.failed":
                                                     Debug.LogError($"[RunLifecycle] Run failed! Run ID: {eventOrMessageObject["data"]?["id"]?.ToString()}, Error: {eventOrMessageObject["data"]?["last_error"]?.ToString()}");
@@ -552,69 +588,56 @@ public class OpenAIWebRequest : MonoBehaviour
                                                     Debug.LogWarning($"[RunLifecycle] Run requires action! Details: {eventOrMessageObject["data"]?.ToString()}");
                                                     break;
                                                 default:
-                                                    Debug.Log($"[StreamEvent] Unhandled event type: '{eventType}'");
+                                                    Debug.Log($"[StreamEvent] Unhandled explicit event type: '{eventType}'");
                                                     break;
                                             }
                                         }
-                                        // 2. Másodlagos kezelés: Ha nincs eventType, de objectType igen (pl. teljes üzenet)
-                                        else if (!string.IsNullOrEmpty(objectType))
+                                        // 4. Kezeljük a TELJES ÜZENET objektumokat (ha nem delta/step/explicit event)
+                                        else if (objectType == "thread.message")
                                         {
-                                            switch (objectType)
+                                            Debug.LogWarning("[StreamObject] Received a complete 'thread.message' object directly (not a delta). Checking content...");
+                                            // A meglévő logika a teljes üzenet feldolgozására...
+                                            // ... (fontos, hogy az üres content[] esetet is helyesen kezelje: nem csinál semmit)
+                                            // ... (a meglévő kód erre jó volt)
+                                            JArray contentArray = eventOrMessageObject["content"] as JArray;
+                                            if (contentArray != null && contentArray.Count > 0) // Csak akkor próbálkozzunk, ha van tartalom
                                             {
-                                                case "thread.message":
-                                                    Debug.LogWarning("[StreamObject] Received a complete 'thread.message' object directly in the stream.");
-                                                    // Próbáljuk meg kinyerni a tartalmat ebből a teljes üzenetből
-                                                    // Ellenőrizzük, hogy ez assistant üzenet-e
-                                                    if (eventOrMessageObject["role"]?.ToString() == "assistant")
+                                                StringBuilder messageContentBuilder = new StringBuilder();
+                                                foreach (var contentItem in contentArray)
+                                                {
+                                                    if (contentItem["type"]?.ToString() == "text")
                                                     {
-                                                        JArray contentArray = eventOrMessageObject["content"] as JArray;
-                                                        if (contentArray != null)
+                                                        string textValue = contentItem["text"]?["value"]?.ToString();
+                                                        if (!string.IsNullOrEmpty(textValue))
                                                         {
-                                                            StringBuilder messageContentBuilder = new StringBuilder();
-                                                            foreach (var contentItem in contentArray)
-                                                            {
-                                                                if (contentItem["type"]?.ToString() == "text")
-                                                                {
-                                                                    string textValue = contentItem["text"]?["value"]?.ToString();
-                                                                    if (!string.IsNullOrEmpty(textValue))
-                                                                    {
-                                                                        Debug.Log($"[MessageObject] Extracted text from full assistant message: '{textValue}'");
-                                                                        messageContentBuilder.Append(textValue);
-                                                                    }
-                                                                }
-                                                            }
-
-                                                            // Frissítsük a UI-t a teljes üzenet tartalmával
-                                                            string finalMessage = messageContentBuilder.ToString();
-                                                            if (finalMessage.Length > 0)
-                                                            {
-                                                                // Elmentjük a végleges választ (felülírva a deltákat, ha voltak)
-                                                                currentResponseChunk.Clear().Append(finalMessage);
-                                                                if (TMPResponseText != null)
-                                                                {
-                                                                    TMPResponseText.text = finalMessage;
-                                                                    Debug.Log($"[UI Update from MessageObject] TMPResponseText set to: '{finalMessage}'");
-                                                                }
-                                                            }
+                                                            Debug.Log($"[MessageObject] Extracted text from full assistant message: '{textValue}'");
+                                                            messageContentBuilder.Append(textValue);
                                                         }
                                                     }
-                                                    else
-                                                    {
-                                                        Debug.Log($"[StreamObject] Received 'thread.message' object, but role is not 'assistant' (Role: {eventOrMessageObject["role"]?.ToString()}). Ignoring for response display.");
-                                                    }
-                                                    break;
-                                                // Kezelhetnénk más objektumtípusokat is, ha szükséges
-                                                // case "thread.run": ...
-                                                default:
-                                                    Debug.Log($"[StreamObject] Received object type '{objectType}' without a specific event type.");
-                                                    break;
+                                                }
+                                                string finalMessage = messageContentBuilder.ToString();
+                                                if (finalMessage.Length > 0)
+                                                {
+                                                    // Itt eldöntheted, hogy felülírod-e a deltákból összerakott szöveget
+                                                    // Jobb lehet, ha csak logolod, és nem írod felül a UI-t,
+                                                    // hacsak nem vagy biztos, hogy ez a végleges, teljes válasz.
+                                                    Debug.LogWarning($"[MessageObject] Full message content received: '{finalMessage}'. Assembled chunk was: '{currentResponseChunk.ToString()}'");
+                                                    // Optional: Force UI update if needed
+                                                    // if (TMPResponseText != null) TMPResponseText.text = finalMessage;
+                                                    // currentResponseChunk.Clear().Append(finalMessage);
+                                                }
+                                            }
+                                            else
+                                            {
+                                                Debug.LogWarning("[StreamObject] Full 'thread.message' object received, but 'content' array is empty or null.");
                                             }
                                         }
+                                        // 5. Minden más eset
                                         else
                                         {
-                                            // Nem volt se eventType, se objectType?
-                                            Debug.LogWarning($"[StreamData] Received data without recognizable event or object type: {jsonString}");
+                                            Debug.LogWarning($"[StreamData] Received data without recognizable delta, step, event type, or full message object: {jsonString}");
                                         }
+
                                     }
                                     catch (Exception e)
                                     {
