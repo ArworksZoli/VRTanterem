@@ -26,6 +26,8 @@ public class WhisperMicController : MonoBehaviour
     [SerializeField] private AudioClip pressSound;
     [SerializeField] private AudioClip releaseSound;
 
+    private const string IdleText = "Press 'A' to Record"; // Vagy amit szeretnél alapértelmezettnek
+    private const string RecordingText = "RECORDING";
     private InputAction recordAction;
     private AudioClip recordedClip;
     private string microphoneDevice;
@@ -39,11 +41,24 @@ public class WhisperMicController : MonoBehaviour
 
     void Update()
     {
-        
+        if (OVRInput.GetDown(OVRInput.Button.One))
+        {
+            if (pressSound != null) audioSource.PlayOneShot(pressSound);
+        }
+
+        if (OVRInput.GetUp(OVRInput.Button.One))
+        {
+            if (releaseSound != null) audioSource.PlayOneShot(releaseSound);
+        }
     }
 
     void Awake()
     {
+        // Kezdeti állapot beállítása a UI-on
+        UpdateStatusText(IdleText); // <<< Módosítva
+
+        audioSource = GetComponent<AudioSource>();
+
         if (statusText != null) statusText.text = "Press A";
 
         audioSource = GetComponent<AudioSource>(); // AudioSource referencia
@@ -113,6 +128,8 @@ public class WhisperMicController : MonoBehaviour
     private void StartRecording(InputAction.CallbackContext context)
     {
 
+        UpdateStatusText(RecordingText);
+
         if (statusText != null) statusText.text = "RECORDING";
 
         if (isRecording) return; // Már felvétel van folyamatban
@@ -138,6 +155,8 @@ public class WhisperMicController : MonoBehaviour
     private void StopRecording(InputAction.CallbackContext context)
     {
 
+        UpdateStatusText(IdleText);
+
         if (statusText != null) statusText.text = "IDLE";
 
         if (!isRecording) return; // Nem is volt felvétel
@@ -156,8 +175,22 @@ public class WhisperMicController : MonoBehaviour
             // Példa: visszajátszás teszteléshez (opcionális)
             // audioSource.PlayOneShot(trimmedClip);
 
-            // ----- IDE JÖN MAJD A KÖVETKEZŐ LÉPÉS: ProcessAudioClip(trimmedClip); -----
-            // ProcessAudioClip(trimmedClip);
+            // ----- Következő lépés: Konvertálás WAV-ba és feldolgozás -----
+            byte[] wavData = ConvertAudioClipToWav(trimmedClip);
+            if (wavData != null)
+            {
+                ProcessWavData(wavData); // Meghívjuk az új feldolgozó metódust
+            }
+            else
+            {
+                Debug.LogError("Failed to convert recorded audio to WAV format.");
+            }
+
+            // A levágott klipet már nem kell megtartani a konverzió után,
+            // hacsak nem akarod pl. visszajátszani a konvertált hangot.
+            // Ha már nincs rá szükség, törölheted:
+            if (trimmedClip != null) Destroy(trimmedClip);
+
         }
         else
         {
@@ -188,21 +221,158 @@ public class WhisperMicController : MonoBehaviour
         return trimmed;
     }
 
-    // Ezt a metódust hívjuk majd meg a StopRecording-ból
-    private void ProcessAudioClip(AudioClip clip)
+    // --- WAV Konverziós Függvények ---
+
+    /// <summary>
+    /// Converts an AudioClip to a WAV byte array.
+    /// </summary>
+    /// <param name="clip">The AudioClip to convert.</param>
+    /// <returns>A byte array representing the WAV file, or null if conversion fails.</returns>
+    public static byte[] ConvertAudioClipToWav(AudioClip clip)
     {
-        if (clip == null) return;
+        if (clip == null)
+        {
+            Debug.LogError("Cannot convert null AudioClip to WAV.");
+            return null;
+        }
 
-        Debug.Log($"Processing AudioClip '{clip.name}'...");
+        float[] samples = new float[clip.samples * clip.channels];
+        if (!clip.GetData(samples, 0))
+        {
+            Debug.LogError("Failed to get data from AudioClip.");
+            return null;
+        }
 
-        // ----- Következő lépések helye: -----
-        // 1. AudioClip konvertálása WAV byte tömbbé (Lépés 4)
-        // byte[] wavData = ConvertAudioClipToWav(clip);
+        // A WAV header mérete fixen 44 byte
+        byte[] wavFile = new byte[samples.Length * 2 + 44]; // * 2, mert 16 bites PCM-et használunk
 
-        // 2. WAV adatok küldése a Whisper API-nak (Lépés 5)
-        // StartCoroutine(SendToWhisperAPI(wavData));
+        // --- WAV Header írása ---
+        // RIFF chunk descriptor
+        WriteString(wavFile, 0, "RIFF");
+        WriteInt32(wavFile, 4, wavFile.Length - 8); // Teljes méret - 8 byte (RIFF és WAVE nélkül)
+        WriteString(wavFile, 8, "WAVE");
 
-        // A feldolgozás után a clip erőforrást is fel kell szabadítani
-        // Destroy(clip); // Vagy később, az API hívás után
+        // fmt sub-chunk
+        WriteString(wavFile, 12, "fmt ");
+        WriteInt32(wavFile, 16, 16); // Sub-chunk mérete (16 for PCM)
+        WriteInt16(wavFile, 20, 1);  // Audio format (1 for PCM)
+        WriteInt16(wavFile, 22, (short)clip.channels); // Csatornák száma
+        WriteInt32(wavFile, 24, clip.frequency); // Mintavételezési frekvencia (Sample Rate)
+        WriteInt32(wavFile, 28, clip.frequency * clip.channels * 2); // Byte Rate (SampleRate * NumChannels * BitsPerSample/8)
+        WriteInt16(wavFile, 32, (short)(clip.channels * 2)); // Block Align (NumChannels * BitsPerSample/8)
+        WriteInt16(wavFile, 34, 16); // Bits Per Sample (16 bites PCM)
+
+        // data sub-chunk
+        WriteString(wavFile, 36, "data");
+        WriteInt32(wavFile, 40, samples.Length * 2); // Adat mérete (SampleCount * NumChannels * BitsPerSample/8)
+
+        // --- Audio Adatok Konvertálása és Írása (Float -> 16-bit PCM) ---
+        int headerOffset = 44;
+        for (int i = 0; i < samples.Length; i++)
+        {
+            // Float [-1.0, 1.0] -> Int16 [-32768, 32767]
+            short sampleInt = (short)(samples[i] * 32767.0f);
+
+            // Írás Little Endian formátumban
+            byte byte1 = (byte)(sampleInt & 0xff);
+            byte byte2 = (byte)((sampleInt >> 8) & 0xff);
+
+            wavFile[headerOffset + i * 2] = byte1;
+            wavFile[headerOffset + i * 2 + 1] = byte2;
+        }
+
+        Debug.Log($"Converted AudioClip to WAV: {wavFile.Length} bytes, {clip.length} seconds, {clip.frequency} Hz, {clip.channels} channels.");
+        return wavFile;
+    }
+
+    // Segédfüggvények a header írásához (Little Endian)
+    private static void WriteString(byte[] data, int offset, string value)
+    {
+        byte[] bytes = System.Text.Encoding.ASCII.GetBytes(value);
+        System.Buffer.BlockCopy(bytes, 0, data, offset, bytes.Length);
+    }
+
+    private static void WriteInt16(byte[] data, int offset, short value)
+    {
+        data[offset] = (byte)(value & 0xff);
+        data[offset + 1] = (byte)((value >> 8) & 0xff);
+    }
+
+    private static void WriteInt32(byte[] data, int offset, int value)
+    {
+        data[offset] = (byte)(value & 0xff);
+        data[offset + 1] = (byte)((value >> 8) & 0xff);
+        data[offset + 2] = (byte)((value >> 16) & 0xff);
+        data[offset + 3] = (byte)((value >> 24) & 0xff);
+    }
+
+
+    // Ezt a metódust hívjuk meg a StopRecording-ból a WAV adatokkal
+    private void ProcessWavData(byte[] wavData)
+    {
+        if (wavData == null || wavData.Length == 0)
+        {
+            Debug.LogError("ProcessWavData called with invalid data.");
+            return;
+        }
+
+        Debug.Log($"Processing WAV data: {wavData.Length} bytes. Ready to send to API.");
+
+        // ----- Következő lépés helye: -----
+        // Itt kell meghívni az OpenAIWebRequest szkriptet a wavData-val
+        if (openAIWebRequest != null)
+        {
+            // Pl.: openAIWebRequest.SendAudioToWhisper(wavData); // Ezt a metódust még létre kell hozni az OpenAIWebRequest-ben!
+            Debug.Log("Attempting to send data via OpenAIWebRequest (functionality pending).");
+            // ----- IDE JÖN AZ API HÍVÁS INDÍTÁSA -----
+            StartCoroutine(openAIWebRequest.SendAudioToWhisper(wavData, ProcessWhisperResponse)); // Hozzáadjuk a callback függvényt is!
+        }
+        else
+        {
+            Debug.LogError("OpenAIWebRequest reference is not set in the Inspector!");
+        }
+    }
+
+    // Új metódus a Whisper válaszának feldolgozására
+    private void ProcessWhisperResponse(string transcription)
+    {
+        if (string.IsNullOrEmpty(transcription))
+        {
+            Debug.LogWarning("Whisper API returned an empty or null transcription.");
+            UpdateStatusText("Transcription Failed"); // Visszajelzés a UI-on
+        }
+        else
+        {
+            Debug.Log($"Whisper Transcription: {transcription}");
+            // Itt lehetne továbbítani a szöveget egy másik rendszernek (pl. chatbotnak)
+            // Vagy csak kiírni a UI-ra:
+            UpdateStatusText($"Recognized: {transcription}");
+            // Esetleg egy idő után visszaállítani Idle-re:
+            // Invoke(nameof(ResetStatusText), 5f); // 5 másodperc múlva visszaáll
+        }
+    }
+
+    // Segédfüggvény a UI szöveg frissítéséhez (null ellenőrzéssel)
+    private void UpdateStatusText(string message)
+    {
+        if (statusText != null)
+        {
+            statusText.text = message;
+        }
+        else
+        {
+            // Csak akkor logoljunk, ha tényleg próbálunk írni, és nincs hova
+            if (!string.IsNullOrEmpty(message))
+            {
+                Debug.LogWarning("StatusText UI element is not assigned in the Inspector.");
+            }
+        }
+    }
+
+
+    // Segédfüggvény a statusz szöveg visszaállításához (ha kell)
+    private void ResetStatusText()
+    {
+        UpdateStatusText(IdleText);
     }
 }

@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using UnityEngine.Networking;
 using System.Collections;
+using System.Collections.Generic;
 using System.Text;
 using System;
 using Newtonsoft.Json.Linq;
@@ -37,6 +38,10 @@ public class OpenAIWebRequest : MonoBehaviour
     private StringBuilder buffer = new StringBuilder(); // Bejövő streaming adatok puffereléséhez
     // private string fullMessage = ""; // Eltávolítva vagy újragondolva, ha a teljes üzenet követése szükséges
     // private string lastProcessedContent = ""; // Eltávolítva vagy újragondolva
+
+    // Whisper beállítások
+    private const string WhisperApiUrl = "https://api.openai.com/v1/audio/transcriptions";
+    private const string ModelName = "whisper-1";
 
     private void Start()
     {
@@ -649,5 +654,122 @@ public class OpenAIWebRequest : MonoBehaviour
             }
         } // using UnityWebRequest
     } // IEnumerator CreateAssistantRun
+
+    public IEnumerator SendAudioToWhisper(byte[] audioData, Action<string> onCompleted)
+    {
+        if (string.IsNullOrEmpty(apiKey) || apiKey == "SK-xxxxxxxxxxxxxxxxxxxx")
+        {
+            Debug.LogError("OpenAI API Key is not set in OpenAIWebRequest Inspector!");
+            onCompleted?.Invoke(null); // Visszajelzés a hívónak, hogy hiba történt
+            yield break; // Leállítja a korutint
+        }
+
+        if (audioData == null || audioData.Length == 0)
+        {
+            Debug.LogError("Audio data is empty or null.");
+            onCompleted?.Invoke(null);
+            yield break;
+        }
+
+        Debug.Log($"Sending {audioData.Length} bytes of audio data to Whisper API...");
+
+        // --- A Multipart Form Data összeállítása ---
+        List<IMultipartFormSection> formData = new List<IMultipartFormSection>();
+
+        // 1. A hangfájl adat
+        // Fontos a fájlnév megadása (bármi lehet .wav kiterjesztéssel)
+        formData.Add(new MultipartFormFileSection("file", audioData, "audio.wav", "audio/wav"));
+
+        // 2. A modell neve
+        formData.Add(new MultipartFormDataSection("model", ModelName));
+
+        // Opcionális: Nyelv megadása (ha csak egy nyelvet vársz)
+        // formData.Add(new MultipartFormDataSection("language", "hu")); // Pl. Magyar
+
+        // Opcionális: Válasz formátuma (alapértelmezetten json)
+        // formData.Add(new MultipartFormDataSection("response_format", "json"));
+
+
+        // --- UnityWebRequest létrehozása és konfigurálása ---
+        UnityWebRequest request = UnityWebRequest.Post(WhisperApiUrl, formData);
+
+        // API Kulcs hozzáadása a Headerhez
+        request.SetRequestHeader("Authorization", $"Bearer {apiKey}");
+
+        // FONTOS: NE állítsd be manuálisan a Content-Type-ot multipart kérésnél!
+        // A UnityWebRequest.Post(url, formData) ezt automatikusan kezeli.
+        // request.SetRequestHeader("Content-Type", "multipart/form-data"); // <<< EZT NE!
+
+        // Várakozási idő növelése hosszabb hangfájlok esetén (opcionális)
+        request.timeout = 60; // 60 másodperc
+
+        // --- Kérés küldése és várakozás a válaszra ---
+        yield return request.SendWebRequest();
+
+        // --- Válasz feldolgozása ---
+        if (request.result == UnityWebRequest.Result.ConnectionError || request.result == UnityWebRequest.Result.ProtocolError)
+        {
+            Debug.LogError($"Whisper API Error: {request.error}");
+            Debug.LogError($"Response Code: {request.responseCode}");
+            Debug.LogError($"Response Body: {request.downloadHandler?.text}"); // Próbáljuk kiírni a hibaüzenetet az API-tól
+            onCompleted?.Invoke(null); // Hiba jelzése
+        }
+        else if (request.result == UnityWebRequest.Result.Success)
+        {
+            Debug.Log($"Whisper API Success! Response Code: {request.responseCode}");
+            string responseJson = request.downloadHandler.text;
+            Debug.Log($"Whisper Response JSON: {responseJson}");
+
+            // JSON Parse-olás a transzkripció kinyeréséhez
+            string transcription = ParseWhisperResponse(responseJson);
+
+            onCompleted?.Invoke(transcription); // Visszaadjuk a sikeres transzkripciót
+        }
+        else
+        {
+            // Egyéb hiba (pl. DataProcessingError)
+            Debug.LogError($"Whisper API Request failed with result: {request.result}");
+            onCompleted?.Invoke(null);
+        }
+
+        // Erőforrások felszabadítása
+        request.Dispose();
+    }
+    private string ParseWhisperResponse(string jsonResponse)
+    {
+        try
+        {
+            // Newtonsoft.Json használatával:
+            JObject jsonObject = JObject.Parse(jsonResponse);
+            string transcription = (string)jsonObject["text"];
+
+            // System.Text.Json használatával (alternatíva):
+            /*
+            using (JsonDocument document = JsonDocument.Parse(jsonResponse))
+            {
+                if (document.RootElement.TryGetProperty("text", out JsonElement textElement))
+                {
+                    return textElement.GetString();
+                }
+            }
+            Debug.LogWarning("Could not find 'text' property in Whisper JSON response.");
+            return null;
+            */
+
+            if (string.IsNullOrWhiteSpace(transcription))
+            {
+                Debug.LogWarning("Whisper returned an empty transcription.");
+                return string.Empty; // Vagy null, ahogy preferálod
+            }
+            return transcription.Trim();
+
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"Failed to parse Whisper JSON response: {ex.Message}");
+            Debug.LogError($"JSON attempted to parse: {jsonResponse}");
+            return null; // Hiba jelzése
+        }
+    }
 
 }
