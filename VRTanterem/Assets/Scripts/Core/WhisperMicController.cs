@@ -340,15 +340,26 @@ public class WhisperMicController : MonoBehaviour
         {
             Debug.LogWarning("Whisper API returned an empty or null transcription.");
             UpdateStatusText("Transcription Failed"); // Visszajelzés a UI-on
+            Invoke(nameof(ResetStatusText), 3f); // 3 másodperc múlva visszaáll
         }
         else
         {
             Debug.Log($"Whisper Transcription: {transcription}");
-            // Itt lehetne továbbítani a szöveget egy másik rendszernek (pl. chatbotnak)
-            // Vagy csak kiírni a UI-ra:
-            UpdateStatusText($"Recognized: {transcription}");
-            // Esetleg egy idő után visszaállítani Idle-re:
-            // Invoke(nameof(ResetStatusText), 5f); // 5 másodperc múlva visszaáll
+            UpdateStatusText("Sending to Assistant..."); // Visszajelzés, hogy küldjük
+
+            // ----- ÁTADÁS AZ OPENAIWEBREQUEST-NEK -----
+            if (openAIWebRequest != null)
+            {
+                // Meghívjuk az OpenAIWebRequest új metódusát a felismert szöveggel
+                openAIWebRequest.ProcessVoiceInput(transcription);
+            }
+            else
+            {
+                Debug.LogError("OpenAIWebRequest reference is not set in the Inspector!");
+                UpdateStatusText("Error: Assistant unavailable");
+                Invoke(nameof(ResetStatusText), 3f);
+            }
+            // ----- ÁTADÁS VÉGE -----
         }
     }
 

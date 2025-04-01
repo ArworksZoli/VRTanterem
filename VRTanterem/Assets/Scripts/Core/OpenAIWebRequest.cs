@@ -110,27 +110,44 @@ public class OpenAIWebRequest : MonoBehaviour
     // OpenAIWebRequest.cs-ben hozzáadandó metódus
     public void ProcessVoiceInput(string recognizedText)
     {
-        Debug.Log($"Voice input received: {recognizedText}");
+        Debug.Log($"[OpenAIWebRequest] Voice input received: '{recognizedText}'");
 
-        // A felismert szöveg megjelenítése
+        // 1. Ellenőrzések (opcionális, de ajánlott)
+        if (string.IsNullOrEmpty(recognizedText))
+        {
+            Debug.LogWarning("[OpenAIWebRequest] Received empty text from voice input. Ignoring.");
+            // Esetleg visszajelzés a felhasználónak itt is?
+            return;
+        }
+        if (string.IsNullOrEmpty(assistantThreadId))
+        {
+            Debug.LogError("[OpenAIWebRequest] Cannot process voice input: Assistant Thread ID is missing.");
+            // Visszajelzés a felhasználónak
+            if (TMPResponseText != null) TMPResponseText.text = "Error: Assistant connection not ready.";
+            return;
+        }
+
+        // 2. Megjelenítés (Opcionális, de hasznos visszajelzés)
+        // Kiírjuk, mit hallottunk a User szövegmezőbe
         if (TMPUserText != null)
         {
-            TMPUserText.text = "User: " + recognizedText;
+            TMPUserText.text = "User (Voice): " + recognizedText;
         }
+        // Opcionálisan beletehetjük az InputField-be is, mintha begépelte volna
+        // if (TMPInputField != null)
+        // {
+        //     TMPInputField.text = recognizedText;
+        // }
 
-        // Opcionálisan: Átmásolhatjuk az input mezőbe is
-        if (TMPInputField != null)
-        {
-            TMPInputField.text = recognizedText;
-        }
+        // 3. A meglévő üzenetküldési folyamat elindítása
+        // Pontosan ugyanazt a korutint indítjuk, mint amit az InputField Enter lenyomása
+        Debug.Log("[OpenAIWebRequest] Starting SendMessageSequence for voice input...");
+        messageBuilder.Clear(); // Biztosítjuk a tiszta állapotot
+        buffer.Clear();         // Biztosítjuk a tiszta állapotot
+        StartCoroutine(SendMessageSequence(recognizedText));
 
-        // Közvetlen üzenetküldés indítása (ha ez a kívánt viselkedés)
-        if (!string.IsNullOrEmpty(recognizedText) && !string.IsNullOrWhiteSpace(assistantThreadId))
-        {
-            messageBuilder.Clear();
-            buffer.Clear();
-            StartCoroutine(SendMessageSequence(recognizedText));
-        }
+        // Az InputField törlését a SendMessageSequence vége már kezeli,
+        // így itt nem kell külön foglalkozni vele.
     }
 
 
@@ -684,7 +701,7 @@ public class OpenAIWebRequest : MonoBehaviour
         formData.Add(new MultipartFormDataSection("model", ModelName));
 
         // Opcionális: Nyelv megadása (ha csak egy nyelvet vársz)
-        // formData.Add(new MultipartFormDataSection("language", "hu")); // Pl. Magyar
+        formData.Add(new MultipartFormDataSection("language", "hu"));
 
         // Opcionális: Válasz formátuma (alapértelmezetten json)
         // formData.Add(new MultipartFormDataSection("response_format", "json"));
@@ -742,19 +759,6 @@ public class OpenAIWebRequest : MonoBehaviour
             // Newtonsoft.Json használatával:
             JObject jsonObject = JObject.Parse(jsonResponse);
             string transcription = (string)jsonObject["text"];
-
-            // System.Text.Json használatával (alternatíva):
-            /*
-            using (JsonDocument document = JsonDocument.Parse(jsonResponse))
-            {
-                if (document.RootElement.TryGetProperty("text", out JsonElement textElement))
-                {
-                    return textElement.GetString();
-                }
-            }
-            Debug.LogWarning("Could not find 'text' property in Whisper JSON response.");
-            return null;
-            */
 
             if (string.IsNullOrWhiteSpace(transcription))
             {
