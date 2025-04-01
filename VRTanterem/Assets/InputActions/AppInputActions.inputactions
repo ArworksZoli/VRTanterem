@@ -1,0 +1,57 @@
+{
+    "name": "AppInputActions",
+    "maps": [
+        {
+            "name": "VoiceInput",
+            "id": "d70f6faf-95b6-49cd-a74b-c6433a710ba6",
+            "actions": [
+                {
+                    "name": "RecordVoice",
+                    "type": "Button",
+                    "id": "627cf059-c67b-4626-b279-af7faae4aab2",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "",
+                    "id": "ccd007b0-f8bb-4fc7-bb88-0201f93a8db4",
+                    "path": "<XRController>{RightHand}/primaryButton",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "RecordVoice",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "2764076f-e7b6-48ec-9779-b5684965d1c4",
+                    "path": "<Keyboard>/leftShift",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "RecordVoice",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                }
+            ]
+        }
+    ],
+    "controlSchemes": [
+        {
+            "name": "New Control Scheme",
+            "bindingGroup": "New Control Scheme",
+            "devices": [
+                {
+                    "devicePath": "<XRController>{RightHand}/{PrimaryAction}",
+                    "isOptional": false,
+                    "isOR": false
+                }
+            ]
+        }
+    ]
+}
