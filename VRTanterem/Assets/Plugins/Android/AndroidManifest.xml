@@ -15,6 +15,10 @@
     <meta-data android:name="com.oculus.telemetry.project_guid" android:value="e2fc7e17-888f-44be-a56d-2d307654df7c" />
     <meta-data android:name="com.oculus.supportedDevices" android:value="quest2" />
   </application>
+  <!-- Beszédfelismeréshez szükséges engedélyek -->
+  <uses-permission android:name="android.permission.RECORD_AUDIO" />
+  <uses-permission android:name="android.permission.INTERNET" />
+  
   <uses-feature android:name="android.hardware.vr.headtracking" android:version="1" android:required="true" />
   <uses-feature android:name="oculus.software.handtracking" android:required="false" />
   <uses-permission android:name="com.oculus.permission.HAND_TRACKING" />
