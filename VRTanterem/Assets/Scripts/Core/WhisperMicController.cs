@@ -21,6 +21,10 @@ public class WhisperMicController : MonoBehaviour
     [Header("API Integration (Placeholder)")]
     [SerializeField] private OpenAIWebRequest openAIWebRequest; // Húzd ide az OpenAIWebRequest komponenst tartalmazó GameObjectet/Prefabot
 
+    [Header("External Components")] // Új fejléc vagy a meglévőhöz adjuk
+    [Tooltip("Reference to the TextToSpeechManager for playback status")]
+    [SerializeField] private TextToSpeechManager textToSpeechManager;
+
     [SerializeField] private TextMeshProUGUI statusText; // Button visszajelző
 
     [SerializeField] private AudioClip pressSound;
@@ -90,29 +94,95 @@ public class WhisperMicController : MonoBehaviour
 
         // Jogosultság kérés (ha még nem tetted meg máshol)
         RequestMicrophonePermission();
+
+        // Ellenőrizzük a TTS Manager referenciát
+        if (textToSpeechManager == null)
+        {
+            Debug.LogWarning("TextToSpeechManager reference not set in WhisperMicController Inspector. Input disabling/enabling based on TTS status will not work.");
+        }
     }
 
     void OnEnable()
     {
         if (recordAction != null)
         {
-            // Feliratkozás az eseményekre
-            recordAction.started += StartRecording; // Gomb lenyomva
-            recordAction.canceled += StopRecording; // Gomb felengedve
-            recordAction.Enable(); // Fontos: engedélyezni kell az Action-t!
+            recordAction.started += OnRecordStarted; // Átnevezve, ha még nem tetted meg
+            recordAction.canceled += OnRecordStopped; // Átnevezve, ha még nem tetted meg
+            recordAction.Enable();
             Debug.Log("Record action enabled and listeners attached.");
+        }
+
+        // Feliratkozás a TTS eseményekre
+        if (textToSpeechManager != null)
+        {
+            textToSpeechManager.OnTTSPlaybackStart += DisableRecordingInput;
+            textToSpeechManager.OnTTSPlaybackEnd += EnableRecordingInput;
+            Debug.Log("Subscribed to TTS Manager events.");
         }
     }
 
     void OnDisable()
     {
+        // Leiratkozás az Input Action eseményekről
         if (recordAction != null)
         {
-            // Leiratkozás az eseményekről (fontos a memóriaszivárgás elkerülése végett)
-            recordAction.started -= StartRecording;
-            recordAction.canceled -= StopRecording;
-            recordAction.Disable(); // Fontos: letiltani az Action-t, ha a komponens inaktív
-            Debug.Log("Record action disabled and listeners detached.");
+            recordAction.started -= OnRecordStarted;
+            recordAction.canceled -= OnRecordStopped;
+            // Fontos: Itt csak akkor tiltsd le, ha tényleg le akarod tiltani a script inaktivitása miatt,
+            // ne azért, mert a TTS épp megy. A TTS miatti tiltást a handler kezeli.
+            // Ha a script disable-kor mindig le kell tiltani:
+            if (recordAction.enabled) recordAction.Disable();
+            Debug.Log("Record action listeners detached and action disabled.");
+        }
+
+        // Leiratkozás a TTS eseményekről
+        if (textToSpeechManager != null)
+        {
+            textToSpeechManager.OnTTSPlaybackStart -= DisableRecordingInput;
+            textToSpeechManager.OnTTSPlaybackEnd -= EnableRecordingInput;
+            Debug.Log("Unsubscribed from TTS Manager events.");
+        }
+
+        // Ha épp felvétel van, állítsuk le (a korábbi javításból)
+        if (isRecording)
+        {
+            Microphone.End(microphoneDevice);
+            isRecording = false;
+            Debug.LogWarning("Microphone recording stopped due to script disable.");
+        }
+    }
+
+    // --- Új Handler Metódusok ---
+    private void DisableRecordingInput()
+    {
+        if (recordAction != null && recordAction.enabled)
+        {
+            recordAction.Disable();
+            Debug.Log("Record action DISABLED due to TTS playback start.");
+            // Opcionális: Frissítheted a statusText-et is itt, pl.:
+            // UpdateStatusText("Assistant Speaking..."); // De ez felülírhatja a ResetStatusText logikát, óvatosan!
+        }
+    }
+
+    private void EnableRecordingInput()
+    {
+        if (recordAction != null && !recordAction.enabled)
+        {
+            // Csak akkor engedélyezzük újra, ha épp nem veszünk fel (biztonsági check)
+            if (!isRecording)
+            {
+                recordAction.Enable();
+                Debug.Log("Record action ENABLED after TTS playback end.");
+                // Fontos: Itt NE hívd meg a ResetStatusTextToIdle()-t feltétlenül,
+                // mert lehet, hogy a felhasználó épp egy hibaüzenetet lát.
+                // Az alapállapot visszaállítását kezelje a ProcessWhisperResponse
+                // és a ResetStatusTextToIdle hiba esetén. A gomb engedélyezése
+                // nem feltétlenül jelenti, hogy a státusznak Idle-nek kell lennie.
+            }
+            else
+            {
+                Debug.LogWarning("TTS ended, but recording is somehow active? Input remains disabled for safety.");
+            }
         }
     }
 
@@ -128,7 +198,7 @@ public class WhisperMicController : MonoBehaviour
     }
 
     // --- Hangrögzítés indítása ---
-    private void StartRecording(InputAction.CallbackContext context)
+    private void OnRecordStarted(InputAction.CallbackContext context)
     {
 
         UpdateStatusText(RecordingText);
@@ -155,7 +225,7 @@ public class WhisperMicController : MonoBehaviour
     }
 
     // --- Hangrögzítés leállítása ---
-    private void StopRecording(InputAction.CallbackContext context)
+    private void OnRecordStopped(InputAction.CallbackContext context)
     {
 
         UpdateStatusText(IdleText);
@@ -364,6 +434,11 @@ public class WhisperMicController : MonoBehaviour
                 Invoke(nameof(ResetStatusTextToIdle), 2.0f);
                 return;
             }
+
+            // Azonnali visszaállítás
+            UpdateStatusText(IdleText);
+            Debug.Log("Status immediately reset to IdleText after initiating Assistant request.");
+
             // ----- ÁTADÁS VÉGE -----
 
             // 2. LÉPÉS: Azonnali visszaállítás az alap ("Press 'A'...") szövegre

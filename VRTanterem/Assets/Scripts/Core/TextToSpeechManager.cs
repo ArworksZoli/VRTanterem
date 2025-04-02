@@ -32,14 +32,18 @@ public class TextToSpeechManager : MonoBehaviour
     [Header("Components")]
     [SerializeField] private AudioSource audioSource;
 
+    public event Action OnTTSPlaybackStart;
+    public event Action OnTTSPlaybackEnd;
+
     // Belső állapotok és várólisták
-    private string apiKey; // Ezt az OpenAIWebRequest fogja beállítani
-    private StringBuilder sentenceBuffer = new StringBuilder(); // Beérkező szöveg gyűjtése mondatokká
-    private Queue<string> pendingSentencesQueue = new Queue<string>(); // Mondatok, amik TTS generálásra várnak
-    private Queue<AudioClip> playbackQueue = new Queue<AudioClip>(); // Kész AudioClip-ek lejátszásra várva
-    private bool isTTSRequestInProgress = false; // Fut-e éppen TTS API kérés?
+    private string apiKey;
+    private StringBuilder sentenceBuffer = new StringBuilder();
+    private Queue<string> pendingSentencesQueue = new Queue<string>();
+    private Queue<AudioClip> playbackQueue = new Queue<AudioClip>();
+    private bool isTTSRequestInProgress = false;
     private Coroutine manageTTSCoroutine;
     private Coroutine managePlaybackCoroutine;
+    private Coroutine currentPlaybackMonitor = null; // <<< Figyeli az aktuális lejátszás végét
 
 
     void Start()
@@ -287,31 +291,69 @@ public class TextToSpeechManager : MonoBehaviour
             if (clipToPlay != null)
             {
                 // Debug.Log($"[TTS Playback] Playing clip. Length: {clipToPlay.length}s. Remaining in queue: {playbackQueue.Count}");
+
+                // --- ESEMÉNY: Lejátszás kezdete ---
+                OnTTSPlaybackStart?.Invoke();
+                // -----------------------------------
+
                 audioSource.clip = clipToPlay;
                 audioSource.Play();
 
-                // Ütemezzük a klip törlését a lejátszás után
-                // Fontos: A Destroy nem azonnal töröl, csak megjelöli.
-                // A 'clipToPlay.length' másodperc múlva hívódik meg a Destroy.
-                // Adjunk hozzá egy kis puffert (pl. 0.5 mp).
-                Destroy(clipToPlay, clipToPlay.length + 0.5f);
+                // Indítunk egy figyelő korutint a lejátszás végére
+                currentPlaybackMonitor = StartCoroutine(MonitorPlaybackEnd(clipToPlay));
+
+                // A klip törlését a figyelő korutin végére helyezzük át,
+                // miután az OnTTSPlaybackEnd lefutott.
+                // Destroy(clipToPlay, clipToPlay.length + 0.5f); // <<< EZT ÁTHELYEZZÜK
             }
             else
             {
-                Debug.LogWarning("[TTS Playback] Dequeued a null AudioClip. Skipping playback.");
+                if (clipToPlay == null)
+                    Debug.LogWarning("[TTS Playback] Dequeued a null AudioClip. Skipping playback.");
+                if (audioSource == null)
+                    Debug.LogError("[TTS Playback] AudioSource is null! Cannot play audio.");
+                // Ha nem tudtuk elindítani, biztosítsuk, hogy a monitor null legyen
+                if (currentPlaybackMonitor != null)
+                {
+                    StopCoroutine(currentPlaybackMonitor);
+                    currentPlaybackMonitor = null;
+                    // Itt lehetne egy OnTTSPlaybackEnd?.Invoke() is, ha a gombot
+                    // mindenképp fel akarjuk szabadítani, de ez bonyolíthatja.
+                    // Maradjunk annál, hogy csak sikeres lejátszás után van End event.
+                }
             }
-
-            // Pici várakozás, hogy ne pörögjön a ciklus feleslegesen, ha épp nincs mit lejátszani
-            // de ez a WaitUntil miatt nem feltétlen szükséges már
-            // yield return null;
         }
     }
+    private IEnumerator MonitorPlaybackEnd(AudioClip playedClip)
+    {
+        // Adjunk egy kis időt a Play() hívás után, mielőtt ellenőriznénk
+        yield return new WaitForSeconds(0.1f);
+        // Várakozás, amíg az AudioSource befejezi a lejátszást
+        yield return new WaitUntil(() => !audioSource.isPlaying);
+
+        // Debug.Log("[TTS Playback Monitor] Playback finished.");
+
+        // --- ESEMÉNY: Lejátszás vége ---
+        OnTTSPlaybackEnd?.Invoke();
+        // --------------------------------
+
+        // Itt töröljük a klipet, miután a vége esemény lefutott
+        if (playedClip != null)
+        {
+            Destroy(playedClip);
+            // Debug.Log("[TTS Playback Monitor] Destroyed played clip.");
+        }
+
+        // Nullázzuk a monitort, jelezve, hogy a következő lejátszás indulhat
+        currentPlaybackMonitor = null;
+    }
+    // --- ÚJ Korutin VÉGE ---
 
     void OnDestroy()
     {
-        // Állítsuk le a korutinokat, ha az objektum megsemmisül
         if (manageTTSCoroutine != null) StopCoroutine(manageTTSCoroutine);
         if (managePlaybackCoroutine != null) StopCoroutine(managePlaybackCoroutine);
+        if (currentPlaybackMonitor != null) StopCoroutine(currentPlaybackMonitor); // A figyelőt is leállítjuk
 
         // Töröljük a memóriából a még lejátszásra váró klipeket is
         while (playbackQueue.Count > 0)
