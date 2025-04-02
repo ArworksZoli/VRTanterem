@@ -59,7 +59,7 @@ public class WhisperMicController : MonoBehaviour
 
         audioSource = GetComponent<AudioSource>();
 
-        if (statusText != null) statusText.text = "Press A";
+        if (statusText != null) statusText.text = "Press A for question";
 
         audioSource = GetComponent<AudioSource>(); // AudioSource referencia
 

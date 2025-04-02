@@ -754,7 +754,7 @@ public class OpenAIWebRequest : MonoBehaviour
         formData.Add(new MultipartFormDataSection("model", ModelName));
 
         // Opcionális: Nyelv megadása (ha csak egy nyelvet vársz)
-        formData.Add(new MultipartFormDataSection("language", "hu"));
+        formData.Add(new MultipartFormDataSection("language", "en"));
 
         // Opcionális: Válasz formátuma (alapértelmezetten json)
         // formData.Add(new MultipartFormDataSection("response_format", "json"));

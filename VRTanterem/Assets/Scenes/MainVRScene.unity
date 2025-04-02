@@ -1718,7 +1718,7 @@ GameObject:
   - component: {fileID: 1327094436}
   - component: {fileID: 1327094435}
   m_Layer: 5
-  m_Name: Canvas
+  m_Name: UserResp
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1735,8 +1735,7 @@ RectTransform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 0.01, y: 0.01, z: 0.01}
   m_ConstrainProportionsScale: 1
-  m_Children:
-  - {fileID: 1793093057}
+  m_Children: []
   m_Father: {fileID: 1046875436}
   m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -2016,14 +2015,14 @@ RectTransform:
   m_GameObject: {fileID: 1793093056}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 16.453863, y: 16.453857, z: 16.453861}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1327094434}
+  m_Father: {fileID: 7679562418242494061}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: -452}
   m_SizeDelta: {x: 200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1793093058
@@ -2073,15 +2072,15 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 30
-  m_fontSizeBase: 30
+  m_fontSize: 4
+  m_fontSizeBase: 4
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
   m_fontStyle: 0
-  m_HorizontalAlignment: 1
-  m_VerticalAlignment: 256
+  m_HorizontalAlignment: 2
+  m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
   m_wordSpacing: 0
@@ -3701,7 +3700,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &7679562417106012183
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4608,7 +4607,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   apiKey: 
   assistantID: 
-  userInput: "\xDCdv\xF6zl\xF6m!"
+  userInput: Hello!
   TMPResponseText: {fileID: 7679562417209752150}
   TMPInputField: {fileID: 7679562417014403810}
   TMPUserText: {fileID: 7679562416999354787}
@@ -4629,7 +4628,7 @@ MonoBehaviour:
   ttsVoice: onyx
   ttsResponseFormat: mp3
   ttsApiUrl: https://api.openai.com/v1/audio/speech
-  ttsSpeed: 1.2
+  ttsSpeed: 1.1
   maxPlaybackQueueSize: 3
   audioSource: {fileID: 7679562417771070157}
 --- !u!82 &7679562417771070157
@@ -4822,6 +4821,7 @@ RectTransform:
   - {fileID: 7679562417014403813}
   - {fileID: 6431969400152131403}
   - {fileID: 627691026}
+  - {fileID: 1793093057}
   m_Father: {fileID: 7861578685782142131}
   m_LocalEulerAnglesHint: {x: -70.256, y: -128.952, z: -56.142}
   m_AnchorMin: {x: 0, y: 0}
@@ -5110,7 +5110,7 @@ Transform:
   m_GameObject: {fileID: 7372991295853426185}
   serializedVersion: 2
   m_LocalRotation: {x: -0.71700025, y: -0.2405488, z: -0.29546478, w: 0.5837359}
-  m_LocalPosition: {x: 0.973, y: 2.806, z: 4.7}
+  m_LocalPosition: {x: 0.973, y: 2.806, z: 4.325}
   m_LocalScale: {x: 49.341328, y: 49.341328, z: 49.341328}
   m_ConstrainProportionsScale: 0
   m_Children:
