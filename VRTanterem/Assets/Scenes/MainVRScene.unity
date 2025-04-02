@@ -4629,6 +4629,7 @@ MonoBehaviour:
   ttsVoice: onyx
   ttsResponseFormat: mp3
   ttsApiUrl: https://api.openai.com/v1/audio/speech
+  ttsSpeed: 1.2
   maxPlaybackQueueSize: 3
   audioSource: {fileID: 7679562417771070157}
 --- !u!82 &7679562417771070157

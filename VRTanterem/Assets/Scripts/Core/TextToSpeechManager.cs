@@ -13,7 +13,7 @@ public class TTSRequestPayload
     public string input;
     public string voice;
     public string response_format;
-    // Opcionálisan: public float speed = 1.0f;
+    public float speed = 1.0f;
 }
 
 public class TextToSpeechManager : MonoBehaviour
@@ -23,6 +23,9 @@ public class TextToSpeechManager : MonoBehaviour
     [SerializeField] private string ttsVoice = "onyx"; // Ahogy kérted
     [SerializeField] private string ttsResponseFormat = "mp3";
     [SerializeField] private string ttsApiUrl = "https://api.openai.com/v1/audio/speech";
+    [Tooltip("Playback speed. 1.0 is normal speed. Range: 0.25 to 4.0")]
+    [Range(0.25f, 4.0f)] // Ez egy csúszkát ad az Inspectorban
+    [SerializeField] private float ttsSpeed = 1.0f;
     [Tooltip("Maximum number of audio clips to keep ready for playback.")]
     [SerializeField] private int maxPlaybackQueueSize = 3; // Korlátozott előretekintés
 
@@ -215,7 +218,8 @@ public class TextToSpeechManager : MonoBehaviour
             model = this.ttsModel,
             input = text,
             voice = this.ttsVoice,
-            response_format = this.ttsResponseFormat
+            response_format = this.ttsResponseFormat,
+            speed = this.ttsSpeed
         };
         string jsonPayload = JsonUtility.ToJson(payload); // Egyszerűbb esetekre jó
         byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonPayload);
