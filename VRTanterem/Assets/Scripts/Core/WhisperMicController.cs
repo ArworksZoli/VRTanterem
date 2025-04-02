@@ -26,8 +26,11 @@ public class WhisperMicController : MonoBehaviour
     [SerializeField] private AudioClip pressSound;
     [SerializeField] private AudioClip releaseSound;
 
-    private const string IdleText = "Press 'A' to Record"; // Vagy amit szeretnél alapértelmezettnek
+    private const string IdleText = "Press A for question"; // Vagy amit szeretnél alapértelmezettnek
     private const string RecordingText = "RECORDING";
+    private const string ProcessingText = "Processing Audio...";
+    private const string TranscribingText = "Transcribing...";
+    private const string SendingToAssistantText = "Sending to Assistant...";
     private InputAction recordAction;
     private AudioClip recordedClip;
     private string microphoneDevice;
@@ -340,12 +343,13 @@ public class WhisperMicController : MonoBehaviour
         {
             Debug.LogWarning("Whisper API returned an empty or null transcription.");
             UpdateStatusText("Transcription Failed"); // Visszajelzés a UI-on
-            Invoke(nameof(ResetStatusText), 3f); // 3 másodperc múlva visszaáll
+            Invoke(nameof(ResetStatusTextToIdle), 2.0f);
+            return;
         }
         else
         {
             Debug.Log($"Whisper Transcription: {transcription}");
-            UpdateStatusText("Sending to Assistant..."); // Visszajelzés, hogy küldjük
+            UpdateStatusText(SendingToAssistantText); // Visszajelzés, hogy küldjük
 
             // ----- ÁTADÁS AZ OPENAIWEBREQUEST-NEK -----
             if (openAIWebRequest != null)
@@ -357,9 +361,27 @@ public class WhisperMicController : MonoBehaviour
             {
                 Debug.LogError("OpenAIWebRequest reference is not set in the Inspector!");
                 UpdateStatusText("Error: Assistant unavailable");
-                Invoke(nameof(ResetStatusText), 3f);
+                Invoke(nameof(ResetStatusTextToIdle), 2.0f);
+                return;
             }
             // ----- ÁTADÁS VÉGE -----
+
+            // 2. LÉPÉS: Azonnali visszaállítás az alap ("Press 'A'...") szövegre
+            UpdateStatusText(IdleText); // Itt használjuk az IdleText konstans-t!
+            Debug.Log("Status immediately reset to IdleText after initiating Assistant request.");
+        }
+
+    }
+
+    // Dedikált metódus a statusz szöveg visszaállításához az IdleText-re
+    // Ezt hívjuk Invoke-val hiba esetén, hogy a hibaüzenet látható legyen egy ideig.
+    private void ResetStatusTextToIdle()
+    {
+        // Csak akkor állítjuk vissza, ha épp nem veszünk fel hangot
+        if (!isRecording)
+        {
+            UpdateStatusText(IdleText); // Itt is az IdleText-et használjuk
+            Debug.Log($"Status reset to IdleText (likely after error delay).");
         }
     }
 
