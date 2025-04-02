@@ -29,7 +29,9 @@ public class OpenAIWebRequest : MonoBehaviour
     public TMP_Text TMPUserText; // User válasza elküldéskor
 
     // --- TTS Manager Referencia ---
-    // [SerializeField] private TextToSpeechManager textToSpeechManager; // Eltávolítva
+    [Header("External Components")] // Opcionális fejléc
+    [Tooltip("Reference to the TextToSpeechManager component for audio output.")]
+    [SerializeField] private TextToSpeechManager textToSpeechManager;
 
     // --- Belső Változók ---
     private string assistantThreadId; // Az aktuális beszélgetési szál azonosítója
@@ -79,6 +81,18 @@ public class OpenAIWebRequest : MonoBehaviour
             return; // Kilépünk a Start metódusból, a korutinok nem indulnak el.
         }
         // --- KONFIGURÁCIÓ ELLENŐRZÉSE VÉGE ---
+
+        // --- TTS Manager Inicializálása ---
+        if (textToSpeechManager != null)
+        {
+            textToSpeechManager.Initialize(apiKey); // Átadjuk az API kulcsot
+        }
+        else
+        {
+            Debug.LogWarning("[OpenAIWebRequest] TextToSpeechManager reference is not set in the Inspector. TTS functionality will be disabled.");
+            // Nem kell letiltani az egész komponenst, csak a TTS nem fog menni.
+        }
+        // --- TTS Manager Inicializálása VÉGE ---
 
         // InputField 'onSubmit' esemény (Enter lenyomására)
         if (TMPInputField != null)
@@ -537,6 +551,14 @@ public class OpenAIWebRequest : MonoBehaviour
                                                                 TMPResponseText.text = currentResponseChunk.ToString();
                                                             }
                                                             else { Debug.LogWarning("[UI Update Delta] TMPResponseText reference is NULL!"); } // Hiba, ha nincs UI elem
+
+                                                            // --- ÚJ RÉSZ: Szöveg továbbítása a TTS Managernek ---
+                                                            if (textToSpeechManager != null)
+                                                            {
+                                                                textToSpeechManager.AppendText(textDelta);
+                                                            }
+                                                            else { Debug.LogWarning("Kurvára nem sikerült továbbítani a TTS-nek a szöveget!"); }
+                                                            // --- ÚJ RÉSZ VÉGE ---
                                                         }
                                                         else
                                                         {
@@ -691,6 +713,14 @@ public class OpenAIWebRequest : MonoBehaviour
                     Debug.LogWarning("Final UI text differs from assembled response chunk. Forcing UI update.");
                     TMPResponseText.text = currentResponseChunk.ToString();
                 }
+
+                // --- ÚJ RÉSZ: Maradék puffer feldolgozása a TTS Managerben ---
+                if (textToSpeechManager != null)
+                {
+                    Debug.Log("[Run End] Flushing remaining TTS buffer.");
+                    textToSpeechManager.FlushBuffer();
+                }
+                // --- ÚJ RÉSZ VÉGE ---
             }
         } // using UnityWebRequest
     } // IEnumerator CreateAssistantRun
