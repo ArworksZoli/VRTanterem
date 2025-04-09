@@ -33,6 +33,10 @@ public class OpenAIWebRequest : MonoBehaviour
     [Tooltip("Reference to the TextToSpeechManager component for audio output.")]
     [SerializeField] private TextToSpeechManager textToSpeechManager;
 
+    // --- ÚJ: Sentence Highlighter Referencia ---
+    [Tooltip("Reference to the SentenceHighlighter component for text display.")]
+    [SerializeField] private SentenceHighlighter sentenceHighlighter;
+
     // --- Belső Változók ---
     private string assistantThreadId; // Az aktuális beszélgetési szál azonosítója
     private string currentRunId; // Az aktuális futtatás azonosítója (streaminghez)
@@ -93,6 +97,13 @@ public class OpenAIWebRequest : MonoBehaviour
             // Nem kell letiltani az egész komponenst, csak a TTS nem fog menni.
         }
         // --- TTS Manager Inicializálása VÉGE ---
+
+        // --- Sentence Highlighter Ellenőrzése ---
+        if (sentenceHighlighter == null)
+        {
+            Debug.LogWarning("[OpenAIWebRequest] SentenceHighlighter reference is not set in the Inspector. Highlighting functionality will be disabled.");
+        }
+        // --- SENTENCE HIGHLIGHTER VÉGE ---
 
         // InputField 'onSubmit' esemény (Enter lenyomására)
         if (TMPInputField != null)
@@ -342,6 +353,21 @@ public class OpenAIWebRequest : MonoBehaviour
             yield break; // Kilépünk a coroutine-ból, ha nincs thread ID
         }
 
+        // --- RESETTING MANAGERS ---
+        Debug.Log("[SendMessageSequence] Resetting TTS Manager and Sentence Highlighter before new message.");
+        if (textToSpeechManager != null)
+        {
+            textToSpeechManager.ResetManager();
+        }
+        else { Debug.LogWarning("Cannot reset TTS Manager - reference missing."); }
+
+        if (sentenceHighlighter != null)
+        {
+            sentenceHighlighter.ResetHighlighter();
+        }
+        else { Debug.LogWarning("Cannot reset Sentence Highlighter - reference missing."); }
+        // --- RESETTING MANAGERS END ---
+
         // 1. Próbáljuk megszakítani az előző futást (ha volt)
         yield return StartCoroutine(CancelCurrentRun());
 
@@ -552,13 +578,19 @@ public class OpenAIWebRequest : MonoBehaviour
                                                             }
                                                             else { Debug.LogWarning("[UI Update Delta] TMPResponseText reference is NULL!"); } // Hiba, ha nincs UI elem
 
-                                                            // --- ÚJ RÉSZ: Szöveg továbbítása a TTS Managernek ---
+                                                            // --- Szöveg továbbítása a TTS Managernek és a Sentence Highlighternek ---
                                                             if (textToSpeechManager != null)
                                                             {
                                                                 textToSpeechManager.AppendText(textDelta);
                                                             }
                                                             else { Debug.LogWarning("Kurvára nem sikerült továbbítani a TTS-nek a szöveget!"); }
-                                                            // --- ÚJ RÉSZ VÉGE ---
+
+                                                            if (sentenceHighlighter != null)
+                                                            {
+                                                                sentenceHighlighter.AppendText(textDelta);
+                                                            }
+                                                            else { Debug.LogWarning("Cannot append text to Sentence Highlighter - reference missing."); }
+                                                            // --- VÉGE ---
                                                         }
                                                         else
                                                         {
@@ -714,13 +746,20 @@ public class OpenAIWebRequest : MonoBehaviour
                     TMPResponseText.text = currentResponseChunk.ToString();
                 }
 
-                // --- ÚJ RÉSZ: Maradék puffer feldolgozása a TTS Managerben ---
+                // --- Maradék puffer feldolgozása a TTS és SHL-ben ---
+                Debug.Log("[Run End] Flushing remaining buffers.");
                 if (textToSpeechManager != null)
                 {
-                    Debug.Log("[Run End] Flushing remaining TTS buffer.");
                     textToSpeechManager.FlushBuffer();
                 }
-                // --- ÚJ RÉSZ VÉGE ---
+                else { Debug.LogWarning("Cannot flush TTS Manager buffer - reference missing."); }
+
+                if (sentenceHighlighter != null)
+                {
+                    sentenceHighlighter.FlushBuffer();
+                }
+                else { Debug.LogWarning("Cannot flush Sentence Highlighter buffer - reference missing."); }
+                // --- VÉGE ---
             }
         } // using UnityWebRequest
     } // IEnumerator CreateAssistantRun

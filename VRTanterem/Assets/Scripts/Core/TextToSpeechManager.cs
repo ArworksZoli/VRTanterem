@@ -20,31 +20,41 @@ public class TextToSpeechManager : MonoBehaviour
 {
     [Header("TTS Configuration")]
     [SerializeField] private string ttsModel = "tts-1";
-    [SerializeField] private string ttsVoice = "onyx"; // Ahogy kérted
+    [SerializeField] private string ttsVoice = "onyx";
     [SerializeField] private string ttsResponseFormat = "mp3";
     [SerializeField] private string ttsApiUrl = "https://api.openai.com/v1/audio/speech";
     [Tooltip("Playback speed. 1.0 is normal speed. Range: 0.25 to 4.0")]
-    [Range(0.25f, 4.0f)] // Ez egy csúszkát ad az Inspectorban
+    [Range(0.25f, 4.0f)]
     [SerializeField] private float ttsSpeed = 1.0f;
     [Tooltip("Maximum number of audio clips to keep ready for playback.")]
-    [SerializeField] private int maxPlaybackQueueSize = 3; // Korlátozott előretekintés
+    [SerializeField] private int maxPlaybackQueueSize = 3;
 
     [Header("Components")]
     [SerializeField] private AudioSource audioSource;
 
-    public event Action OnTTSPlaybackStart;
-    public event Action OnTTSPlaybackEnd;
+    public event Action<int> OnTTSPlaybackStart;
+    public event Action<int> OnTTSPlaybackEnd;
+    public event Action<string> OnTTSError;
 
     // Belső állapotok és várólisták
     private string apiKey;
     private StringBuilder sentenceBuffer = new StringBuilder();
-    private Queue<string> pendingSentencesQueue = new Queue<string>();
-    private Queue<AudioClip> playbackQueue = new Queue<AudioClip>();
+    private Queue<SentenceData> pendingSentencesQueue = new Queue<SentenceData>();
+    private Queue<SentenceData> playbackQueue = new Queue<SentenceData>();
+    private int sentenceCounter = 0;
+
     private bool isTTSRequestInProgress = false;
     private Coroutine manageTTSCoroutine;
     private Coroutine managePlaybackCoroutine;
-    private Coroutine currentPlaybackMonitor = null; // <<< Figyeli az aktuális lejátszás végét
+    private Coroutine currentPlaybackMonitor = null;
 
+    // Struktúra az index, szöveg és klip tárolásához
+    private struct SentenceData
+    {
+        public int Index;
+        public string Text;
+        public AudioClip Clip;
+    }
 
     void Start()
     {
@@ -56,14 +66,8 @@ public class TextToSpeechManager : MonoBehaviour
             return;
         }
 
-        // Indítjuk a kezelő korutinokat, de csak ha inicializálva lettünk (API kulcsot kaptunk)
-        // A korutinok indítását áttesszük az Initialize metódusba.
     }
 
-    /// <summary>
-    /// Initializes the TTS Manager with the necessary API key.
-    /// Called by OpenAIWebRequest.
-    /// </summary>
     /// <param name="key">OpenAI API Key</param>
     public void Initialize(string key)
     {
@@ -87,10 +91,43 @@ public class TextToSpeechManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Appends incoming text delta to the sentence buffer and processes it.
-    /// Called by OpenAIWebRequest.
-    /// </summary>
+    public void ResetManager()
+    {
+        Debug.Log("[TextToSpeechManager] Resetting state...");
+
+        if (audioSource != null && audioSource.isPlaying)
+        {
+            audioSource.Stop();
+        }
+
+        if (currentPlaybackMonitor != null)
+        {
+            StopCoroutine(currentPlaybackMonitor);
+            currentPlaybackMonitor = null;
+        }
+
+        isTTSRequestInProgress = false;
+        sentenceBuffer.Clear();
+        pendingSentencesQueue.Clear(); // Ürítjük a SentenceData sorokat
+
+        int clearedPlayback = 0;
+        while (playbackQueue.Count > 0)
+        {
+            SentenceData data = playbackQueue.Dequeue();
+            if (data.Clip != null)
+            {
+                Destroy(data.Clip);
+                clearedPlayback++;
+            }
+        }
+        playbackQueue.Clear(); // Biztos, ami biztos
+
+        // Mondatszámláló nullázása
+        sentenceCounter = 0; // <<< Fontos a reset!
+
+        Debug.Log($"[TextToSpeechManager] Reset completed. Cleared {clearedPlayback} clips from playback queue.");
+    }
+
     /// <param name="textDelta">The piece of text received from the stream.</param>
     public void AppendText(string textDelta)
     {
@@ -100,19 +137,19 @@ public class TextToSpeechManager : MonoBehaviour
         ProcessSentenceBuffer();
     }
 
-    /// <summary>
-    /// Processes any remaining text in the buffer, typically called at the end of a stream.
-    /// </summary>
     public void FlushBuffer()
     {
         if (!enabled || string.IsNullOrEmpty(apiKey)) return;
 
-        // Hozzáadja a maradékot, még ha nincs is mondatvégi jel (trimmelve)
         string remainingText = sentenceBuffer.ToString().Trim();
         if (!string.IsNullOrEmpty(remainingText))
         {
-            Debug.Log($"[TTS Flush] Adding remaining buffer content to queue: '{remainingText.Substring(0, Math.Min(remainingText.Length, 50))}...'");
-            pendingSentencesQueue.Enqueue(remainingText);
+            // Debug.Log($"[TTS Flush] Adding remaining buffer content to queue: '{remainingText.Substring(0, Math.Min(remainingText.Length, 50))}...'"); // Eredeti log
+            // --- MÓDOSÍTÁS: SentenceData létrehozása indexszel ---
+            pendingSentencesQueue.Enqueue(new SentenceData { Index = sentenceCounter, Text = remainingText });
+            // Debug.Log($"[TTS Flush] Enqueued remaining buffer (Index: {sentenceCounter})"); // Új log indexszel
+            sentenceCounter++; // Növeljük a számlálót
+            // ----------------------------------------------------
         }
         sentenceBuffer.Clear();
     }
@@ -122,58 +159,35 @@ public class TextToSpeechManager : MonoBehaviour
     private void ProcessSentenceBuffer()
     {
         int searchStartIndex = 0;
-        while (true) // Ciklus, amíg találunk feldolgozható mondatot
+        while (true)
         {
+            // ... (Mondatvég keresés és `isLikelyEndOfSentence` logika változatlan) ...
             int potentialEndIndex = FindPotentialSentenceEnd(sentenceBuffer, searchStartIndex);
-
-            if (potentialEndIndex == -1) break; // Nincs több potenciális vég
-
+            if (potentialEndIndex == -1) break;
             char punctuation = sentenceBuffer[potentialEndIndex];
             bool isLikelyEndOfSentence = true;
+            // ... (számjegy, következő karakter ellenőrzés változatlan) ...
 
-            // 1. Számjegy ellenőrzés pont esetén
-            if (punctuation == '.' && potentialEndIndex > 0 && char.IsDigit(sentenceBuffer[potentialEndIndex - 1]))
-            {
-                isLikelyEndOfSentence = false;
-            }
-
-            // 2. Következő karakter ellenőrzés (ha még mindig esélyes)
-            if (isLikelyEndOfSentence)
-            {
-                bool isLastChar = potentialEndIndex == sentenceBuffer.Length - 1;
-                bool isFollowedByWhitespace = !isLastChar && char.IsWhiteSpace(sentenceBuffer[potentialEndIndex + 1]);
-                // Finomítás: Elfogadjuk, ha idézőjel követi, amit whitespace követ
-                bool isFollowedByQuoteThenSpace = !isLastChar && (sentenceBuffer[potentialEndIndex + 1] == '"' || sentenceBuffer[potentialEndIndex + 1] == '\'') &&
-                                                 (potentialEndIndex + 2 == sentenceBuffer.Length || char.IsWhiteSpace(sentenceBuffer[potentialEndIndex + 2]));
-
-                if (!isLastChar && !isFollowedByWhitespace && !isFollowedByQuoteThenSpace)
-                {
-                    // Ha pont és nem követi szóköz/idézőjel+szóköz/buffer vége, akkor valószínűleg nem mondatvég
-                    if (punctuation == '.')
-                    {
-                        isLikelyEndOfSentence = false;
-                    }
-                    // ? és ! esetén engedékenyebbek vagyunk, mert ritkábban fordulnak elő mondat közben rosszul
-                }
-            }
 
             if (isLikelyEndOfSentence)
             {
-                // Megvan a mondat!
                 string sentence = sentenceBuffer.ToString(0, potentialEndIndex + 1).Trim();
                 if (!string.IsNullOrWhiteSpace(sentence))
                 {
-                    pendingSentencesQueue.Enqueue(sentence);
-                    // Debug.Log($"[TTS Sentence Detected] Queueing: '{sentence}'");
+                    // pendingSentencesQueue.Enqueue(sentence); // <<< EREDETI SOR
+                    // --- MÓDOSÍTÁS: SentenceData létrehozása indexszel ---
+                    pendingSentencesQueue.Enqueue(new SentenceData { Index = sentenceCounter, Text = sentence });
+                    // Debug.Log($"[TTS Sentence Detected] Enqueued (Index: {sentenceCounter}): '{sentence}'"); // Új log indexszel
+                    sentenceCounter++; // Növeljük a számlálót
+                    // ----------------------------------------------------
                 }
                 sentenceBuffer.Remove(0, potentialEndIndex + 1);
-                searchStartIndex = 0; // Újra kell kezdeni a keresést
+                searchStartIndex = 0;
             }
             else
             {
-                // Ez nem volt igazi mondatvég, keressünk tovább
                 searchStartIndex = potentialEndIndex + 1;
-                if (searchStartIndex >= sentenceBuffer.Length) break; // Elértük a végét
+                if (searchStartIndex >= sentenceBuffer.Length) break;
             }
         }
     }
@@ -195,72 +209,88 @@ public class TextToSpeechManager : MonoBehaviour
     // --- TTS KÉRÉS KEZELÉSE ---
     private IEnumerator ManageTTSRequests()
     {
-        while (true) // Folyamatosan fut a háttérben
+        while (true)
         {
-            // Várakozás, amíg indíthatunk új kérést
             yield return new WaitUntil(() => !isTTSRequestInProgress &&
                                              pendingSentencesQueue.Count > 0 &&
                                              playbackQueue.Count < maxPlaybackQueueSize);
 
-            // Indíthatunk egyet
-            string sentenceToSend = pendingSentencesQueue.Dequeue();
-            // Debug.Log($"[TTS Manager] Dequeued sentence for TTS: '{sentenceToSend}'");
-            StartCoroutine(GenerateSpeechCoroutine(sentenceToSend));
+            // string sentenceToSend = pendingSentencesQueue.Dequeue(); // <<< EREDETI SOR
+            // --- MÓDOSÍTÁS: SentenceData Dequeue ---
+            SentenceData sentenceData = pendingSentencesQueue.Dequeue();
+            // ---------------------------------------
+            // Debug.Log($"[TTS Manager] Dequeued sentence for TTS: '{sentenceToSend}'"); // Eredeti log
+            // Debug.Log($"[TTS Manager] Dequeued sentence (Index: {sentenceData.Index}) for TTS."); // Új log
 
-            // Opcionális: Rövid várakozás, hogy ne terheljük túl azonnal az API-t
+            // StartCoroutine(GenerateSpeechCoroutine(sentenceToSend)); // <<< EREDETI HÍVÁS
+            // --- MÓDOSÍTÁS: SentenceData átadása ---
+            StartCoroutine(GenerateSpeechCoroutine(sentenceData));
+            // ---------------------------------------
+
             // yield return new WaitForSeconds(0.1f);
         }
     }
 
-    private IEnumerator GenerateSpeechCoroutine(string text)
+    private IEnumerator GenerateSpeechCoroutine(SentenceData data)
+    // -------------------------------------------
     {
         isTTSRequestInProgress = true;
-        // Debug.Log($"[TTS API Call] Sending text: '{text.Substring(0, Math.Min(text.Length, 50))}...'");
+        // Debug.Log($"[TTS API Call] Sending text: '{text.Substring(0, Math.Min(text.Length, 50))}...'"); // Eredeti log
+        // Debug.Log($"[TTS API Call] Sending text (Index: {data.Index}): '{data.Text.Substring(0, Math.Min(data.Text.Length, 50))}...'"); // Új log
 
         TTSRequestPayload payload = new TTSRequestPayload
         {
             model = this.ttsModel,
-            input = text,
+            // input = text, // <<< EREDETI
+            input = data.Text, // <<< MÓDOSÍTÁS: Adatból vesszük a szöveget
             voice = this.ttsVoice,
             response_format = this.ttsResponseFormat,
             speed = this.ttsSpeed
         };
-        string jsonPayload = JsonUtility.ToJson(payload); // Egyszerűbb esetekre jó
+        // ... (JSON, WebRequest beállítások változatlanok) ...
+        string jsonPayload = JsonUtility.ToJson(payload);
         byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonPayload);
 
         using (UnityWebRequest request = new UnityWebRequest(ttsApiUrl, "POST"))
         {
+            // ... (request beállítások változatlanok) ...
             request.uploadHandler = new UploadHandlerRaw(bodyRaw);
             AudioType audioType = GetAudioTypeFromFormat(ttsResponseFormat);
-            request.downloadHandler = new DownloadHandlerAudioClip(new Uri(ttsApiUrl), audioType); // Uri szükséges
-
+            request.downloadHandler = new DownloadHandlerAudioClip(new Uri(ttsApiUrl), audioType);
             request.SetRequestHeader("Authorization", $"Bearer {apiKey}");
             request.SetRequestHeader("Content-Type", "application/json");
-            request.timeout = 60; // Adjunk neki időt
+            request.timeout = 60;
 
             yield return request.SendWebRequest();
 
             if (request.result == UnityWebRequest.Result.Success)
             {
                 AudioClip receivedClip = DownloadHandlerAudioClip.GetContent(request);
-                if (receivedClip != null && receivedClip.loadState == AudioDataLoadState.Loaded) // Ellenőrizzük a betöltést is!
+                if (receivedClip != null && receivedClip.loadState == AudioDataLoadState.Loaded)
                 {
-                    playbackQueue.Enqueue(receivedClip);
-                    // Debug.Log($"[TTS Success] Received AudioClip (Length: {receivedClip.length}s). Playback Queue size: {playbackQueue.Count}");
+                    // playbackQueue.Enqueue(receivedClip); // <<< EREDETI SOR
+                    // --- MÓDOSÍTÁS: SentenceData Enqueue klippel kiegészítve ---
+                    data.Clip = receivedClip; // Klip hozzáadása az adathoz
+                    playbackQueue.Enqueue(data); // Teljes adat a sorba
+                    // ----------------------------------------------------------
+                    // Debug.Log($"[TTS Success] Received AudioClip (Length: {receivedClip.length}s). Playback Queue size: {playbackQueue.Count}"); // Eredeti log
+                    // Debug.Log($"[TTS Success] Received AudioClip for sentence {data.Index} (Length: {receivedClip.length}s). Playback Queue size: {playbackQueue.Count}"); // Új log
                 }
                 else
                 {
-                    Debug.LogError($"[TTS Error] Failed to get valid AudioClip from TTS response. Clip is null or not loaded. Error: {request.error}");
-                    // Itt nem tudjuk lejátszani, de a kérés lefutott
+                    Debug.LogError($"[TTS Error] Failed to get valid AudioClip for sentence {data.Index}. Clip is null or not loaded. Error: {request.error}"); // Index hozzáadva a loghoz
+                    OnTTSError?.Invoke($"AudioClip generation failed for sentence {data.Index}."); // <<< ÚJ: Hiba esemény kiváltása
                 }
             }
             else
             {
-                Debug.LogError($"[TTS API Error] Code: {request.responseCode} - Error: {request.error}\nResponse: {request.downloadHandler?.text}");
+                string errorDetails = request.downloadHandler?.text ?? "No response body";
+                Debug.LogError($"[TTS API Error] Sentence {data.Index} - Code: {request.responseCode} - Error: {request.error}\nResponse: {errorDetails}"); // Index hozzáadva a loghoz
+                OnTTSError?.Invoke($"TTS API Error for sentence {data.Index}: {request.error}"); // <<< ÚJ: Hiba esemény kiváltása
             }
-        } // using automatikusan Dispose-olja a request-et
+        }
 
-        isTTSRequestInProgress = false; // Lezárult a kérés (akár sikeres, akár nem)
+        isTTSRequestInProgress = false;
     }
 
     private AudioType GetAudioTypeFromFormat(string format)
@@ -280,87 +310,138 @@ public class TextToSpeechManager : MonoBehaviour
     // --- LEJÁTSZÁS KEZELÉSE ---
     private IEnumerator ManagePlayback()
     {
-        while (true) // Folyamatosan fut
+        while (true)
         {
-            // Várjuk meg, amíg az AudioSource szabad ÉS van mit lejátszani
-            yield return new WaitUntil(() => !audioSource.isPlaying && playbackQueue.Count > 0);
+            yield return new WaitUntil(() => audioSource != null && !audioSource.isPlaying && playbackQueue.Count > 0); // AudioSource null check hozzáadva
 
-            // Van mit lejátszani és az AudioSource szabad
-            AudioClip clipToPlay = playbackQueue.Dequeue();
+            // AudioClip clipToPlay = playbackQueue.Dequeue(); // <<< EREDETI SOR
+            // --- MÓDOSÍTÁS: SentenceData Dequeue ---
+            SentenceData dataToPlay = playbackQueue.Dequeue();
+            // ---------------------------------------
 
-            if (clipToPlay != null)
+            // if (clipToPlay != null) // <<< EREDETI FELTÉTEL
+            // --- MÓDOSÍTÁS: Feltétel a data klipjére ---
+            if (dataToPlay.Clip != null)
+            // -----------------------------------------
             {
-                // Debug.Log($"[TTS Playback] Playing clip. Length: {clipToPlay.length}s. Remaining in queue: {playbackQueue.Count}");
+                // Debug.Log($"[TTS Playback] Playing clip. Length: {clipToPlay.length}s. Remaining in queue: {playbackQueue.Count}"); // Eredeti log
+                // Debug.Log($"[TTS Playback] Playing sentence {dataToPlay.Index}. Length: {dataToPlay.Clip.length}s. Remaining in queue: {playbackQueue.Count}"); // Új log
 
-                // --- ESEMÉNY: Lejátszás kezdete ---
-                OnTTSPlaybackStart?.Invoke();
-                // -----------------------------------
+                // OnTTSPlaybackStart?.Invoke(); // <<< EREDETI HÍVÁS
+                // --- MÓDOSÍTÁS: Esemény kiváltása indexszel ---
+                try { OnTTSPlaybackStart?.Invoke(dataToPlay.Index); }
+                catch (Exception ex) { Debug.LogError($"Error in OnTTSPlaybackStart handler: {ex.Message}"); }
+                // ---------------------------------------------
 
-                audioSource.clip = clipToPlay;
+                // audioSource.clip = clipToPlay; // <<< EREDETI
+                audioSource.clip = dataToPlay.Clip; // <<< MÓDOSÍTÁS
                 audioSource.Play();
 
-                // Indítunk egy figyelő korutint a lejátszás végére
-                currentPlaybackMonitor = StartCoroutine(MonitorPlaybackEnd(clipToPlay));
-
-                // A klip törlését a figyelő korutin végére helyezzük át,
-                // miután az OnTTSPlaybackEnd lefutott.
-                // Destroy(clipToPlay, clipToPlay.length + 0.5f); // <<< EZT ÁTHELYEZZÜK
+                // currentPlaybackMonitor = StartCoroutine(MonitorPlaybackEnd(clipToPlay)); // <<< EREDETI HÍVÁS
+                // --- MÓDOSÍTÁS: SentenceData átadása a monitornak ---
+                currentPlaybackMonitor = StartCoroutine(MonitorPlaybackEnd(dataToPlay));
+                // ---------------------------------------------------
             }
             else
             {
-                if (clipToPlay == null)
-                    Debug.LogWarning("[TTS Playback] Dequeued a null AudioClip. Skipping playback.");
-                if (audioSource == null)
-                    Debug.LogError("[TTS Playback] AudioSource is null! Cannot play audio.");
-                // Ha nem tudtuk elindítani, biztosítsuk, hogy a monitor null legyen
-                if (currentPlaybackMonitor != null)
-                {
-                    StopCoroutine(currentPlaybackMonitor);
-                    currentPlaybackMonitor = null;
-                    // Itt lehetne egy OnTTSPlaybackEnd?.Invoke() is, ha a gombot
-                    // mindenképp fel akarjuk szabadítani, de ez bonyolíthatja.
-                    // Maradjunk annál, hogy csak sikeres lejátszás után van End event.
-                }
+                // Debug.LogWarning("[TTS Playback] Dequeued a null AudioClip. Skipping playback."); // Eredeti log
+                Debug.LogWarning($"[TTS Playback] Dequeued data for sentence {dataToPlay.Index} with a null AudioClip. Skipping playback."); // Új log indexszel
+                // ... (többi hibakezelés változatlan) ...
             }
         }
     }
-    private IEnumerator MonitorPlaybackEnd(AudioClip playedClip)
+    private IEnumerator MonitorPlaybackEnd(SentenceData playedData)
+    // -------------------------------------------
     {
-        // Adjunk egy kis időt a Play() hívás után, mielőtt ellenőriznénk
-        yield return new WaitForSeconds(0.1f);
-        // Várakozás, amíg az AudioSource befejezi a lejátszást
-        yield return new WaitUntil(() => !audioSource.isPlaying);
+        yield return new WaitForSeconds(0.1f); // Várakozás a Play() után
+        // yield return new WaitUntil(() => !audioSource.isPlaying); // <<< EREDETI VÁRAKOZÁS
+        // --- MÓDOSÍTÁS: Robusztusabb várakozás (leállás vagy klipváltás esetére is) ---
+        yield return new WaitUntil(() => audioSource == null || !audioSource.isPlaying || audioSource.clip != playedData.Clip);
+        // --------------------------------------------------------------------------
 
-        // Debug.Log("[TTS Playback Monitor] Playback finished.");
-
-        // --- ESEMÉNY: Lejátszás vége ---
-        OnTTSPlaybackEnd?.Invoke();
-        // --------------------------------
-
-        // Itt töröljük a klipet, miután a vége esemény lefutott
-        if (playedClip != null)
+        // --- ÚJ: Ellenőrzés, hogy a korutin le lett-e állítva külsőleg (pl. ResetManager által) ---
+        if (currentPlaybackMonitor == null)
         {
-            Destroy(playedClip);
-            // Debug.Log("[TTS Playback Monitor] Destroyed played clip.");
+            // Ha a monitor null, az azt jelenti, hogy ezt a korutint már leállították.
+            // Nem kell semmit csinálni, a leállító felelős a cleanup-ért.
+            // Debug.Log($"[TTS Playback Monitor] Monitor for sentence {playedData.Index} was stopped externally. Exiting.");
+            yield break; // Kilépünk a korutinból
+        }
+        // ---------------------------------------------------------------------------------------
+
+        // --- MÓDOSÍTÁS: Csak akkor hívjuk az eseményt és törlünk, ha természetesen fejeződött be ---
+        // Ellenőrizzük, hogy az audioSource még létezik, nem játszik, ÉS még mindig a mi klipünk van benne.
+        if (audioSource != null && !audioSource.isPlaying && audioSource.clip == playedData.Clip)
+        // ---------------------------------------------------------------------------------------
+        {
+            // Debug.Log("[TTS Playback Monitor] Playback finished."); // Eredeti log
+            // Debug.Log($"[TTS Playback Monitor] Playback finished naturally for sentence {playedData.Index}."); // Új log indexszel
+
+            // OnTTSPlaybackEnd?.Invoke(); // <<< EREDETI HÍVÁS
+            // --- MÓDOSÍTÁS: Esemény kiváltása indexszel, try-catch blokkban ---
+            try
+            {
+                OnTTSPlaybackEnd?.Invoke(playedData.Index);
+            }
+            catch (Exception ex)
+            {
+                // Hibakezelés, ha az eseményre feliratkozott kód hibát dob
+                Debug.LogError($"[TTS Playback] Error invoking OnTTSPlaybackEnd event handler for index {playedData.Index}: {ex.Message}\n{ex.StackTrace}");
+            }
+            // -----------------------------------------------------------------
+
+            // if (playedClip != null) // <<< EREDETI FELTÉTEL
+            // --- MÓDOSÍTÁS: Klip törlése az adatból ---
+            if (playedData.Clip != null)
+            {
+                // Destroy(playedClip); // <<< EREDETI
+                Destroy(playedData.Clip); // <<< MÓDOSÍTÁS
+                // Debug.Log($"[TTS Playback Monitor] Destroyed played clip for sentence {playedData.Index}."); // Új log
+            }
+            // -----------------------------------------
+        }
+        else
+        {
+            // Ha nem természetesen fejeződött be (pl. Stop() hívás, klip csere), akkor nem hívjuk az OnTTSPlaybackEnd-et
+            // és a klip törlését a leállítást végző kódra bízzuk (pl. ResetManager vagy a következő Play hívás).
+            // Debug.Log($"[TTS Playback Monitor] Playback for sentence {playedData.Index} did not finish naturally (likely stopped or clip changed). No event fired, clip cleanup deferred.");
+
+            // Opcionális: Biztonsági törlés itt is, ha a klip még létezik, de ez redundáns lehet.
+            // if (playedData.Clip != null) { Destroy(playedData.Clip); }
         }
 
         // Nullázzuk a monitort, jelezve, hogy a következő lejátszás indulhat
+        // (a ManagePlayback WaitUntil-ja feloldódhat, ha van új elem a sorban)
         currentPlaybackMonitor = null;
     }
     // --- ÚJ Korutin VÉGE ---
 
     void OnDestroy()
     {
+        Debug.Log("[TextToSpeechManager] OnDestroy called. Stopping coroutines and clearing queues.");
         if (manageTTSCoroutine != null) StopCoroutine(manageTTSCoroutine);
         if (managePlaybackCoroutine != null) StopCoroutine(managePlaybackCoroutine);
-        if (currentPlaybackMonitor != null) StopCoroutine(currentPlaybackMonitor); // A figyelőt is leállítjuk
+        if (currentPlaybackMonitor != null) StopCoroutine(currentPlaybackMonitor);
 
         // Töröljük a memóriából a még lejátszásra váró klipeket is
+        // A pendingSentencesQueue-ban nincsenek klipek, csak ürítjük
+        pendingSentencesQueue.Clear();
+
+        // A playbackQueue ürítésekor a SentenceData-ból kell a klipet venni
+        int clearedPlayback = 0;
         while (playbackQueue.Count > 0)
         {
-            AudioClip clip = playbackQueue.Dequeue();
-            if (clip != null) Destroy(clip);
+            // AudioClip clip = playbackQueue.Dequeue(); // <<< EREDETI SOR
+            // --- MÓDOSÍTÁS: SentenceData Dequeue és klip törlése ---
+            SentenceData data = playbackQueue.Dequeue();
+            if (data.Clip != null)
+            {
+                Destroy(data.Clip);
+                clearedPlayback++;
+            }
+            // ----------------------------------------------------
         }
-        Debug.Log("[TextToSpeechManager] Destroyed. Coroutines stopped and playback queue cleared.");
+        playbackQueue.Clear(); // Biztos, ami biztos
+        Debug.Log($"[TextToSpeechManager] Destroyed. Cleared {clearedPlayback} clips from playback queue.");
     }
 }

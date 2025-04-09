@@ -153,31 +153,25 @@ public class WhisperMicController : MonoBehaviour
     }
 
     // --- Új Handler Metódusok ---
-    private void DisableRecordingInput()
+    private void DisableRecordingInput(int sentenceIndex) // <<< PARAMÉTER HOZZÁADVA
     {
+        // A metódus törzse változatlan maradhat, az indexet nem használjuk itt.
         if (recordAction != null && recordAction.enabled)
         {
             recordAction.Disable();
-            Debug.Log("Record action DISABLED due to TTS playback start.");
-            // Opcionális: Frissítheted a statusText-et is itt, pl.:
-            // UpdateStatusText("Assistant Speaking..."); // De ez felülírhatja a ResetStatusText logikát, óvatosan!
+            Debug.Log($"Record action DISABLED due to TTS playback start (Sentence Index: {sentenceIndex})."); // Opcionálisan logolhatod az indexet
         }
     }
 
-    private void EnableRecordingInput()
+    private void EnableRecordingInput(int sentenceIndex) // <<< PARAMÉTER HOZZÁADVA
     {
+        // A metódus törzse változatlan maradhat, az indexet nem használjuk itt.
         if (recordAction != null && !recordAction.enabled)
         {
-            // Csak akkor engedélyezzük újra, ha épp nem veszünk fel (biztonsági check)
             if (!isRecording)
             {
                 recordAction.Enable();
-                Debug.Log("Record action ENABLED after TTS playback end.");
-                // Fontos: Itt NE hívd meg a ResetStatusTextToIdle()-t feltétlenül,
-                // mert lehet, hogy a felhasználó épp egy hibaüzenetet lát.
-                // Az alapállapot visszaállítását kezelje a ProcessWhisperResponse
-                // és a ResetStatusTextToIdle hiba esetén. A gomb engedélyezése
-                // nem feltétlenül jelenti, hogy a státusznak Idle-nek kell lennie.
+                Debug.Log($"Record action ENABLED after TTS playback end (Sentence Index: {sentenceIndex})."); // Opcionálisan logolhatod az indexet
             }
             else
             {
