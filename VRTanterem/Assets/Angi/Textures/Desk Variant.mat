@@ -50,6 +50,6 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _Smoothness: 0.55
+    - _Smoothness: 0.65
     m_Colors: []
   m_BuildTextureStacks: []
