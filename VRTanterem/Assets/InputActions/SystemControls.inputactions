@@ -1,0 +1,34 @@
+{
+    "name": "SystemControls",
+    "maps": [
+        {
+            "name": "SystemControls",
+            "id": "562d792d-ef67-4caa-9ab6-e2e3487fa383",
+            "actions": [
+                {
+                    "name": "TogglePassthrough",
+                    "type": "Button",
+                    "id": "38fe964e-ed2d-4832-9e4c-fab3804f656a",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "",
+                    "id": "f71de85f-d01b-4ba6-b318-518d1e892220",
+                    "path": "<XRController>{RightHand}/secondaryButton",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "TogglePassthrough",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                }
+            ]
+        }
+    ],
+    "controlSchemes": []
+}
