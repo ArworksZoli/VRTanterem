@@ -35,6 +35,7 @@ public class TextToSpeechManager : MonoBehaviour
     public event Action<int> OnTTSPlaybackStart;
     public event Action<int> OnTTSPlaybackEnd;
     public event Action<string> OnTTSError;
+    public bool IsPlaying => audioSource != null && audioSource.isPlaying;
 
     // Belső állapotok és várólisták
     private string apiKey;

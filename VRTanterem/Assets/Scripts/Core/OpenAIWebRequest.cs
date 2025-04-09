@@ -574,7 +574,7 @@ public class OpenAIWebRequest : MonoBehaviour
                                                             if (TMPResponseText != null)
                                                             {
                                                                 Debug.Log($"[UI Update Delta - Handling by ObjectType] Updating TMPResponseText. Current length: {currentResponseChunk.Length}");
-                                                                TMPResponseText.text = currentResponseChunk.ToString();
+                                                             //   TMPResponseText.text = currentResponseChunk.ToString();
                                                             }
                                                             else { Debug.LogWarning("[UI Update Delta] TMPResponseText reference is NULL!"); } // Hiba, ha nincs UI elem
 
@@ -632,7 +632,7 @@ public class OpenAIWebRequest : MonoBehaviour
                                                     if (TMPResponseText != null && TMPResponseText.text != currentResponseChunk.ToString())
                                                     {
                                                         Debug.LogWarning("[Run Completed] Final UI text differs from assembled chunk. Forcing UI update.");
-                                                        TMPResponseText.text = currentResponseChunk.ToString();
+                                                        // TMPResponseText.text = currentResponseChunk.ToString();
                                                     }
                                                     break;
                                                 case "thread.run.failed":
@@ -743,7 +743,7 @@ public class OpenAIWebRequest : MonoBehaviour
                 if (TMPResponseText != null && TMPResponseText.text != currentResponseChunk.ToString())
                 {
                     Debug.LogWarning("Final UI text differs from assembled response chunk. Forcing UI update.");
-                    TMPResponseText.text = currentResponseChunk.ToString();
+                    // TMPResponseText.text = currentResponseChunk.ToString();
                 }
 
                 // --- Maradék puffer feldolgozása a TTS és SHL-ben ---

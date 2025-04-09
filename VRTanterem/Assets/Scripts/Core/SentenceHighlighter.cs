@@ -23,6 +23,7 @@ public class SentenceHighlighter : MonoBehaviour
     private StringBuilder sentenceBuffer = new StringBuilder();
     private int currentHighlightIndex = -1;
     private bool isInitialized = false;
+    private bool isStreamComplete = false;
 
     void Start()
     {
@@ -85,6 +86,7 @@ public class SentenceHighlighter : MonoBehaviour
         sentenceBuffer.Clear();
         allSentences.Clear();
         currentHighlightIndex = -1;
+        isStreamComplete = false;
         if (textDisplay != null)
         {
             textDisplay.text = ""; // Töröljük a kijelzőt
@@ -116,13 +118,28 @@ public class SentenceHighlighter : MonoBehaviour
         string remainingText = sentenceBuffer.ToString().Trim();
         if (!string.IsNullOrEmpty(remainingText))
         {
-            // Hozzáadjuk a maradékot az allSentences listához
             allSentences.Add(remainingText);
-            // Frissítjük a kijelzőt az új mondattal (alap színnel)
-            UpdateTextDisplay();
-            // Debug.Log($"[Highlighter Flush] Added remaining buffer: '{remainingText.Substring(0, Math.Min(remainingText.Length, 50))}...'");
+            // UpdateTextDisplay(); // <<< EZT A HÍVÁST INNEN KIVETTÜK
         }
         sentenceBuffer.Clear();
+        isStreamComplete = true;
+        Debug.Log($"[Highlighter Flush] Stream marked complete. Total sentences: {allSentences.Count}");
+
+        // Ellenőrizzük, hogy a TTS Manager létezik-e és befejezte-e a lejátszást
+        bool ttsFinished = ttsManager != null && !ttsManager.IsPlaying;
+
+        // Ha a stream véget ért ÉS a TTS már nem játszik ÉS még van aktív kiemelés
+        if (ttsFinished && currentHighlightIndex != -1)
+        {
+            Debug.Log("[Highlighter Flush] Stream complete and TTS is not playing. Forcing highlight removal.");
+            currentHighlightIndex = -1;
+            UpdateTextDisplay(); // Frissítjük a UI-t, hogy a teljes szöveg alap színnel jelenjen meg
+        }
+        // Ha a TTS még játszik, akkor a HandleTTSPlaybackEnd fogja (remélhetőleg) kezelni a kiemelés törlését.
+        else if (!ttsFinished)
+        {
+            Debug.Log("[Highlighter Flush] Stream complete, but TTS is still playing. Highlight removal deferred to HandleTTSPlaybackEnd.");
+        }
     }
 
     /// <summary>
@@ -227,37 +244,52 @@ public class SentenceHighlighter : MonoBehaviour
     /// </summary>
     private void UpdateTextDisplay()
     {
-        if (textDisplay == null) return; // Ha nincs kijelző, nincs mit frissíteni
-
+        if (textDisplay == null) return;
         StringBuilder displayTextBuilder = new StringBuilder();
 
-        for (int i = 0; i < allSentences.Count; i++)
+        int displayUntilIndex = -1; // Alapértelmezés: semmit nem jelenítünk meg
+
+        if (currentHighlightIndex != -1)
         {
-            // Escape-eljük a mondatot, hogy a benne lévő speciális karakterek ne zavarják a Rich Textet
-            string escapedSentence = EscapeRichText(allSentences[i]);
+            // Ha van aktív kiemelés, addig az indexig jelenítünk meg
+            displayUntilIndex = currentHighlightIndex;
+        }
+        else if (isStreamComplete) // <<< ÚJ FELTÉTEL
+        {
+            // Ha nincs aktív kiemelés, DE a stream már befejeződött,
+            // akkor az összes mondatot megjelenítjük alap színnel.
+            displayUntilIndex = allSentences.Count - 1;
+        }
 
-            // Szín alkalmazása az index alapján
-            if (i == currentHighlightIndex)
+        // Ha displayUntilIndex továbbra is -1 (mert a stream még nem ért véget ÉS nincs kiemelés),
+        // akkor a ciklus nem fut le, és a textDisplay.text üres lesz.
+        if (displayUntilIndex >= 0) // Csak akkor építünk szöveget, ha van mit megjeleníteni
+        {
+            for (int i = 0; i <= displayUntilIndex && i < allSentences.Count; i++)
             {
-                // Kiemelt mondat
-                displayTextBuilder.Append($"<color={highlightColorTag}>{escapedSentence}</color>");
-            }
-            else
-            {
-                // Alapértelmezett színű mondat
-                displayTextBuilder.Append($"<color={defaultColorTag}>{escapedSentence}</color>");
-            }
+                string escapedSentence = EscapeRichText(allSentences[i]);
 
-            // Szóköz hozzáadása a mondatok közé (kivéve az utolsó után)
-            if (i < allSentences.Count - 1)
-            {
-                displayTextBuilder.Append(" "); // Vagy \n ha soronként akarod
+                // A kiemelés csak akkor aktív, ha i == currentHighlightIndex (ami nem -1)
+                if (i == currentHighlightIndex)
+                {
+                    displayTextBuilder.Append($"<color={highlightColorTag}>{escapedSentence}</color>");
+                }
+                else
+                {
+                    displayTextBuilder.Append($"<color={defaultColorTag}>{escapedSentence}</color>");
+                }
+
+                if (i < displayUntilIndex)
+                {
+                    displayTextBuilder.Append("\n");
+                }
             }
         }
 
-        // Beállítjuk a TextMeshPro komponens szövegét
         textDisplay.text = displayTextBuilder.ToString();
+        // Debug.Log($"[UpdateTextDisplay] Updated. HighlightIdx: {currentHighlightIndex}, StreamComplete: {isStreamComplete}, DisplayUntil: {displayUntilIndex}. Text: '{textDisplay.text.Substring(0, Math.Min(textDisplay.text.Length, 50))}...'");
     }
+
 
     /// <summary>
     /// Escapes characters that could interfere with TextMeshPro's Rich Text parsing.
@@ -324,24 +356,20 @@ public class SentenceHighlighter : MonoBehaviour
     /// <param name="sentenceIndex">The index of the sentence that finished playing.</param>
     private void HandleTTSPlaybackEnd(int sentenceIndex)
     {
-        if (!enabled || !isInitialized) return; // Ellenőrzés
+        if (!enabled || !isInitialized) return;
+        Debug.Log($"[HandleTTSPlaybackEnd] Received for index: {sentenceIndex}. CurrentHighlight: {currentHighlightIndex}. TotalSentences: {allSentences.Count}");
 
-        // Debug.Log($"[SentenceHighlighter] Received PlaybackEnd for index: {sentenceIndex}");
-
-        // Általában itt NEM kell törölni a kiemelést.
-        // A kiemelés akkor vált, amikor a KÖVETKEZŐ mondat elindul (HandleTTSPlaybackStart).
-        // Ez folyamatosabb vizuális élményt ad.
-
-        // OPCIONÁLIS: Ha azt szeretnéd, hogy a mondat színe AZONNAL visszaálljon
-        // a lejátszás végén, akkor a következő blokkot használd:
-        /*
-        if (currentHighlightIndex == sentenceIndex) // Csak ha ez volt az utolsó kiemelt mondat
+        // Csak akkor foglalkozunk vele, ha ez volt az éppen kiemelt mondat
+        if (sentenceIndex == currentHighlightIndex)
         {
-            // Debug.Log($"[SentenceHighlighter] Resetting highlight after sentence {sentenceIndex} ended.");
-            currentHighlightIndex = -1; // Töröljük a kiemelést
-            UpdateTextDisplay();        // Frissítjük a kijelzőt
+            
+            if (sentenceIndex == allSentences.Count - 1)
+            {
+                Debug.Log($"[SentenceHighlighter] Apparent last sentence ({sentenceIndex}) finished playing. Removing highlight.");
+                currentHighlightIndex = -1;
+                UpdateTextDisplay(); // Frissítjük a UI-t
+            }
         }
-        */
     }
 
     // Opcionális: Hibakezelő
