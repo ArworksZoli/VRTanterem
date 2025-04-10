@@ -725,6 +725,9 @@ public class OpenAIWebRequest : MonoBehaviour
                 // Ha a ciklusból hiba miatt léptünk ki, a hiba már logolva lett a ciklusban.
                 // Itt esetleg egy végső hibaállapotot logolhatunk.
                 Debug.LogError($"Assistant run network request finished with status: {webRequest.result}");
+                Debug.LogError($"HTTP Status Code: {webRequest.responseCode}");
+                string responseBody = webRequest.downloadHandler?.text ?? "No response body";
+                Debug.LogError($"Response Body: {responseBody}");
             }
             else
             {
