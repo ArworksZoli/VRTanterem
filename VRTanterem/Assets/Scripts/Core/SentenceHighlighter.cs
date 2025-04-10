@@ -149,27 +149,32 @@ public class SentenceHighlighter : MonoBehaviour
     private void ProcessSentenceBuffer()
     {
         int searchStartIndex = 0;
-        bool sentenceFound = false; // Jelzi, ha találtunk mondatot ebben a ciklusban
+        bool sentenceFound = false;
 
-        while (true) // Ciklus, amíg találunk feldolgozható mondatot
+        while (true)
         {
-            // Ugyanaz a mondatvég kereső logika, mint a TTSManagerben
             int potentialEndIndex = FindPotentialSentenceEnd(sentenceBuffer, searchStartIndex);
-
-            if (potentialEndIndex == -1) break; // Nincs több potenciális vég a jelenlegi bufferben
+            if (potentialEndIndex == -1) break;
 
             char punctuation = sentenceBuffer[potentialEndIndex];
-            bool isLikelyEndOfSentence = true;
+            bool isLikelyEndOfSentence = true; // Kezdetben igaz
 
-            // 1. Számjegy ellenőrzés pont esetén (ugyanaz a logika)
+            // --- MÓDOSÍTOTT RÉSZ ---
+            // 1. Számjegy ellenőrzés pont esetén (MOST MÁR NEM ÁLLÍTJA HAMISRA)
             if (punctuation == '.' && potentialEndIndex > 0 && char.IsDigit(sentenceBuffer[potentialEndIndex - 1]))
             {
-                if (potentialEndIndex > 1 && char.IsDigit(sentenceBuffer[potentialEndIndex - 2]))
-                { isLikelyEndOfSentence = false; }
-                // TODO: Finomítás rövidítésekre (pl. Mr., Mrs., St.)
+                // Kivettük a belső if-et és az isLikelyEndOfSentence = false; sort.
+                // Most már nem tekintjük automatikusan NEM mondatvégnek, ha számjegy van előtte.
+                // A DÖNTÉST a pont UTÁNI karakterek ellenőrzésére bízzuk (lásd alább).
+                // Ide később visszatérhetünk, ha a listákat vagy rövidítéseket (pl. Mr.)
+                // pontosabban kell kezelni.
             }
+            // --- MÓDOSÍTÁS VÉGE ---
 
-            // 2. Következő karakter ellenőrzés (ugyanaz a logika)
+            // 2. Következő karakter ellenőrzés (ez változatlan és FONTOS)
+            // Ez a rész ellenőrzi, hogy mi van a pont UTÁN. Ha pl. nincs utána szóköz
+            // (mint a "v1.2" vagy "e.g." esetén), akkor itt állítódik hamisra az isLikelyEndOfSentence.
+            // Ez segít elkerülni a helytelen vágásokat.
             if (isLikelyEndOfSentence && potentialEndIndex < sentenceBuffer.Length - 1)
             {
                 char nextChar = sentenceBuffer[potentialEndIndex + 1];
@@ -177,15 +182,22 @@ public class SentenceHighlighter : MonoBehaviour
                 bool isFollowedByQuote = nextChar == '"' || nextChar == '\'';
                 bool isFollowedByBracket = nextChar == ')' || nextChar == ']';
 
+                // Ha pont van, és utána NINCS szóköz/idézőjel/zárójel, akkor valószínűleg nem mondatvég
                 if (punctuation == '.' && !isFollowedByWhitespace && !isFollowedByQuote && !isFollowedByBracket)
-                { isLikelyEndOfSentence = false; }
+                {
+                    isLikelyEndOfSentence = false;
+                }
+                // Ha idézőjel/zárójel van, és az UTÁN sincs szóköz, akkor sem mondatvég
                 else if ((isFollowedByQuote || isFollowedByBracket) && potentialEndIndex < sentenceBuffer.Length - 2)
                 {
                     char afterNextChar = sentenceBuffer[potentialEndIndex + 2];
-                    if (!char.IsWhiteSpace(afterNextChar)) { isLikelyEndOfSentence = false; }
+                    if (!char.IsWhiteSpace(afterNextChar))
+                    {
+                        isLikelyEndOfSentence = false;
+                    }
                 }
             }
-            // --- Mondatvég felismerés vége ---
+            // --- Következő karakter ellenőrzés vége ---
 
             if (isLikelyEndOfSentence)
             {
@@ -193,30 +205,26 @@ public class SentenceHighlighter : MonoBehaviour
                 string sentence = sentenceBuffer.ToString(0, potentialEndIndex + 1).Trim();
                 if (!string.IsNullOrWhiteSpace(sentence))
                 {
-                    // Hozzáadjuk a mondatot a listánkhoz
                     allSentences.Add(sentence);
-                    sentenceFound = true; // Találtunk legalább egy mondatot
-                    // Debug.Log($"[Highlighter Sentence Detected] Added: '{sentence}' (Total: {allSentences.Count})");
+                    sentenceFound = true;
                 }
-                // Eltávolítjuk a feldolgozott részt a bufferből
                 sentenceBuffer.Remove(0, potentialEndIndex + 1);
-                searchStartIndex = 0; // Újra kell kezdeni a keresést a buffer elejéről
+                searchStartIndex = 0;
             }
             else
             {
-                // Ez nem volt igazi mondatvég, keressünk tovább ettől a ponttól
+                // Nem volt igazi mondatvég, keressünk tovább
                 searchStartIndex = potentialEndIndex + 1;
-                // Ha a keresési index eléri a buffer végét, nincs értelme tovább keresni ebben a ciklusban
                 if (searchStartIndex >= sentenceBuffer.Length) break;
             }
         }
 
-        // Csak akkor frissítjük a kijelzőt, ha ebben a menetben találtunk új mondatot
         if (sentenceFound)
         {
             UpdateTextDisplay();
         }
     }
+
 
     /// <summary>
     /// Finds the index of the first potential sentence-ending punctuation mark (., ?, !)

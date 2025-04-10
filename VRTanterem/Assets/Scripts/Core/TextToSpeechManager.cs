@@ -352,70 +352,92 @@ public class TextToSpeechManager : MonoBehaviour
         }
     }
     private IEnumerator MonitorPlaybackEnd(SentenceData playedData)
-    // -------------------------------------------
     {
-        yield return new WaitForSeconds(0.1f); // Várakozás a Play() után
-        // yield return new WaitUntil(() => !audioSource.isPlaying); // <<< EREDETI VÁRAKOZÁS
-        // --- MÓDOSÍTÁS: Robusztusabb várakozás (leállás vagy klipváltás esetére is) ---
-        yield return new WaitUntil(() => audioSource == null || !audioSource.isPlaying || audioSource.clip != playedData.Clip);
-        // --------------------------------------------------------------------------
+        // Kezdeti biztonsági ellenőrzések
+        if (audioSource == null || playedData.Clip == null)
+        {
+            Debug.LogError($"[TTS Playback Monitor] Error: AudioSource or playedData.Clip is null for sentence {playedData.Index}. Aborting monitor.");
+            currentPlaybackMonitor = null; // Jelzi, hogy a monitor leállt
+            yield break;
+        }
 
-        // --- ÚJ: Ellenőrzés, hogy a korutin le lett-e állítva külsőleg (pl. ResetManager által) ---
+        // Debug log: Monitor indítása
+        // Debug.Log($"[TTS Playback Monitor] Starting monitor for sentence {playedData.Index} (Clip: {playedData.Clip.name}, Length: {playedData.Clip.length}s)");
+
+        // Várakozás, amíg a lejátszás véget ér VAGY a klip megváltozik
+        // Fontos: A WaitUntil lefutása után még ugyanabban a frame-ben vagyunk!
+        yield return new WaitUntil(() =>
+            audioSource == null ||                  // Ha az AudioSource eltűnik
+            audioSource.clip != playedData.Clip ||  // Ha a klip megváltozott alatta
+            !audioSource.isPlaying                  // Ha a lejátszás megállt (természetesen vagy Stop() miatt)
+        );
+
+        // Debug log: WaitUntil vége
+        // Debug.Log($"[TTS Playback Monitor] WaitUntil finished for sentence {playedData.Index}. Checking conditions...");
+
+        // Ellenőrizzük, hogy ezt a korutint nem állították-e le külsőleg (pl. ResetManager)
+        // mialatt a WaitUntil futott. Ha igen, ne csináljunk semmit.
         if (currentPlaybackMonitor == null)
         {
-            // Ha a monitor null, az azt jelenti, hogy ezt a korutint már leállították.
-            // Nem kell semmit csinálni, a leállító felelős a cleanup-ért.
-            // Debug.Log($"[TTS Playback Monitor] Monitor for sentence {playedData.Index} was stopped externally. Exiting.");
-            yield break; // Kilépünk a korutinból
+            Debug.Log($"[TTS Playback Monitor] Monitor for sentence {playedData.Index} was stopped externally (currentPlaybackMonitor is null). Exiting.");
+            // A klipet a leállítást végző kódnak kell kezelnie.
+            yield break;
         }
-        // ---------------------------------------------------------------------------------------
 
-        // --- MÓDOSÍTÁS: Csak akkor hívjuk az eseményt és törlünk, ha természetesen fejeződött be ---
-        // Ellenőrizzük, hogy az audioSource még létezik, nem játszik, ÉS még mindig a mi klipünk van benne.
-        if (audioSource != null && !audioSource.isPlaying && audioSource.clip == playedData.Clip)
-        // ---------------------------------------------------------------------------------------
+        // Most ellenőrizzük a leállás okát:
+        bool clipIsCorrect = (audioSource != null && audioSource.clip == playedData.Clip);
+        bool stoppedPlaying = (audioSource != null && !audioSource.isPlaying);
+
+        if (clipIsCorrect && stoppedPlaying)
         {
-            // Debug.Log("[TTS Playback Monitor] Playback finished."); // Eredeti log
-            // Debug.Log($"[TTS Playback Monitor] Playback finished naturally for sentence {playedData.Index}."); // Új log indexszel
+            // A MI klipünk játszódott le és fejeződött be természetesen.
+            Debug.Log($"[TTS Playback Monitor] Playback finished naturally for sentence {playedData.Index}. Firing End event.");
 
-            // OnTTSPlaybackEnd?.Invoke(); // <<< EREDETI HÍVÁS
-            // --- MÓDOSÍTÁS: Esemény kiváltása indexszel, try-catch blokkban ---
+            // --- Esemény kiváltása ---
             try
             {
                 OnTTSPlaybackEnd?.Invoke(playedData.Index);
             }
             catch (Exception ex)
             {
-                // Hibakezelés, ha az eseményre feliratkozott kód hibát dob
                 Debug.LogError($"[TTS Playback] Error invoking OnTTSPlaybackEnd event handler for index {playedData.Index}: {ex.Message}\n{ex.StackTrace}");
             }
-            // -----------------------------------------------------------------
 
-            // if (playedClip != null) // <<< EREDETI FELTÉTEL
-            // --- MÓDOSÍTÁS: Klip törlése az adatból ---
-            if (playedData.Clip != null)
+            // --- Klip megsemmisítése ---
+            // Itt már biztonságosan megsemmisíthetjük, mert a lejátszás befejeződött.
+            if (playedData.Clip != null) // Dupla ellenőrzés
             {
-                // Destroy(playedClip); // <<< EREDETI
-                Destroy(playedData.Clip); // <<< MÓDOSÍTÁS
-                // Debug.Log($"[TTS Playback Monitor] Destroyed played clip for sentence {playedData.Index}."); // Új log
+                // Debug.Log($"[TTS Playback Monitor] Destroying naturally finished clip for sentence {playedData.Index}.");
+                Destroy(playedData.Clip);
+                // Opcionális: audioSource.clip = null; // Hogy ne maradjon referencia
             }
-            // -----------------------------------------
         }
         else
         {
-            // Ha nem természetesen fejeződött be (pl. Stop() hívás, klip csere), akkor nem hívjuk az OnTTSPlaybackEnd-et
-            // és a klip törlését a leállítást végző kódra bízzuk (pl. ResetManager vagy a következő Play hívás).
-            // Debug.Log($"[TTS Playback Monitor] Playback for sentence {playedData.Index} did not finish naturally (likely stopped or clip changed). No event fired, clip cleanup deferred.");
+            // A lejátszás nem természetesen fejeződött be erre a klipre nézve.
+            // Okok:
+            // 1. A klip megváltozott (audioSource.clip != playedData.Clip) -> a ManagePlayback gyorsabb volt.
+            // 2. Az AudioSource eltűnt (audioSource == null).
+            // 3. Valamiért még játszik, de a clip már nem a miénk (nem valószínű a WaitUntil miatt).
+            string reason = audioSource == null ? "AudioSource is null" :
+                            audioSource.clip != playedData.Clip ? "Clip changed" :
+                            "Unknown condition";
+            Debug.LogWarning($"[TTS Playback Monitor] Playback for sentence {playedData.Index} did NOT finish naturally ({reason}). No End event fired for this index.");
 
-            // Opcionális: Biztonsági törlés itt is, ha a klip még létezik, de ez redundáns lehet.
-            // if (playedData.Clip != null) { Destroy(playedData.Clip); }
+            // Mivel ez a klip már nem fog lejátszódni (vagy mert megváltozott alatta, vagy mert hiba történt),
+            // takarítsuk el a memóriából, ha még létezik.
+            if (playedData.Clip != null)
+            {
+                Debug.LogWarning($"[TTS Playback Monitor] Destroying clip for interrupted/superseded sentence {playedData.Index}.");
+                Destroy(playedData.Clip);
+            }
         }
 
-        // Nullázzuk a monitort, jelezve, hogy a következő lejátszás indulhat
-        // (a ManagePlayback WaitUntil-ja feloldódhat, ha van új elem a sorban)
+        // Jelzi, hogy ez a monitor végzett, a ManagePlayback indíthatja a következőt
+        // (vagy ha már elindította, akkor ez a korutin most befejeződik).
         currentPlaybackMonitor = null;
     }
-    // --- ÚJ Korutin VÉGE ---
+
 
     void OnDestroy()
     {
