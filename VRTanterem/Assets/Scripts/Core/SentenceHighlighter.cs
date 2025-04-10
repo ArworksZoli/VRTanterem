@@ -365,19 +365,14 @@ public class SentenceHighlighter : MonoBehaviour
     private void HandleTTSPlaybackEnd(int sentenceIndex)
     {
         if (!enabled || !isInitialized) return;
-        Debug.Log($"[HandleTTSPlaybackEnd] Received for index: {sentenceIndex}. CurrentHighlight: {currentHighlightIndex}. TotalSentences: {allSentences.Count}");
+        // Debug logolás maradhat, ha segít a követésben:
+        // Debug.Log($"[HandleTTSPlaybackEnd] Received for index: {sentenceIndex}. CurrentHighlight: {currentHighlightIndex}. TotalSentences: {allSentences.Count}");
 
-        // Csak akkor foglalkozunk vele, ha ez volt az éppen kiemelt mondat
-        if (sentenceIndex == currentHighlightIndex)
-        {
-            
-            if (sentenceIndex == allSentences.Count - 1)
-            {
-                Debug.Log($"[SentenceHighlighter] Apparent last sentence ({sentenceIndex}) finished playing. Removing highlight.");
-                currentHighlightIndex = -1;
-                UpdateTextDisplay(); // Frissítjük a UI-t
-            }
-        }
+        // NINCS SZÜKSÉG A KIEMELÉS TÖRLÉSÉRE ITT.
+        // A kiemelés akkor fog frissülni (vagy eltűnni, ha nincs több mondat),
+        // amikor a KÖVETKEZŐ mondat elindul (HandleTTSPlaybackStart),
+        // vagy amikor a stream véget ér és a FlushBuffer lefut.
+        // Az itteni idő előtti törlés okozza a random villogást/törlést.
     }
 
     // Opcionális: Hibakezelő
