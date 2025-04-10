@@ -125,6 +125,45 @@ public partial class @AppInputActions: IInputActionCollection2, IDisposable
                     ""isPartOfComposite"": false
                 }
             ]
+        },
+        {
+            ""name"": ""SystemControls"",
+            ""id"": ""9021c234-9d3b-49aa-8dad-6d29515d1237"",
+            ""actions"": [
+                {
+                    ""name"": ""TogglePassthrough"",
+                    ""type"": ""Button"",
+                    ""id"": ""c44c1711-e676-4553-b065-107549414d81"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                }
+            ],
+            ""bindings"": [
+                {
+                    ""name"": """",
+                    ""id"": ""dc250d8d-a526-40e7-be89-e4b55213559c"",
+                    ""path"": ""<XRController>{RightHand}/secondaryButton"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""TogglePassthrough"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""e874b351-7ccc-4cda-a155-33ccfb58b214"",
+                    ""path"": ""<Keyboard>/backspace"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""TogglePassthrough"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                }
+            ]
         }
     ],
     ""controlSchemes"": [
@@ -144,11 +183,15 @@ public partial class @AppInputActions: IInputActionCollection2, IDisposable
         // VoiceInput
         m_VoiceInput = asset.FindActionMap("VoiceInput", throwIfNotFound: true);
         m_VoiceInput_RecordVoice = m_VoiceInput.FindAction("RecordVoice", throwIfNotFound: true);
+        // SystemControls
+        m_SystemControls = asset.FindActionMap("SystemControls", throwIfNotFound: true);
+        m_SystemControls_TogglePassthrough = m_SystemControls.FindAction("TogglePassthrough", throwIfNotFound: true);
     }
 
     ~@AppInputActions()
     {
         UnityEngine.Debug.Assert(!m_VoiceInput.enabled, "This will cause a leak and performance issues, AppInputActions.VoiceInput.Disable() has not been called.");
+        UnityEngine.Debug.Assert(!m_SystemControls.enabled, "This will cause a leak and performance issues, AppInputActions.SystemControls.Disable() has not been called.");
     }
 
     /// <summary>
@@ -316,6 +359,102 @@ public partial class @AppInputActions: IInputActionCollection2, IDisposable
     /// Provides a new <see cref="VoiceInputActions" /> instance referencing this action map.
     /// </summary>
     public VoiceInputActions @VoiceInput => new VoiceInputActions(this);
+
+    // SystemControls
+    private readonly InputActionMap m_SystemControls;
+    private List<ISystemControlsActions> m_SystemControlsActionsCallbackInterfaces = new List<ISystemControlsActions>();
+    private readonly InputAction m_SystemControls_TogglePassthrough;
+    /// <summary>
+    /// Provides access to input actions defined in input action map "SystemControls".
+    /// </summary>
+    public struct SystemControlsActions
+    {
+        private @AppInputActions m_Wrapper;
+
+        /// <summary>
+        /// Construct a new instance of the input action map wrapper class.
+        /// </summary>
+        public SystemControlsActions(@AppInputActions wrapper) { m_Wrapper = wrapper; }
+        /// <summary>
+        /// Provides access to the underlying input action "SystemControls/TogglePassthrough".
+        /// </summary>
+        public InputAction @TogglePassthrough => m_Wrapper.m_SystemControls_TogglePassthrough;
+        /// <summary>
+        /// Provides access to the underlying input action map instance.
+        /// </summary>
+        public InputActionMap Get() { return m_Wrapper.m_SystemControls; }
+        /// <inheritdoc cref="UnityEngine.InputSystem.InputActionMap.Enable()" />
+        public void Enable() { Get().Enable(); }
+        /// <inheritdoc cref="UnityEngine.InputSystem.InputActionMap.Disable()" />
+        public void Disable() { Get().Disable(); }
+        /// <inheritdoc cref="UnityEngine.InputSystem.InputActionMap.enabled" />
+        public bool enabled => Get().enabled;
+        /// <summary>
+        /// Implicitly converts an <see ref="SystemControlsActions" /> to an <see ref="InputActionMap" /> instance.
+        /// </summary>
+        public static implicit operator InputActionMap(SystemControlsActions set) { return set.Get(); }
+        /// <summary>
+        /// Adds <see cref="InputAction.started"/>, <see cref="InputAction.performed"/> and <see cref="InputAction.canceled"/> callbacks provided via <param cref="instance" /> on all input actions contained in this map.
+        /// </summary>
+        /// <param name="instance">Callback instance.</param>
+        /// <remarks>
+        /// If <paramref name="instance" /> is <c>null</c> or <paramref name="instance"/> have already been added this method does nothing.
+        /// </remarks>
+        /// <seealso cref="SystemControlsActions" />
+        public void AddCallbacks(ISystemControlsActions instance)
+        {
+            if (instance == null || m_Wrapper.m_SystemControlsActionsCallbackInterfaces.Contains(instance)) return;
+            m_Wrapper.m_SystemControlsActionsCallbackInterfaces.Add(instance);
+            @TogglePassthrough.started += instance.OnTogglePassthrough;
+            @TogglePassthrough.performed += instance.OnTogglePassthrough;
+            @TogglePassthrough.canceled += instance.OnTogglePassthrough;
+        }
+
+        /// <summary>
+        /// Removes <see cref="InputAction.started"/>, <see cref="InputAction.performed"/> and <see cref="InputAction.canceled"/> callbacks provided via <param cref="instance" /> on all input actions contained in this map.
+        /// </summary>
+        /// <remarks>
+        /// Calling this method when <paramref name="instance" /> have not previously been registered has no side-effects.
+        /// </remarks>
+        /// <seealso cref="SystemControlsActions" />
+        private void UnregisterCallbacks(ISystemControlsActions instance)
+        {
+            @TogglePassthrough.started -= instance.OnTogglePassthrough;
+            @TogglePassthrough.performed -= instance.OnTogglePassthrough;
+            @TogglePassthrough.canceled -= instance.OnTogglePassthrough;
+        }
+
+        /// <summary>
+        /// Unregisters <param cref="instance" /> and unregisters all input action callbacks via <see cref="SystemControlsActions.UnregisterCallbacks(ISystemControlsActions)" />.
+        /// </summary>
+        /// <seealso cref="SystemControlsActions.UnregisterCallbacks(ISystemControlsActions)" />
+        public void RemoveCallbacks(ISystemControlsActions instance)
+        {
+            if (m_Wrapper.m_SystemControlsActionsCallbackInterfaces.Remove(instance))
+                UnregisterCallbacks(instance);
+        }
+
+        /// <summary>
+        /// Replaces all existing callback instances and previously registered input action callbacks associated with them with callbacks provided via <param cref="instance" />.
+        /// </summary>
+        /// <remarks>
+        /// If <paramref name="instance" /> is <c>null</c>, calling this method will only unregister all existing callbacks but not register any new callbacks.
+        /// </remarks>
+        /// <seealso cref="SystemControlsActions.AddCallbacks(ISystemControlsActions)" />
+        /// <seealso cref="SystemControlsActions.RemoveCallbacks(ISystemControlsActions)" />
+        /// <seealso cref="SystemControlsActions.UnregisterCallbacks(ISystemControlsActions)" />
+        public void SetCallbacks(ISystemControlsActions instance)
+        {
+            foreach (var item in m_Wrapper.m_SystemControlsActionsCallbackInterfaces)
+                UnregisterCallbacks(item);
+            m_Wrapper.m_SystemControlsActionsCallbackInterfaces.Clear();
+            AddCallbacks(instance);
+        }
+    }
+    /// <summary>
+    /// Provides a new <see cref="SystemControlsActions" /> instance referencing this action map.
+    /// </summary>
+    public SystemControlsActions @SystemControls => new SystemControlsActions(this);
     private int m_NewControlSchemeSchemeIndex = -1;
     /// <summary>
     /// Provides access to the input control scheme.
@@ -343,5 +482,20 @@ public partial class @AppInputActions: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnRecordVoice(InputAction.CallbackContext context);
+    }
+    /// <summary>
+    /// Interface to implement callback methods for all input action callbacks associated with input actions defined by "SystemControls" which allows adding and removing callbacks.
+    /// </summary>
+    /// <seealso cref="SystemControlsActions.AddCallbacks(ISystemControlsActions)" />
+    /// <seealso cref="SystemControlsActions.RemoveCallbacks(ISystemControlsActions)" />
+    public interface ISystemControlsActions
+    {
+        /// <summary>
+        /// Method invoked when associated input action "TogglePassthrough" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnTogglePassthrough(InputAction.CallbackContext context);
     }
 }

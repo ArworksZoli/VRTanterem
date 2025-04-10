@@ -1,155 +1,217 @@
 ﻿using UnityEngine;
-using Oculus.Interaction; // Szükség lehet rá, de lehet elég a sima UnityEngine is
 using UnityEngine.InputSystem;
 
 public class PassthroughController : MonoBehaviour
 {
     [Header("Oculus Components")]
-    [SerializeField] private OVRManager ovrManager;
-    [SerializeField] private OVRPassthroughLayer passthroughLayer; // Ajánlott, de lehet null is
-    [SerializeField] private Camera mainCamera; // A CenterEyeAnchor alatti kamera
+    [SerializeField] private OVRManager ovrManager; // Ezt valójában nem használjuk a kódban, de jó, ha itt van referenciaként
+    [SerializeField] private OVRPassthroughLayer passthroughLayer; // Ezt kapcsolgatjuk
+    [SerializeField] private Camera mainCamera; // Ennek a hátterét módosítjuk
 
     [Header("Scene Objects")]
-    [SerializeField] private GameObject virtualEnvironmentRoot; // A tanterem gyökér GameObject-je
-    // [SerializeField] private GameObject passthroughSpecificUI; // Ha lenne ilyen
+    [SerializeField] private GameObject virtualEnvironmentRoot; // Ezt kapcsolgatjuk
 
     [Header("Input Actions")]
-    [SerializeField] private InputActionAsset inputActions; // Húzd ide ugyanazt az assetet, amit a WhisperMicController is használ
-    [SerializeField] private string actionMapName = "SystemControls"; // Vagy amilyen Action Map-et használtál az 1. lépésben
-    [SerializeField] private string toggleActionName = "TogglePassthrough"; // Az Action neve, amit az 1. lépésben létrehoztál
+    [SerializeField] private InputActionAsset inputActions; // Az asset, ami tartalmazza az action-t
+    [SerializeField] private string actionMapName = "SystemControls"; // Az Action Map neve az assetben
+    [SerializeField] private string toggleActionName = "TogglePassthrough"; // Az Action neve az Action Map-en belül
 
+    // Input Action referencia
     private InputAction togglePassthroughAction;
 
     // Eredeti kamera beállítások tárolása
     private CameraClearFlags originalClearFlags;
     private Color originalBackgroundColor;
-    private bool originalPassthroughLayerState;
 
     // Aktuális állapot követése
     private bool isPassthroughActive = false;
 
-    void Start()
+    // --- Életciklus Metódusok ---
+
+    void Awake()
     {
-        // Referenciák ellenőrzése
-        if (ovrManager == null || mainCamera == null || virtualEnvironmentRoot == null)
+        // Logolás a legelején
+        Debug.Log($"--- PASSTHROUGH AWAKE --- Time: {Time.time} --- GameObject: {gameObject.name}, Active: {gameObject.activeInHierarchy}, Component Enabled: {this.enabled}");
+
+        // --- Referenciák Ellenőrzése (KRITIKUS) ---
+        // Ellenőrizzük a vizuális elemekhez szükséges referenciákat, mielőtt bármit csinálnánk velük
+        if (passthroughLayer == null)
         {
-            Debug.LogError("PassthroughController: Hiányzó referenciák! Kérlek, állítsd be őket az Inspectorban.", this);
+            Debug.LogError("!!! AWAKE ERROR: OVRPassthroughLayer reference (passthroughLayer) is NULL! Assign it in the Inspector.", this);
+            enabled = false; // Letiltjuk a komponenst, mert nem tudna működni
+            return;
+        }
+        if (mainCamera == null)
+        {
+            Debug.LogError("!!! AWAKE ERROR: Main Camera reference (mainCamera) is NULL! Assign it in the Inspector.", this);
             enabled = false;
             return;
         }
+        if (virtualEnvironmentRoot == null)
+        {
+            Debug.LogError("!!! AWAKE ERROR: Virtual Environment Root reference (virtualEnvironmentRoot) is NULL! Assign it in the Inspector.", this);
+            enabled = false;
+            return;
+        }
+        Debug.Log("   Awake: Visual component references seem OK.");
 
-        // Eredeti kamera beállítások mentése (feltételezzük, hogy virtuális módban indulunk)
+        // --- Eredeti Kamera Beállítások Mentése ---
+        // Mentsük el az indulási állapotot, MIELŐTT esetleg módosítanánk rajta
         originalClearFlags = mainCamera.clearFlags;
         originalBackgroundColor = mainCamera.backgroundColor;
-        if (passthroughLayer != null)
-        {
-            originalPassthroughLayerState = passthroughLayer.enabled; // Mentsük el a layer kezdeti állapotát is
-        }
+        Debug.Log($"   Awake: Original camera settings saved: ClearFlags={originalClearFlags}, BackgroundColor={originalBackgroundColor}");
 
-        // --- ÚJ: Input Action Keresése ---
+        // --- Input Action Keresése ---
+        if (inputActions == null)
+        {
+            Debug.LogError("!!! AWAKE ERROR: InputActions asset is NULL! Assign it in the Inspector.", this);
+            enabled = false;
+            return;
+        }
         var actionMap = inputActions.FindActionMap(actionMapName);
         if (actionMap == null)
         {
-            Debug.LogError($"Action Map '{actionMapName}' not found in the provided InputActionAsset!", this);
+            Debug.LogError($"!!! AWAKE ERROR: Action Map '{actionMapName}' NOT FOUND in the assigned InputActions asset!", this);
             enabled = false;
             return;
         }
         togglePassthroughAction = actionMap.FindAction(toggleActionName);
         if (togglePassthroughAction == null)
         {
-            Debug.LogError($"Action '{toggleActionName}' not found in Action Map '{actionMapName}'!", this);
+            Debug.LogError($"!!! AWAKE ERROR: Action '{toggleActionName}' NOT FOUND in Action Map '{actionMapName}'!", this);
             enabled = false;
             return;
         }
-
-        // VR módban indulás
-        SetPassthroughState(false);
+        Debug.Log($"--- AWAKE SUCCESS: Action '{toggleActionName}' FOUND. Ready for OnEnable.");
     }
 
-    // --- ÚJ: OnEnable és OnDisable ---
+    void Start()
+    {
+        // Logolás
+        Debug.Log($"--- PASSTHROUGH START --- Time: {Time.time} ---");
+
+        // --- Kezdeti Állapot Beállítása ---
+        // Biztosítjuk, hogy az alkalmazás VR módban induljon (a mentett eredeti beállításokkal)
+        // Ezt Start()-ban hívjuk, hogy az Awake-ben biztosan minden beállítás megtörténjen.
+        // A SetPassthroughState(false) gondoskodik a kamera, layer és environment helyes beállításáról.
+        Debug.Log("   Start: Setting initial state to VR mode (Passthrough Disabled)...");
+        SetPassthroughState(false); // Explicit beállítjuk a VR módot induláskor
+    }
+
     private void OnEnable()
     {
+        // Logolás a legelején
+        Debug.Log($"--- PASSTHROUGH ONENABLE --- Time: {Time.time} --- GameObject: {gameObject.name}, Active: {gameObject.activeInHierarchy}, Component Enabled: {this.enabled}");
+
+        // Listener hozzáadása és engedélyezés
         if (togglePassthroughAction != null)
         {
-            // Feliratkozás a 'performed' eseményre. Ez akkor sül el, amikor a gombnyomás befejeződik.
+            Debug.Log($"   OnEnable: Attaching listener and enabling action '{toggleActionName}'...");
             togglePassthroughAction.performed += OnTogglePassthroughPerformed;
-            togglePassthroughAction.Enable(); // Engedélyezzük az Action figyelését
-            Debug.Log($"'{toggleActionName}' action enabled and listener attached.");
+            togglePassthroughAction.Enable();
+            // Ellenőrizzük, hogy tényleg engedélyezve lett-e
+            Debug.Log($"   OnEnable: Listener attached. Action '{toggleActionName}' enabled state: {togglePassthroughAction.enabled}");
+        }
+        else
+        {
+            // Ha ide jut, akkor Awake-ben hiba volt. Az Awake log már jelzi ezt.
+            Debug.LogError($"!!! ONENABLE ERROR: Cannot enable action because togglePassthroughAction is NULL (check Awake logs)!");
         }
     }
 
     private void OnDisable()
     {
+        // Logolás a legelején
+        Debug.Log($"--- PASSTHROUGH ONDISABLE --- Time: {Time.time} --- GameObject: {gameObject.name}, Active: {gameObject.activeInHierarchy}, Component Enabled: {this.enabled}");
+
+        // Listener eltávolítása és letiltás
         if (togglePassthroughAction != null)
         {
+            Debug.Log($"   OnDisable: Detaching listener and potentially disabling action '{toggleActionName}'...");
             togglePassthroughAction.performed -= OnTogglePassthroughPerformed;
-            togglePassthroughAction.Disable(); // Letiltjuk az Action figyelését
-            Debug.Log($"'{toggleActionName}' action disabled and listener detached.");
-        }
-    }
 
-    private void OnTogglePassthroughPerformed(InputAction.CallbackContext context)
-    {
-        Debug.LogError("!!!!!!!!!! TOGGLE PASSTHROUGH ACTION PERFORMED !!!!!!!!!!"); // MARADJON BENT A DEBUG!
-        Debug.Log($"'{toggleActionName}' action performed. Toggling Passthrough.");
-        // Itt hívjuk a publikus metódust, ami logol és kezeli a dupla hívást
-        SetPassthroughState(!isPassthroughActive);
-    }
-
-    // Ezt a metódust hívhatod meg egy gombnyomásra vagy más eseményre
-    public void TogglePassthrough()
-    {
-        SetPassthroughState(!isPassthroughActive);
-    }
-
-    // A tényleges váltást végző metódus
-    public void SetPassthroughState(bool enablePassthrough)
-    {
-        if (enablePassthrough == isPassthroughActive) return; // Nincs változás
-
-        isPassthroughActive = enablePassthrough;
-
-        // 1. OVRPassthroughLayer komponens vezérlése (EZ LESZ A FŐ KAPCSOLÓ)
-        if (passthroughLayer != null)
-        {
-            // Egyszerűen engedélyezzük vagy letiltjuk magát a komponenst
-            passthroughLayer.enabled = enablePassthrough;
-            Debug.Log($"OVRPassthroughLayer component enabled: {enablePassthrough}");
+            // Csak akkor próbáljuk letiltani, ha engedélyezve volt
+            if (togglePassthroughAction.enabled)
+            {
+                togglePassthroughAction.Disable();
+                Debug.Log($"   OnDisable: Listener detached and action disabled.");
+            }
+            else
+            {
+                Debug.LogWarning($"   OnDisable: Listener detached, but action was already disabled or never enabled properly.");
+            }
         }
         else
         {
-            // Ha nincs OVRPassthroughLayer komponens, ez a módszer nem fog működni.
-            // Győződj meg róla, hogy hozzáadtad az OVRCameraRig-hez és beállítottad a referenciát.
-            Debug.LogError("OVRPassthroughLayer reference is null or component missing! Cannot toggle Passthrough programmatically this way.", this);
-            // Ebben az esetben nem tudjuk biztonságosan váltani az állapotot, így visszalépünk.
-            isPassthroughActive = !enablePassthrough; // Visszaállítjuk az állapotváltozót
+            // Ha ide jut, akkor Awake-ben hiba volt. Az Awake log már jelzi ezt.
+            Debug.LogError($"!!! ONDISABLE ERROR: Cannot disable action because togglePassthroughAction is NULL (check Awake logs)!");
+        }
+    }
+
+    // --- Input Esemény Kezelő ---
+
+    private void OnTogglePassthroughPerformed(InputAction.CallbackContext context)
+    {
+        // Ez az a log, amit már láttál működni!
+        Debug.LogError("!!!!!!!!!! TOGGLE PASSTHROUGH ACTION PERFORMED !!!!!!!!!!");
+
+        // Itt hívjuk meg a váltást végző logikát
+        Debug.Log($"   Action '{toggleActionName}' performed. Calling SetPassthroughState to toggle.");
+        SetPassthroughState(!isPassthroughActive); // Megfordítjuk az aktuális állapotot
+    }
+
+    // --- Vizuális Váltás Logikája ---
+
+    // Ezt a metódust hívja az OnTogglePassthroughPerformed és a Start
+    public void SetPassthroughState(bool enablePassthrough)
+    {
+        // Logoljuk a hívást és az állapotokat
+        Debug.Log($"===== SetPassthroughState called: Requesting enablePassthrough = {enablePassthrough}, Current state (isPassthroughActive) = {isPassthroughActive} =====");
+
+        // Ellenőrizzük, hogy tényleg kell-e váltani
+        if (enablePassthrough == isPassthroughActive)
+        {
+            Debug.LogWarning("   SetPassthroughState: Requested state is the same as current state. No change needed.");
+            return; // Nincs változás
+        }
+
+        // --- Referenciák Ellenőrzése (Biztonsági okokból itt is) ---
+        // Bár Awake-ben ellenőriztük, egy extra check itt nem árt.
+        if (passthroughLayer == null || mainCamera == null || virtualEnvironmentRoot == null)
+        {
+            Debug.LogError("!!! SetPassthroughState CRITICAL ERROR: One or more required component references are NULL! Cannot perform visual switch. Check Inspector and Awake logs!");
+            // Nem állítjuk át az isPassthroughActive-ot, mert a váltás nem tudott megtörténni!
             return;
         }
 
-        // 2. Kamera hátterének beállítása (Ez továbbra is szükséges)
+        // Átállítjuk a belső állapotváltozót
+        isPassthroughActive = enablePassthrough;
+        Debug.Log($"   Internal state (isPassthroughActive) updated to: {isPassthroughActive}");
+
+        // 1. OVRPassthroughLayer komponens engedélyezése/letiltása
+        passthroughLayer.enabled = enablePassthrough;
+        Debug.Log($"   OVRPassthroughLayer component '.enabled' set to: {passthroughLayer.enabled}");
+
+        // 2. Kamera hátterének beállítása (URP kompatibilis módon)
         if (enablePassthrough)
         {
-            // Passthrough Mód: Átlátszó háttér
+            // Passthrough Mód: Solid Color, átlátszó háttérrel
             mainCamera.clearFlags = CameraClearFlags.SolidColor;
             mainCamera.backgroundColor = Color.clear; // RGBA(0,0,0,0)
+            Debug.Log($"   Camera background set for Passthrough: ClearFlags={mainCamera.clearFlags}, BackgroundColor={mainCamera.backgroundColor}");
         }
         else
         {
             // Virtuális Mód: Eredeti beállítások visszaállítása
-            mainCamera.clearFlags = originalClearFlags;
-            mainCamera.backgroundColor = originalBackgroundColor;
+            mainCamera.clearFlags = originalClearFlags; // Visszaállítás az Awake-ben mentett értékre
+            mainCamera.backgroundColor = originalBackgroundColor; // Visszaállítás az Awake-ben mentett értékre
+            Debug.Log($"   Camera background restored for VR: ClearFlags={mainCamera.clearFlags}, BackgroundColor={mainCamera.backgroundColor}");
         }
 
-        // 3. Virtuális környezet ki/bekapcsolása (Ez is marad)
-        virtualEnvironmentRoot.SetActive(!enablePassthrough);
+        // 3. Virtuális környezet GameObject aktiválása/deaktiválása
+        virtualEnvironmentRoot.SetActive(!enablePassthrough); // Ha passthrough aktív, a környezet inaktív, és fordítva.
+        Debug.Log($"   VirtualEnvironmentRoot GameObject '.SetActive()' called with: {!enablePassthrough}");
 
-        // 4. (Opcionális) Csak Passthrough-ban látható elemek kezelése
-        // if (passthroughSpecificUI != null)
-        // {
-        //     passthroughSpecificUI.SetActive(enablePassthrough);
-        // }
-
-        Debug.Log($"Passthrough state set to: {enablePassthrough}");
+        Debug.Log($"===== SetPassthroughState finished successfully for state: {enablePassthrough} =====");
     }
-
 }

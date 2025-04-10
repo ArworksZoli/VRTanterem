@@ -106,19 +106,19 @@ public class WhisperMicController : MonoBehaviour
     {
         if (recordAction != null)
         {
-            recordAction.started += OnRecordStarted; // Átnevezve, ha még nem tetted meg
-            recordAction.canceled += OnRecordStopped; // Átnevezve, ha még nem tetted meg
+            recordAction.started += OnRecordStarted;
+            recordAction.canceled += OnRecordStopped;
             recordAction.Enable();
             Debug.Log("Record action enabled and listeners attached.");
         }
 
         // Feliratkozás a TTS eseményekre
-        if (textToSpeechManager != null)
-        {
-            textToSpeechManager.OnTTSPlaybackStart += DisableRecordingInput;
-            textToSpeechManager.OnTTSPlaybackEnd += EnableRecordingInput;
-            Debug.Log("Subscribed to TTS Manager events.");
-        }
+        // if (textToSpeechManager != null) // <<< KIKOMMENTELVE
+        // {
+        //     textToSpeechManager.OnTTSPlaybackStart += DisableRecordingInput; // <<< KIKOMMENTELVE
+        //     textToSpeechManager.OnTTSPlaybackEnd += EnableRecordingInput; // <<< KIKOMMENTELVE
+        //     Debug.Log("Subscribed to TTS Manager events."); // <<< KIKOMMENTELVE
+        // }
     }
 
     void OnDisable()
@@ -128,20 +128,17 @@ public class WhisperMicController : MonoBehaviour
         {
             recordAction.started -= OnRecordStarted;
             recordAction.canceled -= OnRecordStopped;
-            // Fontos: Itt csak akkor tiltsd le, ha tényleg le akarod tiltani a script inaktivitása miatt,
-            // ne azért, mert a TTS épp megy. A TTS miatti tiltást a handler kezeli.
-            // Ha a script disable-kor mindig le kell tiltani:
             if (recordAction.enabled) recordAction.Disable();
             Debug.Log("Record action listeners detached and action disabled.");
         }
 
         // Leiratkozás a TTS eseményekről
-        if (textToSpeechManager != null)
-        {
-            textToSpeechManager.OnTTSPlaybackStart -= DisableRecordingInput;
-            textToSpeechManager.OnTTSPlaybackEnd -= EnableRecordingInput;
-            Debug.Log("Unsubscribed from TTS Manager events.");
-        }
+        // if (textToSpeechManager != null) // <<< KIKOMMENTELVE
+        // {
+        //     textToSpeechManager.OnTTSPlaybackStart -= DisableRecordingInput; // <<< KIKOMMENTELVE
+        //     textToSpeechManager.OnTTSPlaybackEnd -= EnableRecordingInput; // <<< KIKOMMENTELVE
+        //     Debug.Log("Unsubscribed from TTS Manager events."); // <<< KIKOMMENTELVE
+        // }
 
         // Ha épp felvétel van, állítsuk le (a korábbi javításból)
         if (isRecording)
@@ -153,31 +150,31 @@ public class WhisperMicController : MonoBehaviour
     }
 
     // --- Új Handler Metódusok ---
-    private void DisableRecordingInput(int sentenceIndex) // <<< PARAMÉTER HOZZÁADVA
+    private void DisableRecordingInput(int sentenceIndex)
     {
-        // A metódus törzse változatlan maradhat, az indexet nem használjuk itt.
-        if (recordAction != null && recordAction.enabled)
-        {
-            recordAction.Disable();
-            Debug.Log($"Record action DISABLED due to TTS playback start (Sentence Index: {sentenceIndex})."); // Opcionálisan logolhatod az indexet
-        }
+        // Ez a metódus most nem lesz meghívva, de hagyhatod a kódban
+        // if (recordAction != null && recordAction.enabled)
+        // {
+        //     recordAction.Disable();
+        //     Debug.Log($"Record action DISABLED due to TTS playback start (Sentence Index: {sentenceIndex}).");
+        // }
     }
 
-    private void EnableRecordingInput(int sentenceIndex) // <<< PARAMÉTER HOZZÁADVA
+    private void EnableRecordingInput(int sentenceIndex)
     {
-        // A metódus törzse változatlan maradhat, az indexet nem használjuk itt.
-        if (recordAction != null && !recordAction.enabled)
-        {
-            if (!isRecording)
-            {
-                recordAction.Enable();
-                Debug.Log($"Record action ENABLED after TTS playback end (Sentence Index: {sentenceIndex})."); // Opcionálisan logolhatod az indexet
-            }
-            else
-            {
-                Debug.LogWarning("TTS ended, but recording is somehow active? Input remains disabled for safety.");
-            }
-        }
+        // Ez a metódus most nem lesz meghívva, de hagyhatod a kódban
+        // if (recordAction != null && !recordAction.enabled)
+        // {
+        //     if (!isRecording)
+        //     {
+        //         recordAction.Enable();
+        //         Debug.Log($"Record action ENABLED after TTS playback end (Sentence Index: {sentenceIndex}).");
+        //     }
+        //     else
+        //     {
+        //         Debug.LogWarning("TTS ended, but recording is somehow active? Input remains disabled for safety.");
+        //     }
+        // }
     }
 
     // Külön metódus a jogosultságkéréshez (átláthatóságért)

@@ -2851,7 +2851,7 @@ PrefabInstance:
     - target: {fileID: 2483171112400622654, guid: f54012181eacade4ea242c65f804720f,
         type: 3}
       propertyPath: m_ClearFlags
-      value: 1
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 2483171112400622654, guid: f54012181eacade4ea242c65f804720f,
         type: 3}
@@ -2861,7 +2861,7 @@ PrefabInstance:
     - target: {fileID: 2483171112400622654, guid: f54012181eacade4ea242c65f804720f,
         type: 3}
       propertyPath: m_BackGroundColor.a
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2483171112400622654, guid: f54012181eacade4ea242c65f804720f,
         type: 3}
@@ -2891,7 +2891,7 @@ PrefabInstance:
     - target: {fileID: 2483171112407822886, guid: f54012181eacade4ea242c65f804720f,
         type: 3}
       propertyPath: isInsightPassthroughEnabled
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 2514675399181695721, guid: f54012181eacade4ea242c65f804720f,
         type: 3}
@@ -2952,14 +2952,6 @@ PrefabInstance:
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 2483171112401766338, guid: f54012181eacade4ea242c65f804720f,
-        type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1383004881}
-    - targetCorrespondingSourceObject: {fileID: 2483171112401766338, guid: f54012181eacade4ea242c65f804720f,
-        type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1383004886}
     - targetCorrespondingSourceObject: {fileID: 2483171112401766336, guid: f54012181eacade4ea242c65f804720f,
         type: 3}
       insertIndex: -1
@@ -3066,67 +3058,18 @@ Transform:
     type: 3}
   m_PrefabInstance: {fileID: 1355719527}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &1383004878 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 2483171112401766338, guid: f54012181eacade4ea242c65f804720f,
-    type: 3}
-  m_PrefabInstance: {fileID: 1301572283}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &1383004881
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1383004878}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d8d748c138155214d94c4c8e26caddfe, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  inputActions: {fileID: -944628639613478452, guid: 62e92c64f366d4c4e8a6c65b89445ef1,
-    type: 3}
-  actionMapName: VoiceInput
-  recordActionName: RecordVoice
-  recordingDurationSeconds: 60
-  sampleRate: 44100
-  openAIWebRequest: {fileID: 7679562417771070155}
-  textToSpeechManager: {fileID: 7679562417771070156}
-  statusText: {fileID: 1793093058}
-  pressSound: {fileID: 8300000, guid: c362bffa4cd68f84bbd58b5203613aea, type: 3}
-  releaseSound: {fileID: 8300000, guid: cb5d7f5e2755e6048a6cd4de0d944da9, type: 3}
 --- !u!114 &1383004885 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 2483171112407822886, guid: f54012181eacade4ea242c65f804720f,
     type: 3}
   m_PrefabInstance: {fileID: 1301572283}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1383004878}
+  m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7e933e81d3c20c74ea6fdc708a67e3a5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!114 &1383004886
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1383004878}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fc81586e7d5e2444b9a98093fe09cc97, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  ovrManager: {fileID: 1383004885}
-  passthroughLayer: {fileID: 704522201}
-  mainCamera: {fileID: 704522199}
-  virtualEnvironmentRoot: {fileID: 1143465024}
-  inputActions: {fileID: -944628639613478452, guid: 2895a55973f72ed40ba8b06f8cc3d702,
-    type: 3}
-  actionMapName: SystemControls
-  toggleActionName: TogglePassthrough
 --- !u!1001 &1420050925
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -9049,6 +8992,8 @@ GameObject:
   - component: {fileID: 7679562417771070155}
   - component: {fileID: 7679562417771070156}
   - component: {fileID: 7679562417771070157}
+  - component: {fileID: 7679562417771070159}
+  - component: {fileID: 7679562417771070158}
   m_Layer: 7
   m_Name: OpenAIWebRequest
   m_TagString: Untagged
@@ -9111,6 +9056,49 @@ MonoBehaviour:
   textDisplay: {fileID: 7679562417209752150}
   defaultColorTag: black
   highlightColorTag: red
+--- !u!114 &7679562417771070158
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7679562417771070154}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fc81586e7d5e2444b9a98093fe09cc97, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ovrManager: {fileID: 1383004885}
+  passthroughLayer: {fileID: 704522201}
+  mainCamera: {fileID: 704522199}
+  virtualEnvironmentRoot: {fileID: 1143465024}
+  inputActions: {fileID: -944628639613478452, guid: 62e92c64f366d4c4e8a6c65b89445ef1,
+    type: 3}
+  actionMapName: SystemControls
+  toggleActionName: TogglePassthrough
+--- !u!114 &7679562417771070159
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7679562417771070154}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d8d748c138155214d94c4c8e26caddfe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  inputActions: {fileID: -944628639613478452, guid: 62e92c64f366d4c4e8a6c65b89445ef1,
+    type: 3}
+  actionMapName: VoiceInput
+  recordActionName: RecordVoice
+  recordingDurationSeconds: 60
+  sampleRate: 44100
+  openAIWebRequest: {fileID: 7679562417771070155}
+  textToSpeechManager: {fileID: 7679562417771070156}
+  statusText: {fileID: 1793093058}
+  pressSound: {fileID: 8300000, guid: c362bffa4cd68f84bbd58b5203613aea, type: 3}
+  releaseSound: {fileID: 8300000, guid: cb5d7f5e2755e6048a6cd4de0d944da9, type: 3}
 --- !u!114 &7679562418242494057
 MonoBehaviour:
   m_ObjectHideFlags: 0
