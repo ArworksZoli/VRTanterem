@@ -128,8 +128,10 @@ public class OpenAIWebRequest : MonoBehaviour
         }
 
         // Asszisztens adatainak lekérése és Thread létrehozása (csak ha a konfiguráció rendben van)
-        StartCoroutine(GetAssistant());
-        StartCoroutine(CreateThread());
+        // StartCoroutine(GetAssistant());
+        // StartCoroutine(CreateThread());
+
+        Debug.Log("[OpenAIWebRequest] Start() finished (Automatic thread/run creation DISABLED for menu integration).");
     }
 
     // OpenAIWebRequest.cs-ben hozzáadandó metódus

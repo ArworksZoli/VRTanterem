@@ -1,147 +1,372 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
+using TMPro; // Szükséges a szöveges gombokhoz
+using System.Linq;
 
 public class SelectionManager : MonoBehaviour
 {
+    // ... (Változók ugyanazok maradnak: availableLanguages, panelek, gomblisták, selected változók) ...
     [Header("Configuration Data")]
     [Tooltip("Húzd ide az összes elérhető LanguageConfig ScriptableObject assetet.")]
     [SerializeField] private List<LanguageConfig> availableLanguages;
 
     [Header("UI Panels")]
-    [Tooltip("Húzd ide a Nyelvválasztó Panel GameObjectet.")]
     [SerializeField] private GameObject languagePanel;
-    [Tooltip("Húzd ide a Tantárgyválasztó Panel GameObjectet.")]
     [SerializeField] private GameObject subjectPanel;
-    [Tooltip("Húzd ide a Témaválasztó Panel GameObjectet.")]
     [SerializeField] private GameObject topicPanel;
-    [Tooltip("Húzd ide a Hangválasztó Panel GameObjectet.")]
     [SerializeField] private GameObject voicePanel;
 
-    // Ide jön majd referencia az AppStateManager-re
+    [Header("UI Buttons (Assign in Inspector)")]
+    [Tooltip("Húzd ide a LanguagePanel gombjait a megfelelő sorrendben.")]
+    [SerializeField] private List<Button> languageButtons;
+    [Tooltip("Húzd ide a SubjectPanel gombjait a megfelelő sorrendben.")]
+    [SerializeField] private List<Button> subjectButtons;
+    [Tooltip("Húzd ide a TopicPanel gombjait a megfelelő sorrendben.")]
+    [SerializeField] private List<Button> topicButtons;
+    [Tooltip("Húzd ide a VoicePanel gombjait a megfelelő sorrendben.")]
+    [SerializeField] private List<Button> voiceButtons;
+
+    // Referencia az AppStateManager-re (később)
     // [SerializeField] private AppStateManager appStateManager;
 
-    // Tárolók a kiválasztott elemeknek
     private LanguageConfig selectedLanguage;
     private SubjectConfig selectedSubject;
     private TopicConfig selectedTopic;
     private string selectedVoiceId;
 
-    // Később ide kerülnek a kiválasztást kezelő metódusok
-    // pl. SelectLanguage(LanguageConfig language), ShowSubjectPanel(), stb.
 
     void Start()
     {
-        // Kezdeti állapot beállítása: Csak a nyelvválasztó látszik
         InitializeMenu();
     }
 
     void InitializeMenu()
     {
-        // Biztonság kedvéért minden panelt elrejtünk, majd csak a nyelvválasztót mutatjuk
+        // ... (Ugyanaz, mint előbb: panelek elrejtése, ellenőrzések) ...
         languagePanel.SetActive(false);
         subjectPanel.SetActive(false);
         topicPanel.SetActive(false);
         voicePanel.SetActive(false);
 
-        if (availableLanguages == null || availableLanguages.Count == 0)
-        {
-            Debug.LogError("SelectionManager: Nincsenek nyelvi konfigurációk hozzárendelve az Inspectorban!");
-            // Itt lehetne valamilyen hiba UI-t megjeleníteni
-            return;
-        }
+        if (availableLanguages == null || availableLanguages.Count == 0) { /*...*/ return; }
+        if (languagePanel == null || languageButtons == null || languageButtons.Count == 0) { /*...*/ return; }
 
-        if (languagePanel != null)
-        {
-            // TODO: Töltsd fel a languagePanel-t gombokkal az availableLanguages alapján
-            // (Ezt a következő lépésben részletezzük)
-            PopulateLanguagePanel(); // Ezt a metódust még meg kell írni
+        PopulateLanguagePanel();
+        languagePanel.SetActive(true);
+    }
 
-            languagePanel.SetActive(true); // Mutasd a nyelvválasztó panelt
+    // --- VISSZAHOZVA: Helper function to set button text ---
+    private void SetButtonText(Button button, string text)
+    {
+        if (button == null) return;
+        TMP_Text tmpText = button.GetComponentInChildren<TMP_Text>();
+        if (tmpText != null)
+        {
+            tmpText.text = text;
         }
         else
         {
-            Debug.LogError("SelectionManager: LanguagePanel nincs hozzárendelve az Inspectorban!");
+            // Fallback a régebbi Text komponensre, ha szükséges
+            Text legacyText = button.GetComponentInChildren<Text>();
+            if (legacyText != null)
+            {
+                legacyText.text = text;
+            }
+            else
+            {
+                // Ha egyik sincs, és szöveget akartunk írni, az baj lehet
+                Debug.LogWarning($"Nem található Text vagy TMP_Text komponens a(z) '{button.name}' gombon a szöveg beállításához: '{text}'");
+            }
         }
     }
+    // --- VÉGE: Helper function ---
 
-    // --- Helyőrzők a későbbi metódusoknak ---
 
-    void PopulateLanguagePanel()
+    void PopulateLanguagePanel() // IKONOS - Nincs SetButtonText
     {
-        Debug.Log("Populating Language Panel...");
-        // Itt kell majd dinamikusan létrehozni a gombokat a nyelvekhez
+        Debug.Log("Populating Language Panel with fixed buttons (icons only)...");
+        int configCount = availableLanguages?.Count ?? 0;
+        int buttonCount = languageButtons?.Count ?? 0;
+
+        for (int i = 0; i < buttonCount; i++)
+        {
+            if (i < configCount)
+            {
+                LanguageConfig lang = availableLanguages[i];
+                Button btn = languageButtons[i];
+                if (btn != null)
+                {
+                    btn.onClick.RemoveAllListeners();
+                    btn.onClick.AddListener(() => SelectLanguage(lang));
+                    btn.gameObject.SetActive(true);
+                }
+            }
+            else { if (languageButtons[i] != null) languageButtons[i].gameObject.SetActive(false); }
+        }
+        if (configCount > buttonCount) { /* Warning log */ }
     }
 
-    public void SelectLanguage(LanguageConfig language) // Ezt hívják majd a nyelvválasztó gombok
+    public void SelectLanguage(LanguageConfig language)
     {
+        // ... (Logika ugyanaz) ...
         Debug.Log($"Language selected: {language.displayName}");
         selectedLanguage = language;
-
         languagePanel.SetActive(false);
-        // TODO: Töltsd fel a subjectPanel-t a selectedLanguage.availableSubjects alapján
-        PopulateSubjectPanel(); // Ezt a metódust még meg kell írni
+
+        if (selectedLanguage.availableSubjects == null || selectedLanguage.availableSubjects.Count == 0) { /*...*/ return; }
+        if (subjectButtons == null || subjectButtons.Count == 0) { /*...*/ return; }
+
+        PopulateSubjectPanel();
         subjectPanel.SetActive(true);
     }
 
-    void PopulateSubjectPanel()
+    void PopulateSubjectPanel() // IKONOS - Nincs SetButtonText
     {
-        Debug.Log("Populating Subject Panel...");
-        // Itt kell majd dinamikusan létrehozni a gombokat a tantárgyakhoz
+        Debug.Log("Populating Subject Panel with fixed buttons (icons only)...");
+        var subjects = selectedLanguage?.availableSubjects;
+        int configCount = subjects?.Count ?? 0;
+        int buttonCount = subjectButtons?.Count ?? 0;
+
+        for (int i = 0; i < buttonCount; i++)
+        {
+            if (i < configCount)
+            {
+                SubjectConfig subj = subjects[i];
+                Button btn = subjectButtons[i];
+                if (btn != null)
+                {
+                    btn.onClick.RemoveAllListeners();
+                    btn.onClick.AddListener(() => SelectSubject(subj));
+                    btn.gameObject.SetActive(true);
+                }
+            }
+            else { if (subjectButtons[i] != null) subjectButtons[i].gameObject.SetActive(false); }
+        }
+        if (configCount > buttonCount) { /* Warning log */ }
     }
 
-    public void SelectSubject(SubjectConfig subject) // Ezt hívják majd a tantárgyválasztó gombok
+    public void SelectSubject(SubjectConfig subject)
     {
+        // ... (Logika ugyanaz) ...
         Debug.Log($"Subject selected: {subject.subjectName}");
         selectedSubject = subject;
-
         subjectPanel.SetActive(false);
-        // TODO: Töltsd fel a topicPanel-t a selectedSubject.availableTopics alapján
-        PopulateTopicPanel(); // Ezt a metódust még meg kell írni
+
+        if (selectedSubject.availableTopics == null || selectedSubject.availableTopics.Count == 0) { /*...*/ return; }
+        if (topicButtons == null || topicButtons.Count == 0) { /*...*/ return; }
+
+        PopulateTopicPanel();
         topicPanel.SetActive(true);
     }
 
     void PopulateTopicPanel()
     {
-        Debug.Log("Populating Topic Panel...");
-        // Itt kell majd dinamikusan létrehozni a gombokat a témákhoz
+        if (selectedSubject == null || selectedSubject.availableTopics == null)
+        {
+            Debug.LogError("PopulateTopicPanel: Nincs kiválasztott tantárgy vagy nincsenek elérhető témák!");
+            // Esetleg inaktiváld a panelt itt
+            topicPanel.SetActive(false);
+            return;
+        }
+
+        List<TopicConfig> topics = selectedSubject.availableTopics;
+        int configCount = topics.Count;
+        int buttonCount = topicButtons.Count; // A te 4 gombod
+
+        Debug.Log($"Populating Topic Panel. Topics available: {configCount}, Buttons available: {buttonCount}"); // Logolás
+
+        for (int i = 0; i < buttonCount; i++)
+        {
+            Button btn = topicButtons[i]; // Vedd ki a gombot a listából
+
+            if (btn == null)
+            {
+                Debug.LogWarning($"Topic Button index {i} is null in the list.");
+                continue; // Hagyd ki ezt a ciklus iterációt, ha a gomb hiányzik a listából
+            }
+
+            if (i < configCount)
+            {
+                // Van ehhez a gombhoz téma
+                TopicConfig topic = topics[i]; // Vedd ki a megfelelő témát
+
+                if (topic == null)
+                {
+                    Debug.LogWarning($"TopicConfig at index {i} for subject '{selectedSubject.subjectName}' is null.");
+                    btn.gameObject.SetActive(false); // Rejtsd el a gombot, ha a téma érvénytelen
+                    continue;
+                }
+
+                // --- Szöveg Beállítása és Raycast Target Kikapcsolása ---
+                TextMeshProUGUI tmpText = btn.GetComponentInChildren<TextMeshProUGUI>();
+                if (tmpText != null)
+                {
+                    tmpText.text = topic.topicName;
+                    tmpText.raycastTarget = false; // <<< --- KRITIKUSAN FONTOS!
+                    Debug.Log($"Button '{btn.name}': Set text to '{topic.topicName}', Raycast Target set to false.");
+                }
+                else
+                {
+                    Debug.LogWarning($"Button '{btn.name}' does not have a TextMeshProUGUI child component!");
+                }
+
+                // --- Listener Hozzáadása ---
+                btn.onClick.RemoveAllListeners(); // Először törölj minden régit
+                btn.onClick.AddListener(() => SelectTopic(topic));
+                Debug.Log($"Button '{btn.name}': Added listener for topic '{topic.topicName}' (ID: {topic.assistantId})"); // Logolás a listener hozzáadásáról
+
+                // --- Gomb Aktiválása ---
+                btn.gameObject.SetActive(true);
+                btn.interactable = true; // Biztosítsd, hogy interaktív legyen
+            }
+            else
+            {
+                // Nincs több téma ehhez a gombhoz, rejtsd el
+                btn.gameObject.SetActive(false);
+                Debug.Log($"Button '{btn.name}': Deactivated (no more topics).");
+            }
+        }
     }
 
-    public void SelectTopic(TopicConfig topic) // Ezt hívják majd a témaválasztó gombok
+    public void SelectTopic(TopicConfig topic)
     {
-        Debug.Log($"Topic selected: {topic.topicName}");
+        Debug.Log($"===== SelectTopic CALLED for: {topic.topicName} =====");
         selectedTopic = topic;
-
         topicPanel.SetActive(false);
-        // TODO: Töltsd fel a voicePanel-t a selectedTopic.availableVoiceIds alapján
-        PopulateVoicePanel(); // Ezt a metódust még meg kell írni
+
+        Debug.Log("Checking availableVoiceIds..."); // <-- ÚJ LOG
+        if (selectedTopic.availableVoiceIds == null || selectedTopic.availableVoiceIds.Count == 0)
+        {
+            Debug.LogWarning($"No voices configured for {topic.topicName}. Aborting voice panel display."); // <-- ÚJ LOG
+                                                                                                            // Itt lehetne kezelni a hibát, pl. visszaugrani
+                                                                                                            // Vagy ha itt FinalizeSelectionAndStart() van, az is megmagyarázhatja
+            FinalizeSelectionAndStart(); // Vagy return; attól függ, mi a kívánt viselkedés
+            return; // Fontos, hogy itt legyen return, ha nem akarjuk folytatni
+        }
+
+        Debug.Log("Checking voiceButtons list..."); // <-- ÚJ LOG
+        if (voiceButtons == null || voiceButtons.Count == 0)
+        {
+            Debug.LogError("SelectionManager: VoicePanel buttons are not assigned! Aborting."); // <-- ÚJ LOG
+            return;
+        }
+
+        Debug.Log("Checks passed, calling PopulateVoicePanel..."); // <-- ÚJ LOG
+        PopulateVoicePanel();
+        Debug.Log("Activating voicePanel..."); // <-- ÚJ LOG
         voicePanel.SetActive(true);
     }
 
-    void PopulateVoicePanel()
+
+    void PopulateVoicePanel() // SZÖVEGES (feltételezve) - Van SetButtonText
     {
-        Debug.Log("Populating Voice Panel...");
-        // Itt kell majd dinamikusan létrehozni a gombokat a hangokhoz
+        Debug.Log("Populating Voice Panel with fixed buttons (text)...");
+        var voices = selectedTopic?.availableVoiceIds;
+        int configCount = voices?.Count ?? 0;
+        int buttonCount = voiceButtons?.Count ?? 0;
+
+        // Egyszerű név hozzárendelés ID alapján (lokalizálható lenne bonyolultabban)
+        // Ezt a szótárat ki lehetne szervezni, vagy akár a LanguageConfig-ba tenni
+        Dictionary<string, string> voiceDisplayNames = new Dictionary<string, string>();
+        if (selectedLanguage != null && selectedLanguage.languageCode == "hu")
+        {
+            voiceDisplayNames.Add("alloy", "Férfi 1"); // Példa nevek
+            voiceDisplayNames.Add("echo", "Férfi 2");
+            voiceDisplayNames.Add("nova", "Női 1");
+            voiceDisplayNames.Add("shimmer", "Női 2");
+            // ... stb. a 4 férfi/női hanghoz
+        }
+        else
+        { // Default to English or other languages
+            voiceDisplayNames.Add("alloy", "Male 1");
+            voiceDisplayNames.Add("echo", "Male 2");
+            voiceDisplayNames.Add("nova", "Female 1");
+            voiceDisplayNames.Add("shimmer", "Female 2");
+            // ... etc.
+        }
+        // Add other standard voices if needed
+        if (!voiceDisplayNames.ContainsKey("fable")) voiceDisplayNames.Add("fable", "Fable");
+        if (!voiceDisplayNames.ContainsKey("onyx")) voiceDisplayNames.Add("onyx", "Onyx");
+
+
+        for (int i = 0; i < buttonCount; i++)
+        {
+            if (i < configCount)
+            {
+                string voiceId = voices[i];
+                Button btn = voiceButtons[i];
+                if (btn != null)
+                {
+                    string displayName = voiceDisplayNames.ContainsKey(voiceId) ? voiceDisplayNames[voiceId] : voiceId; // Használjuk a szebb nevet, ha van
+                    SetButtonText(btn, displayName); // <<< SZÖVEG BEÁLLÍTÁSA
+                    btn.onClick.RemoveAllListeners();
+                    btn.onClick.AddListener(() => SelectVoice(voiceId));
+                    btn.gameObject.SetActive(true);
+                }
+            }
+            else { if (voiceButtons[i] != null) voiceButtons[i].gameObject.SetActive(false); }
+        }
+        if (configCount > buttonCount) { /* Warning log */ }
     }
 
-    public void SelectVoice(string voiceId) // Ezt hívják majd a hangválasztó gombok
+    public void SelectVoice(string voiceId)
     {
+        // ... (Logika ugyanaz) ...
         Debug.Log($"Voice selected: {voiceId}");
         selectedVoiceId = voiceId;
-
         voicePanel.SetActive(false);
-        FinalizeSelectionAndStart(); // Indíthatjuk az alkalmazást
+        FinalizeSelectionAndStart();
     }
 
     void FinalizeSelectionAndStart()
     {
-        Debug.Log("All selections made! Starting main application...");
-        Debug.Log($"Final Config: Lang={selectedLanguage.languageCode}, Subject={selectedSubject.subjectName}, Topic={selectedTopic.topicName}, Assistant={selectedTopic.assistantId}, Voice={selectedVoiceId}");
+        Debug.Log("[SelectionManager] FinalizeSelectionAndStart called.");
 
-        // TODO: Itt kell majd szólni az AppStateManager-nek, hogy váltson állapotot
-        // és adja át a kiválasztott konfigurációt (assistantId, voiceId, languageCode)
-        // pl. appStateManager.StartMainInteraction(selectedTopic.assistantId, selectedVoiceId, selectedLanguage.languageCode);
+        // --- 1. Ellenőrizzük, hogy minden szükséges adat ki van-e választva ---
+        if (selectedLanguage == null || selectedSubject == null || selectedTopic == null || string.IsNullOrEmpty(selectedVoiceId))
+        {
+            Debug.LogError("[SelectionManager] Selection incomplete! Cannot proceed to finalize.");
+            // Opcionálisan itt is visszaugorhatnánk a menü elejére
+            InitializeMenu();
+            return;
+        }
 
-        // Egyelőre csak logolunk, a tényleges indítást később implementáljuk az AppStateManagerrel.
+        // --- 2. Ellenőrizzük a kritikus adatokat (Assistant ID) ---
+        // Különösen fontos, mert enélkül az AppStateManager sem tud mit kezdeni vele.
+        if (string.IsNullOrEmpty(selectedTopic.assistantId))
+        {
+            Debug.LogError($"[SelectionManager] Critical Error: The selected topic '{selectedTopic.topicName}' does not have an Assistant ID assigned in its configuration! Cannot start interaction.");
+            // Itt is érdemes lehet visszalépni vagy hibaüzenetet adni a felhasználónak.
+            InitializeMenu();
+            return;
+        }
+
+        // --- 3. Logoljuk a végleges választást ---
+        Debug.Log($"[SelectionManager] All selections complete. Handing over to AppStateManager with:" +
+                  $"\n - Language: {selectedLanguage.displayName}" +
+                  $"\n - Subject: {selectedSubject.subjectName}" +
+                  $"\n - Topic: {selectedTopic.topicName}" +
+                  $"\n - Voice: {selectedVoiceId}" +
+                  $"\n - Assistant ID: {selectedTopic.assistantId}");
+
+        // --- 4. Megkeressük az AppStateManager-t és átadjuk neki az irányítást ---
+        AppStateManager appManager = FindObjectOfType<AppStateManager>(); // Vagy AppStateManager.Instance, ha Singleton-t használsz
+
+        if (appManager != null)
+        {
+            // Meghívjuk az AppStateManager központi indító metódusát
+            appManager.StartInteraction(selectedLanguage, selectedSubject, selectedTopic, selectedVoiceId);
+
+            // A SelectionManager innentől kezdve már nem aktív, mert az AppStateManager deaktiválja.
+            // Nem kell itt külön deaktiválni a paneleket.
+            Debug.Log("[SelectionManager] Handover to AppStateManager successful.");
+        }
+        else
+        {
+            // Ha nincs AppStateManager a jelenetben, az nagy hiba.
+            Debug.LogError("[SelectionManager] CRITICAL ERROR: AppStateManager not found in the scene! Cannot start the main application logic.");
+            // Itt lehetne valamilyen fallback vagy hibaállapot.
+        }
     }
 }
