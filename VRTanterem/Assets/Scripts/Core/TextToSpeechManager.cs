@@ -20,7 +20,7 @@ public class TextToSpeechManager : MonoBehaviour
 {
     [Header("TTS Configuration")]
     [SerializeField] private string ttsModel = "tts-1";
-    [SerializeField] private string ttsVoice = "onyx";
+    private string currentTtsVoice;
     [SerializeField] private string ttsResponseFormat = "mp3";
     [SerializeField] private string ttsApiUrl = "https://api.openai.com/v1/audio/speech";
     [Tooltip("Playback speed. 1.0 is normal speed. Range: 0.25 to 4.0")]
@@ -69,27 +69,61 @@ public class TextToSpeechManager : MonoBehaviour
 
     }
 
-    /// <param name="key">OpenAI API Key</param>
-    public void Initialize(string key)
+    /// <summary>
+    /// Initializes the TTS Manager with the API key and the selected voice.
+    /// Starts the internal coroutines for processing and playback.
+    /// Called by OpenAIWebRequest after its own initialization.
+    /// </summary>
+    /// <param name="key">OpenAI API Key.</param>
+    /// <param name="voiceId">The voice ID selected in the menu (e.g., "alloy", "nova").</param>
+    public void Initialize(string key, string voiceId)
     {
+        Debug.Log($"[TextToSpeechManager] Initialize called. Voice ID: {voiceId}");
+
+        // --- 1. Ellenőrzések ---
         if (string.IsNullOrEmpty(key))
         {
             Debug.LogError("[TextToSpeechManager] Initialization failed: API Key is null or empty.", this);
+            enabled = false; // Letiltjuk magunkat, ha nincs kulcs
+            return;
+        }
+        if (string.IsNullOrEmpty(voiceId))
+        {
+            Debug.LogWarning("[TextToSpeechManager] Initialization Warning: Voice ID is null or empty. Using default or last known voice might occur if not handled.", this);
+            // Dönthetsz úgy, hogy itt is letiltod, vagy megpróbálsz egy alapértelmezettet használni.
+            // Maradjunk annál, hogy logoljuk, de nem tiltjuk le azonnal.
+        }
+        if (audioSource == null) // Ezt az ellenőrzést ide is betehetjük
+        {
+            Debug.LogError("[TextToSpeechManager] Initialization failed: AudioSource is not assigned!", this);
             enabled = false;
             return;
         }
-        apiKey = key;
-        Debug.Log("[TextToSpeechManager] Initialized successfully with API Key.");
 
-        // Most már elindíthatjuk a korutinokat, mert van API kulcsunk
+        // --- 2. Konfiguráció Mentése ---
+        this.apiKey = key;
+        this.currentTtsVoice = voiceId; // Elmentjük a kapott hang ID-t a belső változóba
+
+        Debug.Log($"[TextToSpeechManager] API Key stored. Current TTS Voice set to: {this.currentTtsVoice}");
+
+        // --- 3. Korutinok Indítása ---
+        // Csak az inicializálás után indítjuk el a feldolgozó ciklusokat.
+        // Ellenőrizzük, hogy ne induljanak újra, ha valamiért többször hívódna meg az Initialize.
         if (manageTTSCoroutine == null)
         {
             manageTTSCoroutine = StartCoroutine(ManageTTSRequests());
+            Debug.Log("[TextToSpeechManager] ManageTTSRequests coroutine started.");
         }
+        else { Debug.LogWarning("[TextToSpeechManager] ManageTTSRequests coroutine already running."); }
+
         if (managePlaybackCoroutine == null)
         {
             managePlaybackCoroutine = StartCoroutine(ManagePlayback());
+            Debug.Log("[TextToSpeechManager] ManagePlayback coroutine started.");
         }
+        else { Debug.LogWarning("[TextToSpeechManager] ManagePlayback coroutine already running."); }
+
+        Debug.Log("[TextToSpeechManager] Initialization complete.");
     }
 
     public void ResetManager()
@@ -244,7 +278,7 @@ public class TextToSpeechManager : MonoBehaviour
             model = this.ttsModel,
             // input = text, // <<< EREDETI
             input = data.Text, // <<< MÓDOSÍTÁS: Adatból vesszük a szöveget
-            voice = this.ttsVoice,
+            voice = this.currentTtsVoice,
             response_format = this.ttsResponseFormat,
             speed = this.ttsSpeed
         };

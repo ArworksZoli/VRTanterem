@@ -6462,15 +6462,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   availableLanguages:
-  - {fileID: 11400000, guid: b6ece863a5940a248a784b32c8c76fa3, type: 2}
   - {fileID: 11400000, guid: 7f94c9047a500a4448566efef0ed0893, type: 2}
+  - {fileID: 11400000, guid: b6ece863a5940a248a784b32c8c76fa3, type: 2}
   languagePanel: {fileID: 53904345}
   subjectPanel: {fileID: 659553119}
   topicPanel: {fileID: 1653899919}
   voicePanel: {fileID: 171766587}
   languageButtons:
-  - {fileID: 1755469158}
   - {fileID: 1533510617}
+  - {fileID: 1755469158}
   subjectButtons:
   - {fileID: 157674838}
   - {fileID: 1798492889}
@@ -13511,7 +13511,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   apiKey: 
-  assistantID: asst_MbGOr6xjhfQ1RSzKMXWbqXS6
   userInput: Hello!
   TMPResponseText: {fileID: 7679562417209752150}
   TMPInputField: {fileID: 7679562417014403810}
@@ -13531,7 +13530,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ttsModel: tts-1
-  ttsVoice: onyx
   ttsResponseFormat: mp3
   ttsApiUrl: https://api.openai.com/v1/audio/speech
   ttsSpeed: 1.1

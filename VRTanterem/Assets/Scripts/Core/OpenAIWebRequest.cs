@@ -18,7 +18,7 @@ public class OpenAIWebRequest : MonoBehaviour
     [SerializeField] private string apiKey = ""; // Üresen hagyjuk, az értéket az Inspectorban kell megadni
 
     [Tooltip("The ID of the OpenAI Assistant to use")]
-    [SerializeField] private string assistantID = ""; // Üresen hagyjuk, az értéket az Inspectorban kell megadni
+    private string assistantID;
 
     private string apiUrl = "https://api.openai.com/v1"; // Ezt itt hagyhatjuk, ha nem változik gyakran
 
@@ -86,18 +86,6 @@ public class OpenAIWebRequest : MonoBehaviour
         }
         // --- KONFIGURÁCIÓ ELLENŐRZÉSE VÉGE ---
 
-        // --- TTS Manager Inicializálása ---
-        if (textToSpeechManager != null)
-        {
-            textToSpeechManager.Initialize(apiKey); // Átadjuk az API kulcsot
-        }
-        else
-        {
-            Debug.LogWarning("[OpenAIWebRequest] TextToSpeechManager reference is not set in the Inspector. TTS functionality will be disabled.");
-            // Nem kell letiltani az egész komponenst, csak a TTS nem fog menni.
-        }
-        // --- TTS Manager Inicializálása VÉGE ---
-
         // --- Sentence Highlighter Ellenőrzése ---
         if (sentenceHighlighter == null)
         {
@@ -133,6 +121,60 @@ public class OpenAIWebRequest : MonoBehaviour
 
         Debug.Log("[OpenAIWebRequest] Start() finished (Automatic thread/run creation DISABLED for menu integration).");
     }
+
+    /// <summary>
+    /// Initializes the component with the necessary configuration and starts the interaction process.
+    /// Called by AppStateManager after the menu selection is complete and this module is activated.
+    /// </summary>
+    /// <param name="selectedAssistantId">The Assistant ID chosen in the menu.</param>
+    /// <param name="selectedVoiceId">The Voice ID chosen in the menu (for TTS initialization).</param>
+    public void InitializeAndStartInteraction(string selectedAssistantId, string selectedVoiceId)
+    {
+        Debug.Log($"[OpenAIWebRequest] InitializeAndStartInteraction called. AssistantID: {selectedAssistantId}, VoiceID: {selectedVoiceId}");
+
+        // --- 1. Konfiguráció Mentése ---
+        this.assistantID = selectedAssistantId; // Elmentjük a kapott ID-t
+
+        // Ellenőrizzük az API kulcsot (feltételezve, hogy az Inspectorban van beállítva)
+        if (string.IsNullOrEmpty(apiKey) || apiKey.Length < 10)
+        {
+            Debug.LogError("[OpenAIWebRequest] Initialization Error: API Key is missing or invalid in Inspector!", this);
+            enabled = false; // Letiltjuk magunkat
+            return;
+        }
+
+        // --- 2. Függőségek Resetelése ---
+        Debug.Log("[OpenAIWebRequest] Resetting dependent managers...");
+        if (textToSpeechManager != null)
+        {
+            textToSpeechManager.ResetManager();
+        }
+        else { Debug.LogWarning("[OpenAIWebRequest] Cannot reset TTS Manager - reference missing."); }
+
+        if (sentenceHighlighter != null)
+        {
+            sentenceHighlighter.ResetHighlighter();
+        }
+        else { Debug.LogWarning("[OpenAIWebRequest] Cannot reset Sentence Highlighter - reference missing."); }
+
+        // --- 3. TTS Manager Inicializálása (ÚJ HÍVÁS) ---
+        // Most már itt hívjuk meg a TTS Manager módosított Initialize metódusát
+        if (textToSpeechManager != null)
+        {
+            Debug.Log("[OpenAIWebRequest] Initializing TextToSpeechManager...");
+            textToSpeechManager.Initialize(this.apiKey, selectedVoiceId); // Átadjuk a kulcsot és a KIVÁLASZTOTT hangot
+        }
+        // else már logoltuk a hiányát
+
+        // --- 4. OpenAI Interakció Indítása ---
+        // Most indítjuk azokat a korutinokat, amiket a Start()-ból kivettünk
+        Debug.Log("[OpenAIWebRequest] Starting OpenAI interaction coroutines (GetAssistant, CreateThread)...");
+        StartCoroutine(GetAssistant()); // Használja a most beállított this.assistantID-t
+        StartCoroutine(CreateThread()); // Ez már nem küld kezdeti üzenetet (ha a Start()-ból kivetted a userInput kezelést)
+
+        Debug.Log("[OpenAIWebRequest] Initialization and startup complete.");
+    }
+
 
     // OpenAIWebRequest.cs-ben hozzáadandó metódus
     public void ProcessVoiceInput(string recognizedText)
@@ -797,8 +839,18 @@ public class OpenAIWebRequest : MonoBehaviour
         // 2. A modell neve
         formData.Add(new MultipartFormDataSection("model", ModelName));
 
-        // Opcionális: Nyelv megadása (ha csak egy nyelvet vársz)
-        formData.Add(new MultipartFormDataSection("language", "en"));
+        string targetLanguage = "en"; // Alapértelmezett, ha valami hiba van
+        if (AppStateManager.Instance != null && AppStateManager.Instance.CurrentLanguage != null && !string.IsNullOrEmpty(AppStateManager.Instance.CurrentLanguage.languageCode))
+        {
+            targetLanguage = AppStateManager.Instance.CurrentLanguage.languageCode;
+            Debug.Log($"[Whisper] Using language code from AppStateManager: {targetLanguage}");
+        }
+        else
+        {
+            Debug.LogWarning("[Whisper] Could not get language code from AppStateManager or it was empty. Defaulting to 'en'. Check LanguageConfig setup.");
+        }
+        // Használjuk a dinamikusan meghatározott nyelvi kódot
+        formData.Add(new MultipartFormDataSection("language", targetLanguage));
 
         // Opcionális: Válasz formátuma (alapértelmezetten json)
         // formData.Add(new MultipartFormDataSection("response_format", "json"));

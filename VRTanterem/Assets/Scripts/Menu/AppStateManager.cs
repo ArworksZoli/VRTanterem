@@ -136,18 +136,19 @@ public class AppStateManager : MonoBehaviour
             if (openAIComp != null)
             {
                 Debug.Log("[AppStateManager] Found OpenAIWebRequest. Calling InitializeAndStartInteraction (Phase 2)...");
-                // openAIComp.InitializeAndStartInteraction(CurrentAssistantId, openAiApiKey); // Ezt majd a 2. fázisban implementáljuk
+                openAIComp.InitializeAndStartInteraction(CurrentAssistantId, CurrentVoiceId); // Ezt majd a 2. fázisban implementáljuk
             }
             else { Debug.LogError("[AppStateManager] OpenAIWebRequest component not found on the Interaction Module Object or its children!"); }
 
             // TextToSpeechManager inicializálása
-            TextToSpeechManager ttsComp = interactionModuleObject.GetComponentInChildren<TextToSpeechManager>(true); // true: inaktívakat is keres
+            /* TextToSpeechManager ttsComp = interactionModuleObject.GetComponentInChildren<TextToSpeechManager>(true); // true: inaktívakat is keres
             if (ttsComp != null)
             {
                 Debug.Log("[AppStateManager] Found TextToSpeechManager. Calling Initialize (Phase 2)...");
                 // ttsComp.Initialize(openAiApiKey, CurrentVoiceId); // Ezt majd a 2. fázisban implementáljuk
             }
             else { Debug.LogError("[AppStateManager] TextToSpeechManager component not found on the Interaction Module Object or its children!"); }
+            */
 
             // WhisperMicController és SentenceHighlighter automatikusan inicializálódik az OnEnable-ben,
             // amikor az interactionModuleObject aktívvá válik.
