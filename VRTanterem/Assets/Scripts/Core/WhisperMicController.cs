@@ -1,5 +1,4 @@
 ﻿using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Android;
 using UnityEngine.InputSystem;
@@ -8,619 +7,472 @@ using System;
 
 public class WhisperMicController : MonoBehaviour
 {
-    // ... (A Headerek és SerializeField változók változatlanok maradnak) ...
     [Header("Input Settings")]
     [SerializeField] private InputActionAsset inputActions;
-    [SerializeField] private string actionMapName = "XRI RightHand Interaction";
-    [SerializeField] private string recordActionName = "RecordVoice";
+    [Tooltip("The Action Map containing the 'Speak' action.")]
+    [SerializeField] private string actionMapName = "XRI RightHand Interaction"; // Vagy amelyikben a beszéd gomb van
+    [Tooltip("The Input Action used to trigger voice recording (hold to speak).")]
+    [SerializeField] private string speakActionName = "RecordVoice"; // Átneveztem 'speakActionName'-re a jobb érthetőségért
 
     [Header("Microphone Settings")]
-    [SerializeField] private int recordingDurationSeconds = 60;
-    [SerializeField] private int sampleRate = 44100;
+    [SerializeField] private int recordingDurationSeconds = 15; // Rövidebb alapértelmezett lehet jobb
+    [SerializeField] private int sampleRate = 16000; // Whisper jobban szereti a 16kHz-et
 
-    [Header("API Integration (Placeholder)")]
-    [SerializeField] private OpenAIWebRequest openAIWebRequest;
+    [Header("API Integration")]
+    [Tooltip("Reference to the OpenAIWebRequest component (used only for SendAudioToWhisper).")]
+    [SerializeField] private OpenAIWebRequest openAIWebRequest; // Ezt még használjuk a Whisper API híváshoz
 
     [Header("External Components")]
-    [Tooltip("Reference to the TextToSpeechManager for playback status")]
-    [SerializeField] private TextToSpeechManager textToSpeechManager;
+    // [SerializeField] private TextToSpeechManager textToSpeechManager; // <<< ELTÁVOLÍTVA: Már nem kell itt figyelni a TTS-t
+    [Tooltip("TextMeshPro component to display recording/processing status.")]
     [SerializeField] private TextMeshProUGUI statusText;
+    [Tooltip("Sound played when recording starts.")]
     [SerializeField] private AudioClip pressSound;
+    [Tooltip("Sound played when recording stops.")]
     [SerializeField] private AudioClip releaseSound;
 
-    private const string IdleText = "Press A for question";
-    private const string RecordingText = "RECORDING";
-    private const string ProcessingText = "Processing Audio...";
-    private const string TranscribingText = "Transcribing...";
-    private const string SendingToAssistantText = "Sending to Assistant...";
+    // --- Státusz Szövegek ---
+    // Ezeket az InteractionFlowManager is beállíthatja majd, de itt is lehetnek alapértelmezettek
+    private const string StatusIdle = "Hold <Speak Button> to talk"; // Általánosabb idle szöveg
+    private const string StatusDisabled = ""; // Vagy "..." ha le van tiltva a gomb
+    private const string StatusRecording = "RECORDING...";
+    private const string StatusProcessing = "Processing...";
+    private const string StatusTranscribing = "Transcribing...";
+    // private const string SendingToAssistantText = "Sending to Assistant..."; // Ezt inkább az InteractionFlowManager kezelje
 
-    private int activeTTSPlaybackCount = 0;
-    private object ttsCounterLock = new object();
-
-    private InputAction recordAction;
+    // --- Belső Változók ---
+    private InputAction speakAction; // Átnevezve
     private AudioClip recordedClip;
     private string microphoneDevice;
     private bool isRecording = false;
     private AudioSource audioSource;
 
-    // ... (Start, Update, Awake változatlanok maradnak) ...
-
     void Awake()
     {
-        // Kezdeti állapot beállítása a UI-on
-        UpdateStatusText(IdleText);
-
         audioSource = GetComponent<AudioSource>();
         if (audioSource == null)
         {
-            Debug.LogWarning("AudioSource component missing on WhisperMicController GameObject. Adding one.");
             audioSource = gameObject.AddComponent<AudioSource>();
         }
 
-
-        // Mikrofon eszköz nevének lekérése
+        // Mikrofon eszköz nevének lekérése (maradhat null, a Microphone.Start kezeli)
         microphoneDevice = null;
 
         // Input Action referencia beállítása
-        if (inputActions == null)
-        {
-            Debug.LogError("Input Actions asset is not assigned in the Inspector!");
-            enabled = false; return;
-        }
+        if (inputActions == null) { Debug.LogError("Input Actions asset not assigned!", this); enabled = false; return; }
         var actionMap = inputActions.FindActionMap(actionMapName);
-        if (actionMap == null)
-        {
-            Debug.LogError($"Action Map '{actionMapName}' not found!");
-            enabled = false; return;
-        }
-        recordAction = actionMap.FindAction(recordActionName);
-        if (recordAction == null)
-        {
-            Debug.LogError($"Action '{recordActionName}' not found in map '{actionMapName}'!");
-            enabled = false; return;
-        }
+        if (actionMap == null) { Debug.LogError($"Action Map '{actionMapName}' not found!", this); enabled = false; return; }
+        speakAction = actionMap.FindAction(speakActionName); // speakActionName használata
+        if (speakAction == null) { Debug.LogError($"Action '{speakActionName}' not found in map '{actionMapName}'!", this); enabled = false; return; }
 
-        // Jogosultság kérés
+        // Jogosultság kérés (változatlan)
         RequestMicrophonePermission();
 
-        // Ellenőrizzük a TTS Manager referenciát
-        if (textToSpeechManager == null)
-        {
-            Debug.LogWarning("TextToSpeechManager reference not set in WhisperMicController Inspector. Input disabling/enabling based on TTS status will not work.");
-        }
-        Debug.Log("WhisperMicController Awake finished.");
+        // Kezdeti állapot: Gomb letiltva, UI frissítve
+        speakAction?.Disable(); // Biztos, ami biztos
+        UpdateStatusText(StatusDisabled); // Kezdetben le van tiltva
+
+        Debug.Log("[WhisperMicController] Awake finished.");
     }
 
     private void RequestMicrophonePermission()
     {
-#if UNITY_ANDROID && !UNITY_EDITOR // Csak Android eszközön, Editorban nem kell
+#if UNITY_ANDROID && !UNITY_EDITOR
         if (!UnityEngine.Android.Permission.HasUserAuthorizedPermission(UnityEngine.Android.Permission.Microphone))
         {
-            Debug.Log("Requesting Microphone permission..."); // Logoljuk a kérést
+            Debug.Log("Requesting Microphone permission...");
             UnityEngine.Android.Permission.RequestUserPermission(UnityEngine.Android.Permission.Microphone);
-            // Megjegyzés: A kérés aszinkron, a válasz nem azonnal érkezik meg.
-            // A kódban lévő ellenőrzések (pl. OnRecordStarted-ben) kezelik, ha nincs meg az engedély.
         }
-        else
-        {
-             Debug.Log("Microphone permission already granted."); // Logoljuk, ha már megvan
-        }
+        else { /* Debug.Log("Microphone permission already granted."); */ }
 #else
-        // Editorban vagy más platformon nincs szükség explicit kérésre itt
-        Debug.Log("Microphone permission check skipped (Not on Android device or in Editor).");
+        // Debug.Log("Microphone permission check skipped (Not on Android device or in Editor).");
 #endif
     }
 
     void OnEnable()
     {
-        Debug.Log("WhisperMicController OnEnable called.");
-        if (recordAction != null)
+        Debug.Log("[WhisperMicController] OnEnable called.");
+        // Feliratkozás az Input Action eseményekre
+        if (speakAction != null)
         {
-            recordAction.started += OnRecordStarted;
-            recordAction.canceled += OnRecordStopped;
-
-            // Kezdeti engedélyezés: Csak akkor, ha NINCS aktív lejátszás
-            // (A számláló állapotát is figyelembe vesszük, ha esetleg OnDisable/OnEnable között változna)
-            lock (ttsCounterLock) // Biztonságos hozzáférés a számlálóhoz
-            {
-                if (activeTTSPlaybackCount == 0)
-                {
-                    if (!recordAction.enabled) recordAction.Enable(); // Csak ha nincs már engedélyezve
-                    Debug.Log("Record action ENABLED initially in OnEnable (TTS count is 0).");
-                }
-                else
-                {
-                    if (recordAction.enabled) recordAction.Disable(); // Ha valamiért engedélyezve maradt, tiltsuk
-                    Debug.Log($"Record action DISABLED initially in OnEnable (TTS count is {activeTTSPlaybackCount}).");
-                }
-            }
-            Debug.Log("Record action listeners attached.");
+            speakAction.started += OnRecordStarted;
+            speakAction.canceled += OnRecordStopped;
+            Debug.Log("[WhisperMicController] Speak action listeners attached.");
+            // Az engedélyezést/letiltást az InteractionFlowManager végzi!
+            // Itt nem engedélyezzük automatikusan.
         }
 
-        // Feliratkozás a TTS eseményekre
-        if (textToSpeechManager != null)
-        {
-            textToSpeechManager.OnTTSPlaybackStart += HandleTTSPlaybackStart; // Átnevezzük a handlert
-            textToSpeechManager.OnTTSPlaybackEnd += HandleTTSPlaybackEnd;     // Átnevezzük a handlert
-            Debug.Log("Subscribed to TTS Manager events.");
-
-            // Ha OnEnablekor már játszik a TTS (elméletileg a számláló > 0),
-            // a fenti logika már letiltotta az actiont.
-        }
+        // --- TTS ESEMÉNYEKRŐL LEIRATKOZÁS ---
+        // Már nincs rájuk szükség itt.
+        // if (textToSpeechManager != null) { ... }
     }
 
     void OnDisable()
     {
-        Debug.Log("WhisperMicController OnDisable called.");
+        Debug.Log("[WhisperMicController] OnDisable called.");
         // Leiratkozás az Input Action eseményekről
-        if (recordAction != null)
+        if (speakAction != null)
         {
-            recordAction.started -= OnRecordStarted;
-            recordAction.canceled -= OnRecordStopped;
-            if (recordAction.enabled) recordAction.Disable();
-            Debug.Log("Record action listeners detached and action disabled due to component disable.");
+            speakAction.started -= OnRecordStarted;
+            speakAction.canceled -= OnRecordStopped;
+            // Mindig tiltsuk le, ha a komponens deaktiválódik
+            speakAction.Disable();
+            Debug.Log("[WhisperMicController] Speak action listeners detached and action disabled.");
         }
 
-        // Leiratkozás a TTS eseményekről
-        if (textToSpeechManager != null)
-        {
-            textToSpeechManager.OnTTSPlaybackStart -= HandleTTSPlaybackStart;
-            textToSpeechManager.OnTTSPlaybackEnd -= HandleTTSPlaybackEnd;
-            Debug.Log("Unsubscribed from TTS Manager events.");
-        }
-
-        // Ha épp felvétel van, állítsuk le
+        // Ha épp felvétel van, állítsuk le (változatlan)
         if (isRecording)
         {
-            Microphone.End(microphoneDevice);
-            isRecording = false;
-            Debug.LogWarning("Microphone recording stopped due to script disable.");
-            UpdateStatusText(IdleText);
+            StopRecordingInternal(); // Kiszervezve a logikát
+            Debug.LogWarning("[WhisperMicController] Microphone recording stopped due to component disable.");
+            UpdateStatusText(StatusDisabled); // Vissza tiltott állapotba
         }
 
-        // Opcionális: Nullázzuk a számlálót OnDisable-ben?
-        // Lehet, hogy jobb, ha megmarad az értéke, ha csak ideiglenes a disable.
-        // De ha biztosra akarunk menni, nullázhatjuk:
-        // lock(ttsCounterLock) { activeTTSPlaybackCount = 0; }
+        // --- TTS ESEMÉNYEKRŐL LEIRATKOZÁS ---
+        // Már nincs rájuk szükség itt.
+        // if (textToSpeechManager != null) { ... }
     }
 
-    private void HandleTTSPlaybackStart(int sentenceIndex)
+    // --- Külső Vezérlő Metódusok (InteractionFlowManager hívja) ---
+
+    /// <summary>
+    /// Enables the speak input action, allowing the user to press/hold the speak button.
+    /// Called by InteractionFlowManager when it's appropriate for the user to speak.
+    /// </summary>
+    public void EnableSpeakButton()
     {
-        lock (ttsCounterLock) // Biztonságos módosítás
+        if (speakAction != null && !speakAction.enabled)
         {
-            activeTTSPlaybackCount++;
-            Debug.Log($"[TTS Counter] Playback START detected (Index: {sentenceIndex}). Count incremented to: {activeTTSPlaybackCount}");
-
-            // Ha ez az ELSŐ lejátszás (számláló 1 lett), akkor tiltsuk le az inputot
-            if (activeTTSPlaybackCount == 1)
-            {
-                if (recordAction != null && recordAction.enabled)
-                {
-                    recordAction.Disable();
-                    Debug.LogError($"--- Record action DISABLED (TTS Count became 1) ---");
-                }
-                else if (recordAction != null && !recordAction.enabled)
-                {
-                    // Már le volt tiltva, ami rendben van, ha pl. OnEnable-kor már futott a TTS
-                    Debug.LogWarning("HandleTTSPlaybackStart: Action already disabled when TTS count became 1.");
-                }
-                else if (recordAction == null)
-                {
-                    Debug.LogError("HandleTTSPlaybackStart: Cannot disable action, recordAction is NULL!");
-                }
-            }
+            speakAction.Enable();
+            UpdateStatusText(StatusIdle); // Jelezzük, hogy most lehet beszélni
+            Debug.Log("[WhisperMicController] Speak Action ENABLED.");
         }
+        else if (speakAction == null)
+        {
+            Debug.LogError("[WhisperMicController] Cannot enable speak action: speakAction is NULL!");
+        }
+        // Ha már engedélyezve volt, nem csinálunk semmit (vagy csak logolunk)
+        // else { Debug.LogWarning("[WhisperMicController] EnableSpeakButton called, but action was already enabled."); }
     }
 
-    private void HandleTTSPlaybackEnd(int sentenceIndex)
+    /// <summary>
+    /// Disables the speak input action, preventing the user from initiating recording.
+    /// Called by InteractionFlowManager when the user should not be speaking.
+    /// </summary>
+    public void DisableSpeakButton()
     {
-        lock (ttsCounterLock) // Biztonságos módosítás
+        if (speakAction != null && speakAction.enabled)
         {
-            if (activeTTSPlaybackCount > 0) // Csak akkor csökkentünk, ha volt mit
-            {
-                activeTTSPlaybackCount--;
-                Debug.Log($"[TTS Counter] Playback END detected (Index: {sentenceIndex}). Count decremented to: {activeTTSPlaybackCount}");
+            speakAction.Disable();
+            UpdateStatusText(StatusDisabled); // Jelezzük, hogy a gomb inaktív
+            Debug.Log("[WhisperMicController] Speak Action DISABLED.");
 
-                // Ha ez volt az UTOLSÓ lejátszás (számláló 0 lett), akkor engedélyezzük az inputot ÉS visszaállítjuk a státuszt
-                if (activeTTSPlaybackCount == 0)
-                {
-                    if (recordAction != null && !recordAction.enabled)
-                    {
-                        // Ellenőrizzük az isRecording flag-et (amit az 1. lépésben már false-ra kellett állítani)
-                        if (!isRecording)
-                        {
-                            recordAction.Enable();
-                            Debug.LogError($"--- Record action ENABLED (TTS Count became 0) ---");
-
-                            // --- MÓDOSÍTÁS: Státusz visszaállítása IdleText-re ---
-                            UpdateStatusText(IdleText);
-                            Debug.Log("[HandleTTSPlaybackEnd] TTS finished, setting status to IdleText.");
-                            // ----------------------------------------------------
-                        }
-                        else
-                        {
-                            // Ennek már nem szabadna előfordulnia az 1. lépés után, de a biztonság kedvéért itt marad a log
-                            Debug.LogWarning("HandleTTSPlaybackEnd: TTS Count is 0, but recording flag is still active? Input remains disabled and status not reset.");
-                        }
-                    }
-                    // ... (a többi else if ág változatlan maradhat) ...
-                    else if (recordAction != null && recordAction.enabled)
-                    {
-                        Debug.LogWarning("HandleTTSPlaybackEnd: Action already enabled when TTS count became 0.");
-                        // Itt is visszaállíthatjuk a státuszt, ha valamiért már engedélyezve volt a gomb
-                        UpdateStatusText(IdleText);
-                    }
-                    else if (recordAction == null)
-                    {
-                        Debug.LogError("HandleTTSPlaybackEnd: Cannot enable action, recordAction is NULL!");
-                    }
-                }
-            }
-            else
+            // Ha éppen felvétel közben tiltják le, állítsuk le a felvételt
+            if (isRecording)
             {
-                Debug.LogWarning($"HandleTTSPlaybackEnd called (Index: {sentenceIndex}), but TTS count was already 0!");
+                Debug.LogWarning("[WhisperMicController] Speak action disabled while recording was active. Stopping recording.");
+                StopRecordingInternal(); // Leállítjuk a felvételt, de nem dolgozzuk fel
             }
         }
+        else if (speakAction == null)
+        {
+            Debug.LogError("[WhisperMicController] Cannot disable speak action: speakAction is NULL!");
+        }
+        // Ha már le volt tiltva, nem csinálunk semmit
     }
 
-    // --- Hangrögzítés indítása ---
+    // --- TTS Eseménykezelők (Eltávolítva) ---
+    // private void HandleTTSPlaybackStart(int sentenceIndex) { ... } // TÖRÖLVE
+    // private void HandleTTSPlaybackEnd(int sentenceIndex) { ... } // TÖRÖLVE
+
+    // --- Hangrögzítés Indítása/Leállítása (Input Action Callbackek) ---
+
     private void OnRecordStarted(InputAction.CallbackContext context)
     {
-        // --- MÓDOSÍTÁS: Ellenőrzés a számláló alapján ---
-        bool canRecord = false;
-        lock (ttsCounterLock)
-        {
-            canRecord = (activeTTSPlaybackCount == 0);
-        }
-
-        if (!canRecord)
-        {
-            Debug.LogWarning("OnRecordStarted called, but TTS is currently active (count > 0). Ignoring input.");
-            // Opcionális hangjelzés/UI visszajelzés
-            return;
-        }
-        // --- Ellenőrzés vége ---
+        // Az Input System gondoskodik róla, hogy ez csak akkor hívódjon meg, ha az action engedélyezve van.
+        // Dupla ellenőrzés (opcionális):
+        // if (!speakAction.enabled) {
+        //     Debug.LogWarning("OnRecordStarted called but action is disabled. Ignoring.");
+        //     return;
+        // }
 
         if (isRecording)
         {
-            Debug.LogWarning("OnRecordStarted called, but already recording.");
+            Debug.LogWarning("[WhisperMicController] OnRecordStarted called, but already recording.");
             return;
         }
 
-        // ... (Jogosultság ellenőrzés, hang lejátszás, Microphone.Start változatlan) ...
+        // Jogosultság ellenőrzés (fontos lehet minden indításkor)
+#if UNITY_ANDROID && !UNITY_EDITOR
+        if (!UnityEngine.Android.Permission.HasUserAuthorizedPermission(UnityEngine.Android.Permission.Microphone))
+        {
+            Debug.LogError("[WhisperMicController] Cannot start recording: Microphone permission not granted.");
+            RequestMicrophonePermission(); // Megpróbáljuk újra kérni
+            return;
+        }
+#endif
+
         // Hangjelzés lejátszása
-        if (pressSound != null && audioSource != null)
-        {
-            audioSource.PlayOneShot(pressSound);
-        }
+        if (pressSound != null && audioSource != null) audioSource.PlayOneShot(pressSound);
 
-        Debug.Log("Recording Started...");
-        UpdateStatusText(RecordingText);
+        Debug.Log("[WhisperMicController] Recording Started...");
+        UpdateStatusText(StatusRecording);
         isRecording = true;
-        recordedClip = Microphone.Start(microphoneDevice, false, recordingDurationSeconds, sampleRate);
 
-        if (recordedClip == null)
+        // Felvétel indítása
+        try
         {
-            Debug.LogError("Microphone.Start failed to return an AudioClip.");
+            recordedClip = Microphone.Start(microphoneDevice, false, recordingDurationSeconds, sampleRate);
+            if (recordedClip == null)
+            {
+                Debug.LogError("[WhisperMicController] Microphone.Start failed to return an AudioClip (returned null). Check microphone device and permissions.");
+                isRecording = false;
+                UpdateStatusText("Mic Error"); // Vagy StatusDisabled
+                // Itt lehetne újra letiltani a gombot? Vagy az IFM kezeli? Maradjunk a sima hibajelzésnél.
+                // DisableSpeakButton(); // Opcionális
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[WhisperMicController] Exception during Microphone.Start: {e.Message}");
             isRecording = false;
-            UpdateStatusText(IdleText);
-            return;
+            UpdateStatusText("Mic Exception");
+            // DisableSpeakButton(); // Opcionális
         }
     }
 
-    // --- Hangrögzítés leállítása ---
     private void OnRecordStopped(InputAction.CallbackContext context)
     {
+        // Az Input System gondoskodik róla, hogy ez csak akkor hívódjon meg, ha az action engedélyezve van.
+
         if (!isRecording)
         {
-            Debug.LogWarning("OnRecordStopped called, but was not recording.");
-            return; // Nem is volt felvétel
+            // Ez előfordulhat, ha a gombot felengedik, mielőtt a Start teljesen lefutott volna, vagy hiba történt Start közben.
+            Debug.LogWarning("[WhisperMicController] OnRecordStopped called, but was not in 'isRecording' state. Ignoring processing.");
+            return;
         }
 
-        Debug.Log("Recording Stopped.");
+        Debug.Log("[WhisperMicController] Recording Stopped by user input.");
 
         // Hangjelzés lejátszása
-        if (releaseSound != null && audioSource != null)
+        if (releaseSound != null && audioSource != null) audioSource.PlayOneShot(releaseSound);
+
+        // Leállítjuk a felvételt és elindítjuk a feldolgozást
+        ProcessRecordedAudio();
+
+        // Fontos: Az isRecording flag-et a ProcessRecordedAudio vagy annak híváslánca
+        // állítja vissza false-ra a feldolgozás végén vagy hiba esetén.
+        // A gomb letiltását az InteractionFlowManager végzi, miután megkapta az átírást.
+    }
+
+    /// <summary>
+    /// Internal method to stop microphone recording without processing the audio.
+    /// Used when disabling the component or the speak button during recording.
+    /// </summary>
+    private void StopRecordingInternal()
+    {
+        if (isRecording)
         {
-            audioSource.PlayOneShot(releaseSound);
+            if (Microphone.IsRecording(microphoneDevice))
+            {
+                Microphone.End(microphoneDevice);
+            }
+            isRecording = false;
+            // Az eredeti 'recordedClip' megsemmisítése, mivel nem dolgozzuk fel
+            if (recordedClip != null)
+            {
+                Destroy(recordedClip);
+                recordedClip = null;
+            }
+            Debug.Log("[WhisperMicController] Stopped recording internally (no processing).");
         }
-        else if (releaseSound == null)
+    }
+
+    /// <summary>
+    /// Stops microphone recording, processes the captured audio, and sends it for transcription.
+    /// </summary>
+    private void ProcessRecordedAudio()
+    {
+        if (!isRecording) return; // Biztonsági ellenőrzés
+
+        int lastSample = 0;
+        bool wasRecording = Microphone.IsRecording(microphoneDevice);
+
+        if (wasRecording)
         {
-            Debug.Log("Release sound not assigned.");
+            lastSample = Microphone.GetPosition(microphoneDevice);
+            Microphone.End(microphoneDevice);
+            // Debug.Log($"[WhisperMicController] Microphone.End called. Last sample position: {lastSample}");
         }
-        else if (audioSource == null)
+        else
         {
-            Debug.LogWarning("AudioSource missing for release sound.");
+            Debug.LogWarning("[WhisperMicController] ProcessRecordedAudio called, but Microphone was not recording according to IsRecording().");
+            // Ha nem volt felvétel, de az isRecording flag true volt, akkor is visszaállítjuk
+            isRecording = false;
+            UpdateStatusText(StatusIdle); // Vagy StatusDisabled, attól függően, mi a logikusabb
+            return;
         }
 
-        int lastSample = Microphone.GetPosition(microphoneDevice);
-        Microphone.End(microphoneDevice); // Leállítja a felvételt
-
-        // Fontos: Az isRecording flag-et csak a feldolgozás *után* állítjuk false-ra,
-        // hogy a Disable/EnableRecordingInput helyesen működjön, ha pont ekkor ér véget a TTS.
-        // Viszont a UI-t már most visszaállíthatjuk.
-        UpdateStatusText(ProcessingText); // Jelezzük a feldolgozást
+        // Az isRecording flag-et itt még nem állítjuk false-ra, csak a feldolgozás végén/hiba esetén.
+        UpdateStatusText(StatusProcessing); // Jelezzük a feldolgozást
 
         if (recordedClip != null && lastSample > 0)
         {
             AudioClip trimmedClip = CreateTrimmedClip(recordedClip, lastSample);
-            recordedClip = null; // Az eredeti nagy bufferre már nincs szükség
+            // Az eredeti nagy bufferre már nincs szükség, töröljük
+            // Fontos: Az eredeti klipet csak a vágás *után* töröljük.
+            Destroy(recordedClip);
+            recordedClip = null;
 
             if (trimmedClip != null)
             {
-                Debug.Log($"Audio recorded: {trimmedClip.length} seconds. Ready to process.");
+                // Debug.Log($"[WhisperMicController] Audio trimmed: {trimmedClip.length} seconds. Converting to WAV.");
                 byte[] wavData = ConvertAudioClipToWav(trimmedClip);
                 Destroy(trimmedClip); // A vágott klipre sincs már szükség a konverzió után
 
-                if (wavData != null)
+                if (wavData != null && wavData.Length > 44) // 44 a WAV header mérete
                 {
+                    // Sikeres WAV konverzió, küldés Whispernek
                     ProcessWavData(wavData);
                 }
                 else
                 {
-                    Debug.LogError("Failed to convert recorded audio to WAV format.");
+                    Debug.LogError("[WhisperMicController] Failed to convert recorded audio to valid WAV format.");
                     UpdateStatusText("Conversion Error");
-                    Invoke(nameof(ResetStatusTextToIdle), 2.0f); // Visszaállás Idle-re kis késleltetéssel
-                    isRecording = false; // Itt már biztosan befejeztük
+                    isRecording = false; // Hiba esetén is visszaállítjuk
+                    // Gomb visszaengedélyezése? Vagy az IFM kezeli? Maradjunk ennél.
+                    // EnableSpeakButton(); // Opcionális
+                    Invoke(nameof(ResetStatusToIdleOrDisabled), 2.0f); // Visszaállás késleltetve
                 }
             }
             else
             {
-                Debug.LogWarning("Stopping recording, but trimmed clip was null.");
-                UpdateStatusText(IdleText); // Visszaállás Idle-re
-                isRecording = false; // Itt már biztosan befejeztük
+                Debug.LogWarning("[WhisperMicController] Processing stopped: trimmed clip was null.");
+                UpdateStatusText(StatusIdle); // Vagy StatusDisabled
+                isRecording = false; // Hiba esetén is visszaállítjuk
             }
         }
         else
         {
-            Debug.LogWarning("Stopping recording, but no valid audio data captured (lastSample=0 or recordedClip=null).");
+            Debug.LogWarning($"[WhisperMicController] Processing stopped: No valid audio data captured (lastSample={lastSample}, recordedClip null? {!recordedClip}).");
             if (recordedClip != null) Destroy(recordedClip); // Takarítsuk el a nagy buffert is
             recordedClip = null;
-            UpdateStatusText(IdleText); // Visszaállás Idle-re
-            isRecording = false; // Itt már biztosan befejeztük
+            UpdateStatusText(StatusIdle); // Vagy StatusDisabled
+            isRecording = false; // Hiba esetén is visszaállítjuk
         }
-
-        // Az isRecording flag beállítása a feldolgozás végén (vagy hiba esetén)
-        // A ProcessWavData hívja a ProcessWhisperResponse-t, ami visszaállítja IdleText-re
-        // a sikeres feldolgozás végén. A hibaágakat itt kezeltük.
-        // A flag beállítása itt történik meg, miután a feldolgozás elindult vagy hibára futott.
-        // isRecording = false; // <<< ÁTHELYEZVE A FELDOLGOZÁSI ÁGAK VÉGÉRE/HIBAÁGAKBA
     }
 
 
-    // ... (CreateTrimmedClip, ConvertAudioClipToWav és segédfüggvényei változatlanok) ...
+    // --- Hang Feldolgozás és API Hívás ---
+
+    // CreateTrimmedClip változatlan marad
     private AudioClip CreateTrimmedClip(AudioClip originalClip, int lastSamplePosition)
     {
         if (lastSamplePosition <= 0 || originalClip == null) return null;
-
         float[] data = new float[lastSamplePosition * originalClip.channels];
-        if (!originalClip.GetData(data, 0))
-        {
-            Debug.LogError("Failed to GetData from original clip in CreateTrimmedClip.");
-            return null; // Hiba történt az adatok lekérésekor
-        }
-
+        if (!originalClip.GetData(data, 0)) { Debug.LogError("Failed GetData in CreateTrimmedClip."); return null; }
         AudioClip trimmed = AudioClip.Create("RecordedTrimmed", lastSamplePosition, originalClip.channels, originalClip.frequency, false);
-        if (!trimmed.SetData(data, 0))
-        {
-            Debug.LogError("Failed to SetData for trimmed clip in CreateTrimmedClip.");
-            Destroy(trimmed); // Ne hagyjunk szemetet
-            return null; // Hiba történt az adatok beállításakor
-        }
-
-        // Az eredeti nagy klipet itt már nem töröljük, mert a hívó helyen kezeljük (OnRecordStopped)
-        // Destroy(originalClip);
-
+        if (!trimmed.SetData(data, 0)) { Debug.LogError("Failed SetData in CreateTrimmedClip."); Destroy(trimmed); return null; }
         return trimmed;
     }
 
-    // --- WAV Konverziós Függvények ---
+    // ConvertAudioClipToWav és segédfüggvényei változatlanok maradnak
     public static byte[] ConvertAudioClipToWav(AudioClip clip)
     {
-        if (clip == null)
-        {
-            Debug.LogError("ConvertAudioClipToWav Error: Input AudioClip is null.");
-            return null;
-        }
-
-        // Logoljuk a klip adatait a konverzió megkezdésekor
-        Debug.Log($"ConvertAudioClipToWav: Starting conversion for clip '{clip.name}'. Samples={clip.samples}, Channels={clip.channels}, Freq={clip.frequency}, Length={clip.length}s, LoadState={clip.loadState}");
-
-        // Ellenőrizzük a minták számát
-        if (clip.samples <= 0)
-        {
-            Debug.LogError($"ConvertAudioClipToWav Error: AudioClip has zero or negative samples ({clip.samples}). Cannot convert.");
-            return null;
-        }
-        // Ellenőrizzük a csatornák számát
-        if (clip.channels <= 0)
-        {
-            Debug.LogError($"ConvertAudioClipToWav Error: AudioClip has zero or negative channels ({clip.channels}). Cannot convert.");
-            return null;
-        }
-        // Ellenőrizzük a frekvenciát
-        if (clip.frequency <= 0)
-        {
-            Debug.LogError($"ConvertAudioClipToWav Error: AudioClip has zero or negative frequency ({clip.frequency}). Cannot convert.");
-            return null;
-        }
-
+        if (clip == null) { Debug.LogError("ConvertAudioClipToWav: Input AudioClip is null."); return null; }
+        if (clip.samples <= 0 || clip.channels <= 0 || clip.frequency <= 0) { Debug.LogError($"ConvertAudioClipToWav: Invalid clip parameters (Samples={clip.samples}, Channels={clip.channels}, Freq={clip.frequency})."); return null; }
         float[] samples = new float[clip.samples * clip.channels];
-        bool getDataSuccess = false;
+        if (!clip.GetData(samples, 0)) { Debug.LogError("ConvertAudioClipToWav: clip.GetData() failed."); return null; }
         try
         {
-            Debug.Log("ConvertAudioClipToWav: Attempting to call clip.GetData()...");
-            getDataSuccess = clip.GetData(samples, 0);
-            Debug.Log($"ConvertAudioClipToWav: clip.GetData() returned: {getDataSuccess}. Samples array length: {samples.Length}");
-        }
-        catch (Exception e)
-        {
-            // Elkapunk bármilyen kivételt a GetData során
-            Debug.LogError($"ConvertAudioClipToWav Error: Exception during clip.GetData: {e.Message}\nStack Trace: {e.StackTrace}");
-            return null; // Megszakítjuk a konverziót
-        }
-
-        if (!getDataSuccess)
-        {
-            Debug.LogError("ConvertAudioClipToWav Error: clip.GetData() returned false. Failed to retrieve audio data.");
-            return null;
-        }
-
-        // Ellenőrizzük, hogy a samples tömb valóban tartalmaz-e adatot (nem csak nullákat pl.) - Opcionális, de hasznos lehet
-        // float sum = 0; for(int i=0; i<Mathf.Min(samples.Length, 100); ++i) sum += Mathf.Abs(samples[i]);
-        // Debug.Log($"ConvertAudioClipToWav: Sanity check - Sum of first 100 sample magnitudes: {sum}");
-        // if (sum == 0 && samples.Length > 0) Debug.LogWarning("ConvertAudioClipToWav Warning: GetData succeeded but sample data seems to be all zeros.");
-
-
-        // --- WAV Fájl Összeállítása ---
-        try // A teljes WAV összeállítást try-catch blokkba tesszük
-        {
-            int dataSize = samples.Length * 2; // 16 bites PCM
-            int fileSize = dataSize + 44;      // Adat + Header mérete
-            byte[] wavFile = new byte[fileSize];
-
-            // Header írása (változatlan)
-            WriteString(wavFile, 0, "RIFF");
-            WriteInt32(wavFile, 4, fileSize - 8);
-            WriteString(wavFile, 8, "WAVE");
-            WriteString(wavFile, 12, "fmt ");
-            WriteInt32(wavFile, 16, 16);
-            WriteInt16(wavFile, 20, 1);
-            WriteInt16(wavFile, 22, (short)clip.channels);
-            WriteInt32(wavFile, 24, clip.frequency);
-            WriteInt32(wavFile, 28, clip.frequency * clip.channels * 2);
-            WriteInt16(wavFile, 32, (short)(clip.channels * 2));
-            WriteInt16(wavFile, 34, 16);
-            WriteString(wavFile, 36, "data");
-            WriteInt32(wavFile, 40, dataSize);
-
-            // Adatok konvertálása és írása (változatlan, de a try-catch blokkon belül van)
+            int dataSize = samples.Length * 2; int fileSize = dataSize + 44; byte[] wavFile = new byte[fileSize];
+            WriteString(wavFile, 0, "RIFF"); WriteInt32(wavFile, 4, fileSize - 8); WriteString(wavFile, 8, "WAVE"); WriteString(wavFile, 12, "fmt ");
+            WriteInt32(wavFile, 16, 16); WriteInt16(wavFile, 20, 1); WriteInt16(wavFile, 22, (short)clip.channels); WriteInt32(wavFile, 24, clip.frequency);
+            WriteInt32(wavFile, 28, clip.frequency * clip.channels * 2); WriteInt16(wavFile, 32, (short)(clip.channels * 2)); WriteInt16(wavFile, 34, 16);
+            WriteString(wavFile, 36, "data"); WriteInt32(wavFile, 40, dataSize);
             int headerOffset = 44;
-            for (int i = 0; i < samples.Length; i++)
-            {
-                float sampleFloat = Mathf.Clamp(samples[i], -1.0f, 1.0f); // Biztonsági clamp
-                short sampleInt = (short)(sampleFloat * 32767.0f);
-                wavFile[headerOffset + i * 2] = (byte)(sampleInt & 0xff);
-                wavFile[headerOffset + i * 2 + 1] = (byte)((sampleInt >> 8) & 0xff);
-            }
-
-            Debug.Log($"ConvertAudioClipToWav: Successfully constructed WAV data: {wavFile.Length} bytes.");
+            for (int i = 0; i < samples.Length; i++) { short sampleInt = (short)(Mathf.Clamp(samples[i], -1.0f, 1.0f) * 32767.0f); wavFile[headerOffset + i * 2] = (byte)(sampleInt & 0xff); wavFile[headerOffset + i * 2 + 1] = (byte)((sampleInt >> 8) & 0xff); }
             return wavFile;
         }
-        catch (Exception e)
-        {
-            // Elkapunk bármilyen kivételt a WAV összeállítása során (pl. indexelési hiba)
-            Debug.LogError($"ConvertAudioClipToWav Error: Exception during WAV file construction: {e.Message}\nStack Trace: {e.StackTrace}");
-            return null;
-        }
+        catch (Exception e) { Debug.LogError($"ConvertAudioClipToWav: Exception during WAV construction: {e.Message}"); return null; }
     }
-
-    // Segédfüggvények a header írásához (Little Endian)
-    private static void WriteString(byte[] data, int offset, string value)
-    {
-        byte[] bytes = System.Text.Encoding.ASCII.GetBytes(value);
-        System.Buffer.BlockCopy(bytes, 0, data, offset, bytes.Length);
-    }
-
-    private static void WriteInt16(byte[] data, int offset, short value)
-    {
-        data[offset] = (byte)(value & 0xff);
-        data[offset + 1] = (byte)((value >> 8) & 0xff);
-    }
-
-    private static void WriteInt32(byte[] data, int offset, int value)
-    {
-        data[offset] = (byte)(value & 0xff);
-        data[offset + 1] = (byte)((value >> 8) & 0xff);
-        data[offset + 2] = (byte)((value >> 16) & 0xff);
-        data[offset + 3] = (byte)((value >> 24) & 0xff);
-    }
+    private static void WriteString(byte[] data, int offset, string value) { byte[] bytes = System.Text.Encoding.ASCII.GetBytes(value); System.Buffer.BlockCopy(bytes, 0, data, offset, bytes.Length); }
+    private static void WriteInt16(byte[] data, int offset, short value) { data[offset] = (byte)(value & 0xff); data[offset + 1] = (byte)((value >> 8) & 0xff); }
+    private static void WriteInt32(byte[] data, int offset, int value) { data[offset] = (byte)(value & 0xff); data[offset + 1] = (byte)((value >> 8) & 0xff); data[offset + 2] = (byte)((value >> 16) & 0xff); data[offset + 3] = (byte)((value >> 24) & 0xff); }
 
 
-    // Feldolgozás indítása
+    // Feldolgozás indítása (Whisper API hívás)
     private void ProcessWavData(byte[] wavData)
     {
-        if (wavData == null || wavData.Length == 0)
-        {
-            Debug.LogError("ProcessWavData called with invalid data.");
-            UpdateStatusText("Processing Error");
-            Invoke(nameof(ResetStatusTextToIdle), 2.0f);
-            isRecording = false; // Itt is be kell állítani a flag-et hiba esetén
-            return;
-        }
+        if (wavData == null || wavData.Length <= 44) { /*...*/ isRecording = false; return; } // Már kezeltük a ProcessRecordedAudio-ban
 
-        Debug.Log($"Processing WAV data: {wavData.Length} bytes. Sending to Whisper API...");
-        UpdateStatusText(TranscribingText); // Jelezzük az átírást
+        Debug.Log($"[WhisperMicController] Sending {wavData.Length} bytes of WAV data to Whisper API...");
+        UpdateStatusText(StatusTranscribing); // Jelezzük az átírást
 
         if (openAIWebRequest != null)
         {
+            // Elindítjuk a Whisper kérést, és átadjuk a callback függvényt
             StartCoroutine(openAIWebRequest.SendAudioToWhisper(wavData, ProcessWhisperResponse));
         }
         else
         {
-            Debug.LogError("OpenAIWebRequest reference is not set in the Inspector!");
+            Debug.LogError("[WhisperMicController] OpenAIWebRequest reference is not set! Cannot send audio.");
             UpdateStatusText("Error: API unavailable");
-            Invoke(nameof(ResetStatusTextToIdle), 2.0f);
-            isRecording = false; // Itt is be kell állítani a flag-et hiba esetén
+            isRecording = false; // Hiba -> isRecording visszaállítása
+            Invoke(nameof(ResetStatusToIdleOrDisabled), 2.0f);
         }
     }
 
-    // Whisper válasz feldolgozása
+    // Whisper válasz feldolgozása (Callback)
     private void ProcessWhisperResponse(string transcription)
     {
+        // Fontos: Ez a metódus egy korutinból (SendAudioToWhisper) hívódik vissza.
+
         if (string.IsNullOrEmpty(transcription))
         {
-            Debug.LogWarning("Whisper API returned an empty or null transcription.");
+            Debug.LogWarning("[WhisperMicController] Whisper API returned an empty or null transcription.");
             UpdateStatusText("Transcription Failed");
-            Invoke(nameof(ResetStatusTextToIdle), 2.0f);
-            isRecording = false; // <<< HIBA ESETÉN IS FALSE
+            isRecording = false; // Sikertelen átírás -> isRecording visszaállítása
+            Invoke(nameof(ResetStatusToIdleOrDisabled), 2.0f);
             return;
         }
 
-        Debug.Log($"Whisper Transcription: {transcription}");
-        UpdateStatusText(SendingToAssistantText); // Visszajelzés, hogy küldjük az asszisztensnek
+        Debug.Log($"[WhisperMicController] Whisper Transcription Successful: '{transcription}'");
+        // A státusz szöveget ("Sending to Assistant...") már az InteractionFlowManager kezeli,
+        // miután megkapta ezt az átírást. Itt nem kell frissíteni.
+        // UpdateStatusText(SendingToAssistantText); // <<< ELTÁVOLÍTVA
 
-        if (openAIWebRequest != null)
+        // Átadjuk az átírást az InteractionFlowManagernek
+        if (InteractionFlowManager.Instance != null)
         {
-            openAIWebRequest.ProcessVoiceInput(transcription);
-            // Az asszisztens válaszának megérkezése után az OpenAIWebRequest
-            // valószínűleg visszaállítja a status textet Idle-re vagy elindítja a TTS-t.
-            // Itt már nem kell azonnal visszaállítani Idle-re.
-
-            // --- MÓDOSÍTÁS: isRecording false-ra állítása SIKER esetén ---
-            isRecording = false;
-            Debug.Log("[ProcessWhisperResponse] Handed off to OpenAIWebRequest, setting isRecording = false.");
-            // -------------------------------------------------------------
+            InteractionFlowManager.Instance.HandleUserQuestionReceived(transcription);
+            // Az InteractionFlowManager felelős a beszéd gomb letiltásáért ezután.
         }
         else
         {
-            Debug.LogError("OpenAIWebRequest reference is not set in the Inspector!");
-            UpdateStatusText("Error: Assistant unavailable");
-            Invoke(nameof(ResetStatusTextToIdle), 2.0f);
-            isRecording = false; // <<< HIBA ESETÉN IS FALSE
+            Debug.LogError("[WhisperMicController] InteractionFlowManager.Instance is null! Cannot forward transcription.");
+            UpdateStatusText("Error: Flow unavailable");
+            Invoke(nameof(ResetStatusToIdleOrDisabled), 2.0f);
         }
+
+        // Sikeres feldolgozás és továbbítás után visszaállítjuk az isRecording flag-et.
+        isRecording = false;
+        Debug.Log("[WhisperMicController] Transcription processed and forwarded. isRecording set to false.");
+        // A státusz szöveget és a gomb állapotát az InteractionFlowManager kezeli tovább.
     }
 
-    private void ResetStatusTextToIdle()
+    // --- Segédfüggvények ---
+
+    private void ResetStatusToIdleOrDisabled()
     {
-        // Csak akkor állítjuk vissza, ha épp nem veszünk fel hangot ÉS a TTS sem beszél
-        // (hogy ne írjuk felül pl. a "RECORDING" vagy egy folyamatban lévő hibaüzenetet,
-        // vagy ha a TTS épp elindulni készül)
-        if (!isRecording && (textToSpeechManager == null || !textToSpeechManager.IsPlaying))
+        // Ha a gomb engedélyezve van, Idle-re állítjuk, ha nem, Disabled-re.
+        if (speakAction != null && speakAction.enabled)
         {
-            UpdateStatusText(IdleText);
-            Debug.Log($"Status reset to IdleText (likely after error delay or completion).");
+            UpdateStatusText(StatusIdle);
         }
         else
         {
-            // Logoljuk, miért nem állítottuk vissza (segít a debuggolásban)
-            string reason = isRecording ? "isRecording=true" : "";
-            if (textToSpeechManager != null && textToSpeechManager.IsPlaying)
-            {
-                if (!string.IsNullOrEmpty(reason)) reason += ", ";
-                reason += "TTS is playing";
-            }
-            Debug.Log($"ResetStatusTextToIdle called, but not resetting because: {reason}.");
+            UpdateStatusText(StatusDisabled);
         }
     }
 
@@ -631,23 +483,7 @@ public class WhisperMicController : MonoBehaviour
         {
             statusText.text = message;
         }
-        else
-        {
-            // Csak akkor logoljunk, ha tényleg próbálunk írni, és nincs hova,
-            // és nem az alapértelmezett szövegről van szó (hogy ne spameljen)
-            if (!string.IsNullOrEmpty(message) && message != IdleText)
-            {
-                Debug.LogWarning($"StatusText UI element is not assigned in the Inspector. Cannot display: {message}");
-            }
-        }
+        // else { Debug.LogWarning($"StatusText UI element not assigned. Cannot display: {message}"); } // Csak ha szükséges
     }
 
-    // Ez a segédfüggvény valószínűleg már nem szükséges, mert a ResetStatusTextToIdle
-    // és a normál munkafolyamat (pl. ProcessWhisperResponse után) kezeli a visszaállítást.
-    // Ha mégis kellene egy direkt visszaállítási pont, akkor használható.
-    // private void ResetStatusText()
-    // {
-    //     UpdateStatusText(IdleText);
-    // }
-
-} // <- Itt a WhisperMicController osztály vége
+} // <-- Osztály vége
