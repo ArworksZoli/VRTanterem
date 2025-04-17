@@ -6095,6 +6095,7 @@ MonoBehaviour:
   openAIWebRequest: {fileID: 7679562417771070155}
   textToSpeechManager: {fileID: 7679562417771070156}
   whisperMicController: {fileID: 1214810631}
+  sentenceHighlighter: {fileID: 7679562417771070157}
   questionIndicatorUI: {fileID: 283159766}
 --- !u!1 &1210324694
 GameObject:

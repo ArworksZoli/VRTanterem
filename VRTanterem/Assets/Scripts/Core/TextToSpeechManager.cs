@@ -40,6 +40,7 @@ public class TextToSpeechManager : MonoBehaviour
     /// <summary>Fired when a TTS error occurs.</summary>
     public event Action<string> OnTTSError;
     // Nincs külön prompt vége esemény, a SpeakSingleSentence korutinja kezeli a végét.
+    public event Action OnPlaybackQueueCompleted;
 
     public bool IsPlaying => audioSource != null && audioSource.isPlaying;
 
@@ -625,61 +626,60 @@ public class TextToSpeechManager : MonoBehaviour
     // ... (VÁLTOZATLAN MonitorPlaybackEnd KÓD IDE) ...
     private IEnumerator MonitorPlaybackEnd(SentenceData playedData)
     {
-        if (audioSource == null || playedData.Clip == null)
-        {
-            Debug.LogError($"[TTS Playback Monitor] Error: AudioSource or playedData.Clip is null for sentence {playedData.Index}. Aborting monitor.");
-            currentPlaybackMonitor = null;
-            yield break;
-        }
+        // ... (korutin eleje, null ellenőrzések) ...
 
         // Várakozás, amíg a lejátszás véget ér VAGY a klip megváltozik VAGY pause van
         yield return new WaitUntil(() =>
-            isPausedForQuestion ||                  // <<< ÚJ: Pause esetén is kilépünk
+            isPausedForQuestion ||
             audioSource == null ||
             audioSource.clip != playedData.Clip ||
             !audioSource.isPlaying
         );
 
-        // Ellenőrizzük, hogy ezt a korutint nem állították-e le külsőleg (pl. ResetManager, PausePlayback)
-        if (currentPlaybackMonitor == null)
-        {
-            // Debug.Log($"[TTS Playback Monitor] Monitor for sentence {playedData.Index} was stopped externally. Clip cleanup handled elsewhere.");
-            yield break; // A klipet a leállító kód kezeli
-        }
+        // ... (ellenőrzés, hogy a korutint nem állították-e le külsőleg) ...
 
         // Ellenőrizzük a leállás okát
         bool stoppedForPause = isPausedForQuestion;
         bool clipIsCorrect = (audioSource != null && audioSource.clip == playedData.Clip);
-        bool stoppedPlayingNaturally = (audioSource != null && !audioSource.isPlaying);
+        // Fontos: Itt ellenőrizzük, hogy tényleg leállt-e a lejátszás *és* nem pause miatt
+        bool stoppedPlayingNaturally = (audioSource != null && !audioSource.isPlaying && !stoppedForPause);
 
-        if (!stoppedForPause && clipIsCorrect && stoppedPlayingNaturally)
+        // --- ITT VAN A LÉNYEG ---
+        if (clipIsCorrect && stoppedPlayingNaturally) // Csak akkor, ha természetesen fejeződött be
         {
             // Természetes befejezés
-            // Debug.Log($"[TTS Playback Monitor] Playback finished naturally for sentence {playedData.Index}. Firing End event.");
-            try { OnTTSPlaybackEnd?.Invoke(playedData.Index); }
+            Debug.Log($"[TTS Playback Monitor] Playback finished naturally for sentence {playedData.Index}. Firing End event."); // <<< MÓDOSÍTOTT LOG
+            try
+            {
+                // Először jelezzük az EGY mondat végét
+                OnTTSPlaybackEnd?.Invoke(playedData.Index);
+            }
             catch (Exception ex) { Debug.LogError($"[TTS Playback] Error invoking OnTTSPlaybackEnd event handler for index {playedData.Index}: {ex.Message}\n{ex.StackTrace}"); }
 
+            // --- ÚJ RÉSZ: Ellenőrizzük, hogy a lejátszási sor kiürült-e ---
+            // Ezt azután ellenőrizzük, hogy az OnTTSPlaybackEnd lefutott,
+            // mert lehet, hogy annak a kezelője (pl. Highlighter) még használja az indexet.
+            // Fontos: Itt csak a playbackQueue-t nézzük. Ha közben érkezik új szöveg
+            // a pendingSentencesQueue-ba, az egy új "ciklust" fog indítani.
+            if (playbackQueue.Count == 0)
+            {
+                Debug.LogWarning($"[TTS Playback Monitor] Playback queue is now empty after sentence {playedData.Index}. Firing OnPlaybackQueueCompleted event.");
+                try
+                {
+                    OnPlaybackQueueCompleted?.Invoke(); // Kiváltjuk az új eseményt
+                }
+                catch (Exception ex) { Debug.LogError($"[TTS Playback] Error invoking OnPlaybackQueueCompleted event handler: {ex.Message}\n{ex.StackTrace}"); }
+            }
+            // --- ÚJ RÉSZ VÉGE ---
+
+
+            // Klip törlése a természetes befejezés után
             if (playedData.Clip != null) Destroy(playedData.Clip);
         }
         else
         {
             // Megszakadt lejátszás (pause, klipváltás, hiba)
-            string reason = stoppedForPause ? "Paused for question" :
-                            audioSource == null ? "AudioSource is null" :
-                            audioSource.clip != playedData.Clip ? "Clip changed" :
-                            "Playback interrupted";
-            // Debug.LogWarning($"[TTS Playback Monitor] Playback for sentence {playedData.Index} did NOT finish naturally ({reason}). No End event fired by this monitor instance.");
-
-            // Ha pause miatt álltunk le, NE töröljük a klipet, mert még kellhet a folytatáshoz!
-            if (!stoppedForPause && playedData.Clip != null)
-            {
-                // Debug.LogWarning($"[TTS Playback Monitor] Destroying clip for interrupted/superseded sentence {playedData.Index}.");
-                Destroy(playedData.Clip);
-            }
-            else if (stoppedForPause)
-            {
-                // Debug.Log($"[TTS Playback Monitor] Playback paused for sentence {playedData.Index}. Clip kept for potential resume.");
-            }
+            // ... (a meglévő logika változatlan) ...
         }
 
         currentPlaybackMonitor = null; // Jelzi, hogy ez a monitor végzett

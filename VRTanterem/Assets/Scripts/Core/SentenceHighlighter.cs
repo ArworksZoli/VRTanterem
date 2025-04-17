@@ -25,6 +25,8 @@ public class SentenceHighlighter : MonoBehaviour
     private bool isInitialized = false;
     private bool isStreamComplete = false;
 
+    public event Action OnHighlightingComplete;
+
     void Start()
     {
         InitializeHighlighter();
@@ -119,11 +121,13 @@ public class SentenceHighlighter : MonoBehaviour
         if (!string.IsNullOrEmpty(remainingText))
         {
             allSentences.Add(remainingText);
-            // UpdateTextDisplay(); // <<< EZT A HÍVÁST INNEN KIVETTÜK
         }
         sentenceBuffer.Clear();
         isStreamComplete = true;
         Debug.Log($"[Highlighter Flush] Stream marked complete. Total sentences: {allSentences.Count}");
+
+        int currentSentenceCount = allSentences.Count;
+        Debug.LogWarning($"[SH DEBUG FlushBuffer] Called. Set isStreamComplete=true. allSentences.Count: {currentSentenceCount}");
 
         // Ellenőrizzük, hogy a TTS Manager létezik-e és befejezte-e a lejátszást
         bool ttsFinished = ttsManager != null && !ttsManager.IsPlaying;
@@ -365,14 +369,43 @@ public class SentenceHighlighter : MonoBehaviour
     private void HandleTTSPlaybackEnd(int sentenceIndex)
     {
         if (!enabled || !isInitialized) return;
-        // Debug logolás maradhat, ha segít a követésben:
-        // Debug.Log($"[HandleTTSPlaybackEnd] Received for index: {sentenceIndex}. CurrentHighlight: {currentHighlightIndex}. TotalSentences: {allSentences.Count}");
 
-        // NINCS SZÜKSÉG A KIEMELÉS TÖRLÉSÉRE ITT.
-        // A kiemelés akkor fog frissülni (vagy eltűnni, ha nincs több mondat),
-        // amikor a KÖVETKEZŐ mondat elindul (HandleTTSPlaybackStart),
-        // vagy amikor a stream véget ér és a FlushBuffer lefut.
-        // Az itteni idő előtti törlés okozza a random villogást/törlést.
+        // --- DIAGNOSZTIKAI LOG ---
+        int currentSentenceCount = allSentences.Count;
+        int expectedLastIndex = (currentSentenceCount > 0) ? currentSentenceCount - 1 : -1;
+        Debug.Log($"[SH DEBUG HandleTTSPlaybackEnd] Index: {sentenceIndex}, isStreamComplete: {isStreamComplete}, allSentences.Count: {currentSentenceCount}, ExpectedLastIndex: {expectedLastIndex}");
+        // --- DIAGNOSZTIKAI LOG VÉGE ---
+
+        // Ellenőrizzük, hogy ez volt-e az utolsó mondat ÉS a stream már befejeződött
+        if (isStreamComplete && sentenceIndex == expectedLastIndex && currentSentenceCount > 0) // Használjuk a kiszámolt expectedLastIndex-et
+        {
+            Debug.LogWarning($"[SentenceHighlighter] Last sentence condition MET! (Index: {sentenceIndex}). Firing OnHighlightingComplete.");
+            try
+            {
+                OnHighlightingComplete?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[SentenceHighlighter] Error invoking OnHighlightingComplete: {ex.Message}\n{ex.StackTrace}");
+            }
+
+            Debug.Log("[SentenceHighlighter] Removing highlight from the last sentence.");
+            currentHighlightIndex = -1;
+            UpdateTextDisplay();
+        }
+        else
+        {
+            // --- DIAGNOSZTIKAI LOG (HA NEM TELJESÜLT) ---
+            if (sentenceIndex == expectedLastIndex && currentSentenceCount > 0)
+            {
+                Debug.LogWarning($"[SH DEBUG HandleTTSPlaybackEnd] Condition NOT MET for last sentence (Index: {sentenceIndex}) because isStreamComplete is FALSE.");
+            }
+            else if (isStreamComplete && currentSentenceCount > 0)
+            {
+                Debug.LogWarning($"[SH DEBUG HandleTTSPlaybackEnd] Condition NOT MET for index {sentenceIndex} because it's NOT the expected last index ({expectedLastIndex}).");
+            }
+            // --- DIAGNOSZTIKAI LOG VÉGE ---
+        }
     }
 
     // Opcionális: Hibakezelő

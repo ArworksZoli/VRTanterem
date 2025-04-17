@@ -31,6 +31,7 @@ public class InteractionFlowManager : MonoBehaviour
     [SerializeField] private OpenAIWebRequest openAIWebRequest;
     [SerializeField] private TextToSpeechManager textToSpeechManager;
     [SerializeField] private WhisperMicController whisperMicController;
+    [SerializeField] private SentenceHighlighter sentenceHighlighter;
 
     [Header("UI Elements")]
     [SerializeField] private GameObject questionIndicatorUI;
@@ -115,6 +116,13 @@ public class InteractionFlowManager : MonoBehaviour
             textToSpeechManager.OnTTSPlaybackEnd -= HandleTTSPlaybackEnd;
         }
 
+        if (sentenceHighlighter != null)
+        {
+            sentenceHighlighter.OnHighlightingComplete -= HandleHighlightingComplete;
+            Debug.Log("[IFM] Subscribed to SentenceHighlighter.OnHighlightingComplete.");
+        }
+        else { Debug.LogError("[IFM] SentenceHighlighter reference missing!"); }
+
         // Input Action leállítása (ha itt kezeled)
         /*
         if (raiseHandAction != null)
@@ -135,10 +143,32 @@ public class InteractionFlowManager : MonoBehaviour
             textToSpeechManager.OnTTSPlaybackEnd -= HandleTTSPlaybackEnd;
         }
         Debug.Log("[IFM] OnDestroy: Unsubscribed from events.");
+
+        if (sentenceHighlighter != null)
+        {
+            sentenceHighlighter.OnHighlightingComplete -= HandleHighlightingComplete;
+            Debug.Log("[IFM] Subscribed to SentenceHighlighter.OnHighlightingComplete.");
+        }
+        else { Debug.LogError("[IFM] SentenceHighlighter reference missing!"); }
     }
 
 
     // --- Publikus Metódusok (Más scriptek hívják) ---
+
+    private void HandleHighlightingComplete()
+    {
+        Debug.Log($"[IFM] HandleHighlightingComplete received. Current state: {currentState}");
+        if (currentState == InteractionState.Lecturing)
+        {
+            Debug.Log("[IFM] Highlighting complete (TTS likely finished). Enabling speak button.");
+            SetState(InteractionState.WaitingForUserInput);
+            EnableSpeakButton();
+        }
+        else
+        {
+            Debug.LogWarning($"[IFM] HandleHighlightingComplete received in unexpected state: {currentState}. No action taken.");
+        }
+    }
 
     public void InitializeInteraction()
     {
@@ -157,6 +187,13 @@ public class InteractionFlowManager : MonoBehaviour
             textToSpeechManager.OnTTSPlaybackEnd += HandleTTSPlaybackEnd;
             Debug.Log("[IFM] Subscribed to TextToSpeechManager.OnTTSPlaybackEnd.");
         }
+
+        if (sentenceHighlighter != null)
+        {
+            sentenceHighlighter.OnHighlightingComplete += HandleHighlightingComplete; // Feliratkozás
+            Debug.Log("[IFM] Subscribed to SentenceHighlighter.OnHighlightingComplete.");
+        }
+        else { Debug.LogError("[IFM] SentenceHighlighter reference missing!"); }
 
         // Biztosítjuk, hogy a beszéd gomb le van tiltva az elején
         whisperMicController?.DisableSpeakButton();

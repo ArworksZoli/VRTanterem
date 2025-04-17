@@ -192,6 +192,24 @@ public class WhisperMicController : MonoBehaviour
 
     private void OnRecordStarted(InputAction.CallbackContext context)
     {
+        if (InteractionFlowManager.Instance == null)
+        {
+            Debug.LogError("[WhisperMicController] Cannot start recording: InteractionFlowManager.Instance is null!");
+            // Itt nem indítjuk a felvételt, de lehet, hogy a gombot le kellene tiltani?
+            // Vagy csak egyszerűen nem csinálunk semmit.
+            return; // Ne folytassuk
+        }
+
+        // Ellenőrizzük az InteractionFlowManager állapotát
+        var requiredState = InteractionFlowManager.InteractionState.WaitingForUserInput;
+        if (InteractionFlowManager.Instance.CurrentState != requiredState)
+        {
+            Debug.LogWarning($"[WhisperMicController] Record button pressed, but InteractionFlowManager state is '{InteractionFlowManager.Instance.CurrentState}', not '{requiredState}'. Ignoring recording request.");
+            // Ne indítsuk el a felvételt, ha nem a megfelelő állapotban vagyunk.
+            // A gomb valószínűleg hibásan lett engedélyezve, vagy a felhasználó túl gyors volt.
+            return; // Ne folytassuk
+        }
+
         // Az Input System gondoskodik róla, hogy ez csak akkor hívódjon meg, ha az action engedélyezve van.
         // Dupla ellenőrzés (opcionális):
         // if (!speakAction.enabled) {
@@ -218,7 +236,7 @@ public class WhisperMicController : MonoBehaviour
         // Hangjelzés lejátszása
         if (pressSound != null && audioSource != null) audioSource.PlayOneShot(pressSound);
 
-        Debug.Log("[WhisperMicController] Recording Started...");
+        Debug.Log("[WhisperMicController] Recording Started (State was correct)...");
         UpdateStatusText(StatusRecording);
         isRecording = true;
 
