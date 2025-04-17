@@ -6097,6 +6097,8 @@ MonoBehaviour:
   whisperMicController: {fileID: 1214810631}
   sentenceHighlighter: {fileID: 7679562417771070157}
   questionIndicatorUI: {fileID: 283159766}
+  TMPUserText: {fileID: 7679562416999354787}
+  raiseHandButton: {fileID: 639985177}
 --- !u!1 &1210324694
 GameObject:
   m_ObjectHideFlags: 0

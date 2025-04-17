@@ -1,5 +1,7 @@
 ﻿using UnityEngine;
 using System;
+using TMPro;
+using UnityEngine.UI;
 // using UnityEngine.InputSystem; // Ha az inputot is itt kezeled
 
 public class InteractionFlowManager : MonoBehaviour
@@ -35,6 +37,8 @@ public class InteractionFlowManager : MonoBehaviour
 
     [Header("UI Elements")]
     [SerializeField] private GameObject questionIndicatorUI;
+    [SerializeField] private TMP_Text TMPUserText;
+    [SerializeField] private Button raiseHandButton;
 
     // --- Input Action (Opcionális, ha itt kezeled) ---
     // [Header("Input Settings")]
@@ -222,6 +226,12 @@ public class InteractionFlowManager : MonoBehaviour
     public void HandleUserQuestionReceived(string transcription)
     {
         Debug.Log($"[IFM] HandleUserQuestionReceived. Transcription: '{transcription}'. Current state: {currentState}");
+
+        if (TMPUserText != null)
+        {
+            TMPUserText.text = "User (Voice): " + transcription;
+        }
+
         // Előfordulhat, hogy a Whisper gyorsabb, mint az állapotváltás, ezért engedjük a WaitingForUserInput-ot is
         if (currentState != InteractionState.WaitingForUserInput && currentState != InteractionState.ProcessingUserInput)
         {
@@ -327,13 +337,78 @@ public class InteractionFlowManager : MonoBehaviour
         }
     }
 
+    private void EnableRaiseHandButtonUI() // <<< HOZZÁADVA
+    {
+        if (raiseHandButton != null)
+        {
+            raiseHandButton.interactable = true;
+            // Debug.Log("[UI] Enabling Raise Hand Button");
+        }
+        else { Debug.LogWarning("[IFM] Raise Hand Button reference is missing in Inspector!"); }
+    }
+
+    private void DisableRaiseHandButtonUI() // <<< HOZZÁADVA
+    {
+        if (raiseHandButton != null)
+        {
+            raiseHandButton.interactable = false;
+            // Debug.Log("[UI] Disabling Raise Hand Button");
+        }
+        else { Debug.LogWarning("[IFM] Raise Hand Button reference is missing in Inspector!"); }
+    }
+
     // SetState változatlan
     private void SetState(InteractionState newState)
     {
         if (currentState == newState) return;
         Debug.Log($"[IFM] State Changing: {currentState} -> {newState}");
         currentState = newState;
-        // Ide lehetne további logikát tenni állapotváltáskor
+
+        // --- Gombok Kezelése Állapotváltáskor ---
+        switch (newState)
+        {
+            case InteractionState.Idle:
+                DisableSpeakButton();
+                DisableRaiseHandButtonUI(); // Jelentkezés tiltva
+                break;
+
+            case InteractionState.Lecturing:
+                DisableSpeakButton(); // Mikrofon tiltva, amíg az AI beszél
+                EnableRaiseHandButtonUI();  // <<< JELENTKEZÉS ENGEDÉLYEZVE >>>
+                break;
+
+            case InteractionState.QuestionPending:
+                DisableSpeakButton();
+                DisableRaiseHandButtonUI(); // Jelentkezés tiltva, amíg a promptra várunk
+                break;
+
+            case InteractionState.WaitingForUserInput:
+                // A SpeakSingleSentence (prompt) végén engedélyezi a mikrofont.
+                // Itt explicit nem kell hívni az EnableSpeakButton-t.
+                DisableRaiseHandButtonUI(); // Jelentkezés tiltva, mikrofont várunk
+                break;
+
+            case InteractionState.ProcessingUserInput:
+                DisableSpeakButton(); // Mikrofon tiltva a feldolgozás alatt
+                DisableRaiseHandButtonUI(); // Jelentkezés tiltva
+                break;
+
+            case InteractionState.AnsweringQuestion:
+                DisableSpeakButton(); // Mikrofon tiltva a válasz alatt
+                DisableRaiseHandButtonUI(); // <<< JELENTKEZÉS TILTVA A VÁLASZ ALATT >>>
+                break;
+
+            case InteractionState.ResumingLecture:
+                DisableSpeakButton(); // Mikrofon tiltva a folytatás alatt
+                DisableRaiseHandButtonUI(); // Jelentkezés tiltva az átmenet alatt
+                break;
+
+            default: // Ismeretlen állapot esetén mindent letiltunk
+                DisableSpeakButton();
+                DisableRaiseHandButtonUI();
+                break;
+        }
+        // --- Gombok Kezelése Vége ---
     }
 
     // Enable/Disable Speak Button hívások változatlanok
