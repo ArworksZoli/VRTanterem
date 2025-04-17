@@ -16,3 +16,4 @@ MonoBehaviour:
   languageCode: hu
   availableSubjects:
   - {fileID: 11400000, guid: d6c53bba4140ce14b8e69b3da57fc5c9, type: 2}
+  AskQuestionPrompt: "Mi a k\xE9rd\xE9sed?"

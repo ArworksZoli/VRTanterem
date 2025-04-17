@@ -16,3 +16,4 @@ MonoBehaviour:
   languageCode: en
   availableSubjects:
   - {fileID: 11400000, guid: 15fd1729fc2cadb4ba749b2e63e1c7a7, type: 2}
+  AskQuestionPrompt: What is your question?

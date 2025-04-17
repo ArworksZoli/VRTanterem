@@ -12,4 +12,7 @@ public class LanguageConfig : ScriptableObject
 
     [Tooltip("Az ezen a nyelven elérhető tantárgyak konfigurációs fájljai.")]
     public List<SubjectConfig> availableSubjects = new List<SubjectConfig>();
+
+    [Tooltip("A prompt, ami a felhasználó kérdését kéri (pl. 'Mi a kérdésed?')")]
+    public string AskQuestionPrompt;
 }

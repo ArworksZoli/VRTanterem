@@ -302,10 +302,35 @@ public class InteractionFlowManager : MonoBehaviour
                 {
                     textToSpeechManager.PausePlayback();
                     Debug.Log("[IFM] Requesting TTS to speak prompt.");
+
+                    string promptText = "What is your question?"; // Alapértelmezett angol, ha valami hiba van
+
+                    // Próbáljuk meg lekérni a lokalizált szöveget
+                    if (AppStateManager.Instance != null && AppStateManager.Instance.CurrentLanguage != null)
+                    {
+                        if (!string.IsNullOrEmpty(AppStateManager.Instance.CurrentLanguage.AskQuestionPrompt))
+                        {
+                            promptText = AppStateManager.Instance.CurrentLanguage.AskQuestionPrompt;
+                            Debug.Log($"[IFM] Using localized prompt for language '{AppStateManager.Instance.CurrentLanguage.name}': '{promptText}'"); // Tegyük fel, hogy van 'name' property a LanguageConfig-ban
+                        }
+                        else
+                        {
+                            Debug.LogWarning($"[IFM] AskQuestionPrompt is empty for the current language '{AppStateManager.Instance.CurrentLanguage.name}'. Using default.");
+                        }
+                    }
+                    else
+                    {
+                        Debug.LogError("[IFM] Cannot get localized prompt: AppStateManager or CurrentLanguage is null. Using default.");
+                    }
+
                     // A SpeakSingleSentence korutinja a végén engedélyezi a gombot
-                    textToSpeechManager.SpeakSingleSentence("Mi a kérdésed?");
+                    textToSpeechManager.SpeakSingleSentence(promptText); // A dinamikusan betöltött szöveget használjuk
                 }
-                else { /* Hibakezelés */ SetState(InteractionState.Idle); }
+                else
+                {
+                    Debug.LogError("[IFM] Cannot speak prompt: textToSpeechManager is null!");
+                    SetState(InteractionState.Idle); // Meglévő hibakezelés
+                }
                 break;
 
             case InteractionState.WaitingForUserInput:
