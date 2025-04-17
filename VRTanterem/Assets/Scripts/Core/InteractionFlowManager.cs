@@ -76,11 +76,22 @@ public class InteractionFlowManager : MonoBehaviour
 
     void Start()
     {
+        // <<< ÚJ LOG (opcionális, de hasznos lehet) >>>
+        Debug.LogWarning($"[InteractionFlowManager] Start BEGIN - Frame: {Time.frameCount}");
+
         if (questionIndicatorUI != null) questionIndicatorUI.SetActive(false);
-        // Kezdetben a beszéd gomb legyen letiltva
-        // A WhisperMicController Awake-ben már letiltja, de itt megerősíthetjük.
-        whisperMicController?.DisableSpeakButton();
+
+        // --- EZT A SORT TÖRÖLD VAGY KOMMENTEZD KI ---
+        // whisperMicController?.DisableSpeakButton();
+        // -----------------------------------------
+        // Indoklás: A WhisperMicController.Awake() már gondoskodik a kezdeti letiltásról.
+        // Ennek a sornak a meghívása itt időzítési problémákat okozhat,
+        // ha ez a Start() hamarabb fut le, mint a WhisperMicController.Awake() vége.
+
         Debug.Log("[IFM] Start completed. Waiting for InitializeInteraction call.");
+
+        // <<< ÚJ LOG (opcionális) >>>
+        Debug.LogWarning($"[InteractionFlowManager] Start END - Frame: {Time.frameCount}");
     }
 
     void OnEnable()

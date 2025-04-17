@@ -53,7 +53,7 @@ public class OpenAIWebRequest : MonoBehaviour
     {
         // SendButton listener eltávolítva
         // SendButton.onClick.AddListener(SendButtonClick);
-
+        /*
         // --- KONFIGURÁCIÓ ELLENŐRZÉSE ---
         // Ellenőrizzük, hogy az API kulcs és az Asszisztens ID meg van-e adva az Inspectorban.
         bool configurationValid = true;
@@ -85,7 +85,7 @@ public class OpenAIWebRequest : MonoBehaviour
             return; // Kilépünk a Start metódusból, a korutinok nem indulnak el.
         }
         // --- KONFIGURÁCIÓ ELLENŐRZÉSE VÉGE ---
-
+        */
         // --- Sentence Highlighter Ellenőrzése ---
         if (sentenceHighlighter == null)
         {
@@ -132,45 +132,74 @@ public class OpenAIWebRequest : MonoBehaviour
     {
         Debug.Log($"[OpenAIWebRequest] InitializeAndStartInteraction called. AssistantID: {selectedAssistantId}, VoiceID: {selectedVoiceId}");
 
-        // --- 1. Konfiguráció Mentése ---
-        this.assistantID = selectedAssistantId; // Elmentjük a kapott ID-t
-
-        // Ellenőrizzük az API kulcsot (feltételezve, hogy az Inspectorban van beállítva)
-        if (string.IsNullOrEmpty(apiKey) || apiKey.Length < 10)
+        // --- 1. Konfiguráció Mentése ÉS ELLENŐRZÉSE ---
+        // Először szerezzük meg az API kulcsot (feltételezve, hogy az AppStateManager tárolja)
+        if (AppStateManager.Instance != null)
         {
-            Debug.LogError("[OpenAIWebRequest] Initialization Error: API Key is missing or invalid in Inspector!", this);
-            enabled = false; // Letiltjuk magunkat
+            // Feltételezve, hogy van egy GetApiKey() metódus az AppStateManagerben,
+            // ami visszaadja az Inspectorban beállított kulcsot.
+            // Ha nincs, akkor az apiKey-t itt kell valahogy beállítani, pl.
+            // this.apiKey = AppStateManager.Instance.GetApiKeyFromInspector();
+            // Vagy ha az apiKey mindig csak az Inspectorban van beállítva ezen a komponensen:
+            // Akkor az apiKey ellenőrzése maradhatott volna a Start()-ban, de jobb itt.
+            // Győződj meg róla, hogy az 'apiKey' változó itt kap értéket!
+            // Példa: Ha az AppStateManagerben van egy public property:
+            // this.apiKey = AppStateManager.Instance.OpenAiApiKey; // Ha van ilyen property
+            // VAGY ha az apiKey itt van [SerializeField]-del:
+            // Akkor az ellenőrzés itt történjen meg.
+        }
+        else
+        {
+            Debug.LogError("[OpenAIWebRequest] Cannot get API Key: AppStateManager.Instance is null!");
+            enabled = false;
             return;
         }
 
+        this.assistantID = selectedAssistantId; // Elmentjük a kapott ID-t
+
+        // --- ÁTHELYEZETT ELLENŐRZÉSEK ---
+        bool configurationValid = true;
+        // API Kulcs ellenőrzése (győződj meg, hogy a 'this.apiKey' már be van állítva!)
+        if (string.IsNullOrEmpty(this.apiKey) || this.apiKey.Length < 10)
+        {
+            Debug.LogError("[OpenAIWebRequest] Initialization Error: API Key is missing or invalid!", this);
+            configurationValid = false;
+        }
+        // Assistant ID ellenőrzése
+        if (string.IsNullOrEmpty(this.assistantID) || !this.assistantID.Trim().StartsWith("asst_"))
+        {
+            Debug.LogError($"[OpenAIWebRequest] Initialization Error: Assistant ID '{this.assistantID}' is not set or looks invalid!", this);
+            configurationValid = false;
+        }
+
+        if (!configurationValid)
+        {
+            Debug.LogError("[OpenAIWebRequest] Initialization failed due to invalid configuration. Disabling component.");
+            enabled = false; // Letiltjuk magunkat
+                             // Opcionális UI visszajelzés
+                             // if (TMPResponseText != null) TMPResponseText.text = "ERROR: Initialization Failed!";
+            return; // Megállítjuk az inicializálást
+        }
+        // --- ELLENŐRZÉSEK VÉGE ---
+
+
         // --- 2. Függőségek Resetelése ---
         Debug.Log("[OpenAIWebRequest] Resetting dependent managers...");
-        if (textToSpeechManager != null)
-        {
-            textToSpeechManager.ResetManager();
-        }
-        else { Debug.LogWarning("[OpenAIWebRequest] Cannot reset TTS Manager - reference missing."); }
+        // ... (TTS, Highlighter reset) ...
 
-        if (sentenceHighlighter != null)
-        {
-            sentenceHighlighter.ResetHighlighter();
-        }
-        else { Debug.LogWarning("[OpenAIWebRequest] Cannot reset Sentence Highlighter - reference missing."); }
-
-        // --- 3. TTS Manager Inicializálása (ÚJ HÍVÁS) ---
-        // Most már itt hívjuk meg a TTS Manager módosított Initialize metódusát
+        // --- 3. TTS Manager Inicializálása ---
         if (textToSpeechManager != null)
         {
             Debug.Log("[OpenAIWebRequest] Initializing TextToSpeechManager...");
-            textToSpeechManager.Initialize(this.apiKey, selectedVoiceId); // Átadjuk a kulcsot és a KIVÁLASZTOTT hangot
+            // Fontos: A TTS Managernek is szüksége lehet az API kulcsra!
+            textToSpeechManager.Initialize(this.apiKey, selectedVoiceId);
         }
-        // else már logoltuk a hiányát
+        // ...
 
         // --- 4. OpenAI Interakció Indítása ---
-        // Most indítjuk azokat a korutinokat, amiket a Start()-ból kivettünk
         Debug.Log("[OpenAIWebRequest] Starting OpenAI interaction coroutines (GetAssistant, CreateThread)...");
-        StartCoroutine(GetAssistant()); // Használja a most beállított this.assistantID-t
-        StartCoroutine(CreateThread()); // Ez már nem küld kezdeti üzenetet (ha a Start()-ból kivetted a userInput kezelést)
+        StartCoroutine(GetAssistant());
+        StartCoroutine(CreateThread());
 
         Debug.Log("[OpenAIWebRequest] Initialization and startup complete.");
     }
@@ -179,6 +208,7 @@ public class OpenAIWebRequest : MonoBehaviour
     // OpenAIWebRequest.cs-ben hozzáadandó metódus
     public void ProcessVoiceInput(string recognizedText)
     {
+        Debug.LogWarning($"[OpenAIWebRequest] ProcessVoiceInput CALLED - Frame: {Time.frameCount}, Text: '{recognizedText}'");
         Debug.Log($"[OpenAIWebRequest] Voice input received: '{recognizedText}'");
 
         // 1. Ellenőrzések (opcionális, de ajánlott)
@@ -391,6 +421,7 @@ public class OpenAIWebRequest : MonoBehaviour
     // Elindítja az üzenetküldési folyamatot (megszakítás, új üzenet küldése)
     private IEnumerator SendMessageSequence(string input)
     {
+        Debug.LogWarning($"[OpenAIWebRequest] SendMessageSequence STARTED - Frame: {Time.frameCount}, Input: '{input}'");
         if (string.IsNullOrEmpty(assistantThreadId))
         {
             Debug.LogError("Cannot send message: Assistant Thread ID is missing. Ensure the thread was created.");
@@ -436,6 +467,7 @@ public class OpenAIWebRequest : MonoBehaviour
     // Hozzáadja a felhasználó üzenetét a szálhoz és elindítja az asszisztens futtatását
     private IEnumerator GetAssistantResponse(string userMessageContent)
     {
+        Debug.LogWarning($"[OpenAIWebRequest] GetAssistantResponse STARTED - Frame: {Time.frameCount}, Message: '{userMessageContent}'");
         // Ellenőrizzük újra a thread ID-t
         if (string.IsNullOrEmpty(assistantThreadId))
         {
@@ -556,6 +588,7 @@ public class OpenAIWebRequest : MonoBehaviour
     // Létrehoz és elindít egy új asszisztens futtatást (run) streaming módban
     private IEnumerator CreateAssistantRun(bool isAnsweringQuestion = false, string userQuestion = null)
     {
+        Debug.LogWarning($"[OpenAIWebRequest] CreateAssistantRun STARTED - Frame: {Time.frameCount}, IsAnswering: {isAnsweringQuestion}");
         if (string.IsNullOrEmpty(assistantThreadId))
         {
             Debug.LogError("[OpenAIWebRequest] Assistant Thread ID is invalid before creating run.");

@@ -10,7 +10,7 @@ public class WhisperMicController : MonoBehaviour
     [Header("Input Settings")]
     [SerializeField] private InputActionAsset inputActions;
     [Tooltip("The Action Map containing the 'Speak' action.")]
-    [SerializeField] private string actionMapName = "XRI RightHand Interaction"; // Vagy amelyikben a beszéd gomb van
+    [SerializeField] private string actionMapName = "VoiceInput"; // Vagy amelyikben a beszéd gomb van
     [Tooltip("The Input Action used to trigger voice recording (hold to speak).")]
     [SerializeField] private string speakActionName = "RecordVoice"; // Átneveztem 'speakActionName'-re a jobb érthetőségért
 
@@ -49,30 +49,33 @@ public class WhisperMicController : MonoBehaviour
 
     void Awake()
     {
-        audioSource = GetComponent<AudioSource>();
-        if (audioSource == null)
-        {
-            audioSource = gameObject.AddComponent<AudioSource>();
-        }
+        // <<< ÚJ LOG >>>
+        Debug.LogWarning($"[WhisperMicController] Awake START - Frame: {Time.frameCount}");
 
-        // Mikrofon eszköz nevének lekérése (maradhat null, a Microphone.Start kezeli)
+        audioSource = GetComponent<AudioSource>();
+        if (audioSource == null) { audioSource = gameObject.AddComponent<AudioSource>(); }
         microphoneDevice = null;
 
-        // Input Action referencia beállítása
         if (inputActions == null) { Debug.LogError("Input Actions asset not assigned!", this); enabled = false; return; }
+        // <<< ÚJ LOG >>>
+        Debug.Log($"[WhisperMicController] Input Action Asset OK: {inputActions.name}");
+
         var actionMap = inputActions.FindActionMap(actionMapName);
         if (actionMap == null) { Debug.LogError($"Action Map '{actionMapName}' not found!", this); enabled = false; return; }
-        speakAction = actionMap.FindAction(speakActionName); // speakActionName használata
+        // <<< ÚJ LOG >>>
+        Debug.Log($"[WhisperMicController] Action Map OK: {actionMapName}");
+
+        speakAction = actionMap.FindAction(speakActionName);
         if (speakAction == null) { Debug.LogError($"Action '{speakActionName}' not found in map '{actionMapName}'!", this); enabled = false; return; }
+        // <<< ÚJ LOG >>>
+        Debug.Log($"[WhisperMicController] Speak Action OK: {speakActionName}");
 
-        // Jogosultság kérés (változatlan)
         RequestMicrophonePermission();
+        speakAction?.Disable(); // Itt még lehet null, ha a fenti checkek fail-elnek
+        UpdateStatusText(StatusDisabled);
 
-        // Kezdeti állapot: Gomb letiltva, UI frissítve
-        speakAction?.Disable(); // Biztos, ami biztos
-        UpdateStatusText(StatusDisabled); // Kezdetben le van tiltva
-
-        Debug.Log("[WhisperMicController] Awake finished.");
+        // <<< MÓDOSÍTOTT LOG >>>
+        Debug.LogWarning($"[WhisperMicController] Awake END - Frame: {Time.frameCount}. speakAction is null: {speakAction == null}");
     }
 
     private void RequestMicrophonePermission()

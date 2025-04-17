@@ -88,16 +88,27 @@ public class AppStateManager : MonoBehaviour
     /// Ezt a metódust hívja meg a SelectionManager, miután minden ki lett választva.
     /// Elmenti a konfigurációt, elrejti a menüt, és aktiválja/inicializálja az interakciós modult.
     /// </summary>
+    
     public void StartInteraction(LanguageConfig lang, SubjectConfig subj, TopicConfig topic, string voiceId)
     {
-        Debug.Log($"[AppStateManager] StartInteraction called. Lang: {lang?.displayName}, Subject: {subj?.subjectName}, Topic: {topic?.topicName}, Voice: {voiceId}");
-
-        // --- 1. Konfiguráció Validálása és Mentése ---
-        if (lang == null || subj == null || topic == null || string.IsNullOrEmpty(voiceId) || string.IsNullOrEmpty(topic.assistantId))
+        Debug.LogWarning($"[AppStateManager] StartInteraction CALLED - Frame: {Time.frameCount}");
+        // 1. Logolás (Ez már megvan)
+        if (topic != null)
         {
-            Debug.LogError("[AppStateManager] Critical Error: Received incomplete configuration from SelectionManager! Cannot proceed.");
+            Debug.Log($"[AppStateManager] StartInteraction RECEIVED. Topic Name: '{topic.topicName}', Assistant ID from received Topic: '{topic.assistantId}'");
+        }
+        else
+        {
+            Debug.LogError("[AppStateManager] StartInteraction RECEIVED a NULL Topic object!");
+            return; // Fontos kilépni, ha nincs topic
+        }
+        Debug.Log($"[AppStateManager] Received Voice ID: '{voiceId}'");
+
+        // --- 2. Konfiguráció Validálása és Mentése (EZ HIÁNYZOTT!) ---
+        if (lang == null || subj == null /* topic már ellenőrizve */ || string.IsNullOrEmpty(voiceId) || string.IsNullOrEmpty(topic.assistantId))
+        {
+            Debug.LogError("[AppStateManager] Critical Error: Received incomplete configuration! Cannot proceed.");
             // Ideális esetben itt vissza kellene navigálni a menübe, vagy legalább megállni.
-            // Pl. FindObjectOfType<SelectionManager>()?.InitializeMenu(); // Vissza a menü elejére
             return;
         }
 
@@ -105,15 +116,15 @@ public class AppStateManager : MonoBehaviour
         CurrentSubject = subj;
         CurrentTopic = topic;
         CurrentVoiceId = voiceId;
-        CurrentAssistantId = topic.assistantId; // Kinyerjük és elmentjük az Assistant ID-t
+        CurrentAssistantId = topic.assistantId; // <<< A LÉNYEGES SOR!
 
-        Debug.Log($"[AppStateManager] Configuration saved. Assistant ID: {CurrentAssistantId}, Voice ID: {CurrentVoiceId}");
+        Debug.Log($"[AppStateManager] Configuration saved. Assistant ID: {CurrentAssistantId}, Voice ID: {CurrentVoiceId}"); // Ellenőrző log
 
-        // --- 2. Menü Elrejtése ---
+        // --- 3. Menü Elrejtése (Ez valószínűleg itt volt korábban, tedd vissza, ha kell) ---
         SelectionManager selectionManager = FindObjectOfType<SelectionManager>();
         if (selectionManager != null)
         {
-            selectionManager.gameObject.SetActive(false); // Deaktiváljuk az egész menü GameObject-et
+            selectionManager.gameObject.SetActive(false);
             Debug.Log("[AppStateManager] SelectionManager GameObject deactivated.");
         }
         else
@@ -121,45 +132,40 @@ public class AppStateManager : MonoBehaviour
             Debug.LogWarning("[AppStateManager] Could not find SelectionManager GameObject to deactivate.");
         }
 
-        // --- 3. Fő Interakciós Modul Aktiválása és Inicializálása ---
+
+        // --- 4. Fő Interakciós Modul Aktiválása és Inicializálása ---
         if (interactionModuleObject != null)
         {
             Debug.Log("[AppStateManager] Activating Interaction Module...");
-            interactionModuleObject.SetActive(true); // Aktiváljuk a GameObject-et
+            interactionModuleObject.SetActive(true);
 
-            // --- Inicializáló Hívások (FÁZIS 2) ---
-            // Most, hogy a modul aktív, megkeressük a komponenseit és inicializáljuk őket.
-            // Ezek a metódusok még nem léteznek, de ide kerülnek majd a hívások.
-
-            // OpenAIWebRequest inicializálása
-            OpenAIWebRequest openAIComp = interactionModuleObject.GetComponentInChildren<OpenAIWebRequest>(true); // true: inaktívakat is keres
+            // OpenAIWebRequest inicializálása (CSAK EGYSZER!)
+            OpenAIWebRequest openAIComp = interactionModuleObject.GetComponentInChildren<OpenAIWebRequest>(true);
             if (openAIComp != null)
             {
-                Debug.Log("[AppStateManager] Found OpenAIWebRequest. Calling InitializeAndStartInteraction (Phase 2)...");
-                openAIComp.InitializeAndStartInteraction(CurrentAssistantId, CurrentVoiceId); // Ezt majd a 2. fázisban implementáljuk
+                // Most már a helyesen beállított CurrentAssistantId-t adjuk át
+                Debug.Log($"[AppStateManager] Found OpenAIWebRequest. About to call InitializeAndStartInteraction. CurrentAssistantId value: '{CurrentAssistantId}'");
+                openAIComp.InitializeAndStartInteraction(CurrentAssistantId, CurrentVoiceId);
             }
-            else { Debug.LogError("[AppStateManager] OpenAIWebRequest component not found on the Interaction Module Object or its children!"); }
+            else { Debug.LogError("[AppStateManager] OpenAIWebRequest component not found!"); }
 
-            // TextToSpeechManager inicializálása
-            /* TextToSpeechManager ttsComp = interactionModuleObject.GetComponentInChildren<TextToSpeechManager>(true); // true: inaktívakat is keres
-            if (ttsComp != null)
+            // InteractionFlowManager inicializálása
+            if (InteractionFlowManager.Instance != null)
             {
-                Debug.Log("[AppStateManager] Found TextToSpeechManager. Calling Initialize (Phase 2)...");
-                // ttsComp.Initialize(openAiApiKey, CurrentVoiceId); // Ezt majd a 2. fázisban implementáljuk
+                Debug.Log("[AppStateManager] Calling InteractionFlowManager.InitializeInteraction...");
+                InteractionFlowManager.Instance.InitializeInteraction();
             }
-            else { Debug.LogError("[AppStateManager] TextToSpeechManager component not found on the Interaction Module Object or its children!"); }
-            */
+            else
+            {
+                Debug.LogError("[AppStateManager] InteractionFlowManager.Instance is NULL after activating the module! Cannot initialize IFM.");
+            }
 
-            // WhisperMicController és SentenceHighlighter automatikusan inicializálódik az OnEnable-ben,
-            // amikor az interactionModuleObject aktívvá válik.
-            // A SentenceHighlighter Reset-jét az OpenAIWebRequest Initialize hívása intézi majd.
-
-            Debug.Log("[AppStateManager] Interaction Module activated. Initialization calls (Phase 2) are placeholders.");
+            Debug.Log("[AppStateManager] Interaction Module activated and core components initialization initiated.");
         }
         else
         {
-            // Ez elvileg nem fordulhat elő az Awake ellenőrzés miatt, de biztonság kedvéért itt marad.
             Debug.LogError("[AppStateManager] Cannot activate Interaction Module - reference is missing!");
         }
     }
+
 }

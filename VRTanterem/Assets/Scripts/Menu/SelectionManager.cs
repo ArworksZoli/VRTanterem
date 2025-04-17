@@ -323,6 +323,18 @@ public class SelectionManager : MonoBehaviour
     {
         Debug.Log("[SelectionManager] FinalizeSelectionAndStart called.");
 
+        // Közvetlenül az elején ellenőrizzük a selectedTopic-ot
+        if (selectedTopic == null)
+        {
+            Debug.LogError("[SelectionManager] FinalizeSelectionAndStart called, but selectedTopic is NULL!");
+            return; // Vagy más hibakezelés
+        }
+        else
+        {
+            // Írjuk ki a topic nevét és az ID-ját, amit át fogunk adni
+            Debug.Log($"[SelectionManager] Finalizing. Topic Name: '{selectedTopic.topicName}', Assistant ID from Topic: '{selectedTopic.assistantId}'");
+        }
+
         // --- 1. Ellenőrizzük, hogy minden szükséges adat ki van-e választva ---
         if (selectedLanguage == null || selectedSubject == null || selectedTopic == null || string.IsNullOrEmpty(selectedVoiceId))
         {
@@ -350,22 +362,17 @@ public class SelectionManager : MonoBehaviour
                   $"\n - Voice: {selectedVoiceId}" +
                   $"\n - Assistant ID: {selectedTopic.assistantId}");
 
-        // --- 4. Megkeressük az AppStateManager-t és átadjuk neki az irányítást ---
-        AppStateManager appManager = FindObjectOfType<AppStateManager>(); // Vagy AppStateManager.Instance, ha Singleton-t használsz
-
-        if (appManager != null)
+        // --- 4. Átadjuk az irányítást az AppStateManager-nek (CSAK EGYSZER!) ---
+        if (AppStateManager.Instance != null)
         {
-            // Meghívjuk az AppStateManager központi indító metódusát
-            appManager.StartInteraction(selectedLanguage, selectedSubject, selectedTopic, selectedVoiceId);
-
-            // A SelectionManager innentől kezdve már nem aktív, mert az AppStateManager deaktiválja.
-            // Nem kell itt külön deaktiválni a paneleket.
+            Debug.Log($"[SelectionManager] Calling AppStateManager.StartInteraction via Instance...");
+            AppStateManager.Instance.StartInteraction(selectedLanguage, selectedSubject, selectedTopic, selectedVoiceId);
             Debug.Log("[SelectionManager] Handover to AppStateManager successful.");
         }
         else
         {
-            // Ha nincs AppStateManager a jelenetben, az nagy hiba.
-            Debug.LogError("[SelectionManager] CRITICAL ERROR: AppStateManager not found in the scene! Cannot start the main application logic.");
+            // Ha nincs AppStateManager.Instance, az nagy hiba.
+            Debug.LogError("[SelectionManager] CRITICAL ERROR: AppStateManager.Instance is null! Cannot start the main application logic.");
             // Itt lehetne valamilyen fallback vagy hibaállapot.
         }
     }
