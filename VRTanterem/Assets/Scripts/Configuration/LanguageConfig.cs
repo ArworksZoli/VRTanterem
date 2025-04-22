@@ -15,4 +15,11 @@ public class LanguageConfig : ScriptableObject
 
     [Tooltip("A prompt, ami a felhasználó kérdését kéri (pl. 'Mi a kérdésed?')")]
     public string AskQuestionPrompt;
+
+    [Tooltip("Mielőtt visszatérne az előadásra, az applikáció által beszélt promptnyelv.")]
+    public string ResumeLecturePrompt;
+
+    [Header("AI Instrukció Promptjai")]
+    [Tooltip("Az utókérdés, amelyet az AI-nak fel kell tennie, miután megszakítás közben válaszolt. (additional instrictions-ben használatos)")]
+    public string FollowUpQuestionPrompt;
 }

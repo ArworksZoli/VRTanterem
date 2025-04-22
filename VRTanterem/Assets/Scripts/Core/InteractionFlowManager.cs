@@ -1,7 +1,10 @@
 ﻿using UnityEngine;
 using System;
+using System.Collections;
 using TMPro;
 using UnityEngine.UI;
+using System.Net;
+using UnityEngine.Networking;
 // using UnityEngine.InputSystem; // Ha az inputot is itt kezeled
 
 public class InteractionFlowManager : MonoBehaviour
@@ -245,10 +248,23 @@ public class InteractionFlowManager : MonoBehaviour
 
         if (openAIWebRequest != null)
         {
-            Debug.Log("[IFM] Forwarding transcription to OpenAIWebRequest...");
-            openAIWebRequest.SendUserQuestionDuringLecture(transcription);
+            // Prompt lekérése a LanguageConfig-ból
+            string followUpPrompt = AppStateManager.Instance?.CurrentLanguage?.FollowUpQuestionPrompt;
+            if (string.IsNullOrEmpty(followUpPrompt))
+            {
+                Debug.LogError("[IFM] FollowUpQuestionPrompt is missing from current language config! Using fallback.");
+                followUpPrompt = "Van további kérdése ezzel kapcsolatban?"; // Fallback
+            }
+
+            Debug.Log("[IFM] Forwarding transcription and prompt to OpenAIWebRequest...");
+            // <<< JAVÍTOTT HÍVÁS: Mindkét paraméter átadása >>>
+            openAIWebRequest.SendUserQuestionDuringLecture(transcription, followUpPrompt);
         }
-        else { /* Hibakezelés */ SetState(InteractionState.Idle); }
+        else
+        {
+            Debug.LogError("[IFM] Cannot send question: OpenAIWebRequest reference is null!");
+            SetState(InteractionState.Idle); // Vissza alapállapotba hiba esetén
+        }
     }
 
     // Ezt hívja az OpenAIWebRequest, amikor a VÁLASZ streamje elkezdődik
