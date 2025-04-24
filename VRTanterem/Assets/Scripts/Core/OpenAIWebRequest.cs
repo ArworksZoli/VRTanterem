@@ -607,18 +607,39 @@ public class OpenAIWebRequest : MonoBehaviour
         if (isAnsweringQuestion)
         {
             // Ellenőrizzük, hogy megkaptuk-e a promptot
-            // Most már a 'followUpPrompt' paraméter létezik ebben a kontextusban
             if (string.IsNullOrEmpty(followUpPrompt))
             {
                 Debug.LogWarning("[OpenAIWebRequest] Follow-up prompt was not provided for additional instructions. Using a default.");
-                followUpPrompt = "Van további kérdése ezzel kapcsolatban?"; // Default fallback
+
+                // Nyelvi kód lekérése
+                string languageCode = "en"; // Alapértelmezett
+                if (AppStateManager.Instance != null && AppStateManager.Instance.CurrentLanguage != null)
+                {
+                    languageCode = AppStateManager.Instance.CurrentLanguage.languageCode;
+                }
+
+                // Alapértelmezett prompt a nyelv alapján
+                followUpPrompt = languageCode == "hu" ?
+                    "Van további kérdése ezzel kapcsolatban?" :
+                    "Do you have any more questions about this?";
             }
 
-            // Összeállítjuk az instrukciót a kapott prompttal
-            string additionalInstructions = $"KRITIKUS UTASÍTÁS: A felhasználó MEGSZAKÍTOTTA az előadást és kérdést tett fel... Válaszolj KIZÁRÓLAG a felhasználó most feltett kérdésére... A válaszodat KÖTELEZŐEN a `@@ANSWER_START@@ ` markerrel kezdd... Csak és kizárólag a markerrel kezdődő választ add meg, majd KÖTELEZŐEN kérdezd meg: \"{followUpPrompt}\". NE generálj semmilyen átvezető szöveget.";
+            // Nyelvi kód lekérése az utasításhoz
+            string language = "en"; // Alapértelmezett
+            if (AppStateManager.Instance != null && AppStateManager.Instance.CurrentLanguage != null)
+            {
+                language = AppStateManager.Instance.CurrentLanguage.languageCode;
+            }
+
+            // Egyszerűsített instrukció - nincs marker
+            string additionalInstructions =
+                $"INSTRUCTION: The user has interrupted the lecture with a question. " +
+                $"Answer ONLY the user's current question briefly and clearly. " +
+                $"After your answer, ask: \"{followUpPrompt}\". " +
+                $"Use language: {language}";
 
             runBody["additional_instructions"] = additionalInstructions;
-            Debug.Log($"[OpenAIWebRequest] Added 'interruption handling with marker' additional instructions using prompt: '{followUpPrompt}'");
+            Debug.LogWarning($"[OpenAIWebRequest] Added simplified question handling instructions using prompt: '{followUpPrompt}' in language: {language}");
         }
 
         string runJson = runBody.ToString();
@@ -712,11 +733,12 @@ public class OpenAIWebRequest : MonoBehaviour
                                                     JToken contentValue = dataObject.SelectToken("delta.content[0].text.value");
                                                     if (contentValue != null && !string.IsNullOrEmpty(contentValue.ToString()))
                                                     {
-                                                        Debug.Log("[OpenAIWebRequest] First text delta received for ANSWER stream. Notifying InteractionFlowManager.");
+                                                        Debug.LogWarning("[OpenAIWebRequest] First text delta received for ANSWER stream. Notifying InteractionFlowManager.");
                                                         InteractionFlowManager.Instance?.HandleAIAnswerStreamStart();
                                                         answerStreamStartNotified = true;
                                                     }
                                                 }
+
                                                 // --- Szöveg Delta Feldolgozása ---
                                                 JArray contentDeltas = dataObject["delta"]?["content"] as JArray;
                                                 if (contentDeltas != null)
@@ -728,8 +750,10 @@ public class OpenAIWebRequest : MonoBehaviour
                                                             string textDelta = deltaItem["text"]?["value"]?.ToString();
                                                             if (!string.IsNullOrEmpty(textDelta))
                                                             {
-                                                                Debug.Log($"[OAIWR LOOP DEBUG] Appending Delta: '{textDelta}'"); // Kikommentelhető
+                                                                Debug.LogWarning($"[OAIWR LOOP DEBUG] Appending Delta: '{textDelta}'");
                                                                 currentResponseChunk.Append(textDelta);
+
+                                                                // Egyszerűsített: Minden delta-t továbbítunk, nincs marker kezelés
                                                                 if (sentenceHighlighter != null) { sentenceHighlighter.AppendText(textDelta); }
                                                                 if (textToSpeechManager != null) { textToSpeechManager.AppendText(textDelta); }
                                                             }
@@ -738,43 +762,6 @@ public class OpenAIWebRequest : MonoBehaviour
                                                 }
                                                 break;
 
-                                            case "thread.run":
-                                                // --- Run Állapotváltozások Kezelése ---
-                                                string runStatus = dataObject["status"]?.ToString();
-                                                string runId = dataObject["id"]?.ToString();
-                                                Debug.Log($"[OAIWR LOOP DEBUG] Received 'thread.run' object. ID: {runId}, Status: {runStatus}");
-
-                                                switch (runStatus)
-                                                {
-                                                    case "completed":
-                                                        Debug.LogWarning($"[RunLifecycle] Run COMPLETED via 'thread.run' object. ID: {runId}. Flushing buffers...");
-                                                        try { textToSpeechManager?.FlushBuffer(); } catch (Exception e) { Debug.LogError($"TTS Flush Error (Run Completed): {e.Message}"); }
-                                                        try { sentenceHighlighter?.FlushBuffer(); } catch (Exception e) { Debug.LogError($"SH Flush Error (Run Completed): {e.Message}"); }
-                                                        streamEndedSuccessfully = true;
-                                                        Debug.LogWarning($"[OAIWR DEBUG] Exiting run coroutine via thread.run status completed.");
-                                                        break;
-                                                    case "failed":
-                                                        Debug.LogError($"[RunLifecycle] Run FAILED via 'thread.run' object. ID: {runId}. Error: {dataObject["last_error"]}");
-                                                        streamEndedSuccessfully = true;
-                                                        break;
-                                                    case "requires_action":
-                                                        Debug.LogWarning($"[RunLifecycle] Run REQUIRES_ACTION via 'thread.run' object. ID: {runId}");
-                                                        // TODO: Implement Function Calling logic if needed
-                                                        streamEndedSuccessfully = true;
-                                                        break;
-                                                    case "queued":
-                                                    case "in_progress":
-                                                    case "cancelling":
-                                                    case "cancelled":
-                                                    case "expired":
-                                                        // Ezeket az állapotokat általában csak logoljuk, vagy figyelmen kívül hagyjuk a stream alatt
-                                                        // Debug.Log($"[RunLifecycle] Run status update: {runStatus}");
-                                                        break;
-                                                    default:
-                                                        Debug.LogWarning($"[RunLifecycle] Unknown run status in 'thread.run' object: {runStatus}");
-                                                        break;
-                                                }
-                                                break;
 
                                             case "thread.run.step":
                                                 // Debug.Log($"[OAIWR LOOP DEBUG] Ignoring 'thread.run.step' object.");

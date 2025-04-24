@@ -126,7 +126,7 @@ public class InteractionFlowManager : MonoBehaviour
         if (sentenceHighlighter != null)
         {
             sentenceHighlighter.OnHighlightingComplete -= HandleHighlightingComplete;
-            Debug.Log("[IFM] Subscribed to SentenceHighlighter.OnHighlightingComplete.");
+            Debug.Log("[IFM] Unsubscribed from SentenceHighlighter.OnHighlightingComplete.");
         }
         else { Debug.LogError("[IFM] SentenceHighlighter reference missing!"); }
 
@@ -154,7 +154,7 @@ public class InteractionFlowManager : MonoBehaviour
         if (sentenceHighlighter != null)
         {
             sentenceHighlighter.OnHighlightingComplete -= HandleHighlightingComplete;
-            Debug.Log("[IFM] Subscribed to SentenceHighlighter.OnHighlightingComplete.");
+            Debug.Log("[IFM] Unsubscribed from SentenceHighlighter.OnHighlightingComplete.");
         }
         else { Debug.LogError("[IFM] SentenceHighlighter reference missing!"); }
     }
@@ -228,8 +228,15 @@ public class InteractionFlowManager : MonoBehaviour
     // Ezt hívja a WhisperMicController
     public void HandleUserQuestionReceived(string transcription)
     {
-        Debug.Log($"[IFM] HandleUserQuestionReceived. Transcription: '{transcription}'. Current state: {currentState}");
+        Debug.LogWarning($"[IFM] HandleUserQuestionReceived. Transcription: '{transcription}'. Current state: {currentState}");
 
+        if (string.IsNullOrEmpty(transcription))
+        {
+            Debug.LogError("[IFM] Received empty transcription. Ignoring.");
+            return;
+        }
+
+        // Megjelenítsük a felhasználó kérdését
         if (TMPUserText != null)
         {
             TMPUserText.text = "User (Voice): " + transcription;
@@ -244,21 +251,28 @@ public class InteractionFlowManager : MonoBehaviour
 
         // Állapot váltása és a beszéd gomb letiltása
         SetState(InteractionState.ProcessingUserInput);
-        whisperMicController?.DisableSpeakButton(); // Fontos: Itt tiltjuk le a beszéd gombot!
+        whisperMicController?.DisableSpeakButton();
 
         if (openAIWebRequest != null)
         {
-            // Prompt lekérése a LanguageConfig-ból
-            string followUpPrompt = AppStateManager.Instance?.CurrentLanguage?.FollowUpQuestionPrompt;
-            if (string.IsNullOrEmpty(followUpPrompt))
+            try
             {
-                Debug.LogError("[IFM] FollowUpQuestionPrompt is missing from current language config! Using fallback.");
-                followUpPrompt = "Van további kérdése ezzel kapcsolatban?"; // Fallback
-            }
+                // Prompt lekérése a LanguageConfig-ból
+                string followUpPrompt = AppStateManager.Instance?.CurrentLanguage?.FollowUpQuestionPrompt;
+                if (string.IsNullOrEmpty(followUpPrompt))
+                {
+                    Debug.LogWarning("[IFM] FollowUpQuestionPrompt is missing from current language config! Using fallback.");
+                    followUpPrompt = "Van további kérdése ezzel kapcsolatban?"; // Fallback
+                }
 
-            Debug.Log("[IFM] Forwarding transcription and prompt to OpenAIWebRequest...");
-            // <<< JAVÍTOTT HÍVÁS: Mindkét paraméter átadása >>>
-            openAIWebRequest.SendUserQuestionDuringLecture(transcription, followUpPrompt);
+                Debug.LogWarning($"[IFM] Forwarding transcription '{transcription}' and prompt '{followUpPrompt}' to OpenAIWebRequest...");
+                openAIWebRequest.SendUserQuestionDuringLecture(transcription, followUpPrompt);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[IFM] Exception when sending question to OpenAIWebRequest: {ex.Message}\n{ex.StackTrace}");
+                SetState(InteractionState.Idle); // Vissza alapállapotba hiba esetén
+            }
         }
         else
         {
@@ -270,13 +284,15 @@ public class InteractionFlowManager : MonoBehaviour
     // Ezt hívja az OpenAIWebRequest, amikor a VÁLASZ streamje elkezdődik
     public void HandleAIAnswerStreamStart()
     {
-        Debug.Log($"[IFM] HandleAIAnswerStreamStart called. Current state: {currentState}");
+        Debug.LogWarning($"[IFM] HandleAIAnswerStreamStart called. Current state: {currentState}");
+
         // Csak akkor váltunk, ha épp a feldolgozásra vártunk
         if (currentState == InteractionState.ProcessingUserInput)
         {
             SetState(InteractionState.AnsweringQuestion);
-            // A beszéd gomb már le van tiltva (HandleUserQuestionReceived-ben történt)
-            // A jelentkezés gomb is maradjon letiltva a válasz alatt
+
+            // Nem kell külön kezelni a SentenceHighlighter-t, 
+            // mert az OpenAIWebRequest már továbbítja a delta-kat
         }
         else
         {
