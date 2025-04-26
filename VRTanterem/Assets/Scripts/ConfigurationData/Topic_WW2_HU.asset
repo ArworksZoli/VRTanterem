@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Topic_WW2_HU
   m_EditorClassIdentifier: 
   topicName: "II. Vil\xE1gh\xE1bor\xFA"
-  assistantId: asst_cSymm4zmPV3ExL8RRso7Jnge
+  assistantId: asst_qpT5Qc4xgcad3RJe0Kc3gV43
   availableVoiceIds:
   - nova
   - shimmer
