@@ -33,10 +33,6 @@ public class OpenAIWebRequest : MonoBehaviour
     [Tooltip("Reference to the TextToSpeechManager component for audio output.")]
     [SerializeField] private TextToSpeechManager textToSpeechManager;
 
-    // --- ÚJ: Sentence Highlighter Referencia ---
-    [Tooltip("Reference to the SentenceHighlighter component for text display.")]
-    [SerializeField] private SentenceHighlighter sentenceHighlighter;
-
     // --- Belső Változók ---
     private string assistantThreadId; // Az aktuális beszélgetési szál azonosítója
     private string currentRunId; // Az aktuális futtatás azonosítója (streaminghez)
@@ -86,12 +82,6 @@ public class OpenAIWebRequest : MonoBehaviour
         }
         // --- KONFIGURÁCIÓ ELLENŐRZÉSE VÉGE ---
         */
-        // --- Sentence Highlighter Ellenőrzése ---
-        if (sentenceHighlighter == null)
-        {
-            Debug.LogWarning("[OpenAIWebRequest] SentenceHighlighter reference is not set in the Inspector. Highlighting functionality will be disabled.");
-        }
-        // --- SENTENCE HIGHLIGHTER VÉGE ---
 
         // InputField 'onSubmit' esemény (Enter lenyomására)
         if (TMPInputField != null)
@@ -259,6 +249,33 @@ public class OpenAIWebRequest : MonoBehaviour
         request.SetRequestHeader("OpenAI-Beta", "assistants=v2");
     }
 
+    /// <summary>
+    /// Starts a new Assistant Run specifically for the main lecture content.
+    /// Ensures the 'isAnsweringQuestion' flag is false.
+    /// </summary>
+    public void StartMainLectureRun()
+    {
+        Debug.LogWarning("[OAIWR_LOG] >>> StartMainLectureRun ENTER.");
+
+        if (string.IsNullOrEmpty(assistantThreadId))
+        {
+            Debug.LogError("[OAIWR_LOG] Cannot start main lecture run: Assistant Thread ID is missing.");
+            return; // Ne indítsunk korutint, ha nincs thread
+        }
+
+        Debug.LogWarning("[OAIWR_LOG] Calling CreateAssistantRun for main lecture (NO callback).");
+
+        StartCoroutine(CreateAssistantRun(
+            isAnsweringQuestion: false,
+            userQuestion: null,
+            followUpPrompt: null,
+            onRunCompleteCallback: null
+        ));
+        
+
+        Debug.LogWarning("[OAIWR_LOG] <<< StartMainLectureRun EXIT (Coroutine Started).");
+    }
+
     // Lekéri az asszisztens adatait (opcionális)
     private IEnumerator GetAssistant()
     {
@@ -358,10 +375,13 @@ public class OpenAIWebRequest : MonoBehaviour
                                 Debug.LogWarning("TMPUserText is not assigned in the Inspector. Cannot display initial user input.");
                             }
 
-                            // Indítsuk el a futtatást (CreateAssistantRun),
-                            // mivel az üzenet már a thread része, nem kell újra hozzáadni.
-                            Debug.Log("Attempting to start CreateAssistantRun...");
-                            StartCoroutine(CreateAssistantRun());
+                            Debug.LogWarning("[OAIWR_LOG] Starting the INITIAL Assistant Run with callback to IFM.HandleInitialPromptCompleted."); // <<< ÚJ LOG
+                            StartCoroutine(CreateAssistantRun(
+                                isAnsweringQuestion: false, // Ez nem válasz, hanem a kezdeti üdvözlés/kérdés
+                                userQuestion: null,
+                                followUpPrompt: null,
+                                onRunCompleteCallback: InteractionFlowManager.Instance.HandleInitialPromptCompleted // <<< ITT ADJUK ÁT A CALLBACK-ET!
+                            ));
                         }
                         // --- MÓDOSÍTÁS VÉGE ---
                     }
@@ -435,12 +455,6 @@ public class OpenAIWebRequest : MonoBehaviour
             textToSpeechManager.ResetManager();
         }
         else { Debug.LogWarning("Cannot reset TTS Manager - reference missing."); }
-
-        if (sentenceHighlighter != null)
-        {
-            sentenceHighlighter.ResetHighlighter();
-        }
-        else { Debug.LogWarning("Cannot reset Sentence Highlighter - reference missing."); }
         // --- RESETTING MANAGERS END ---
 
         // 1. Próbáljuk megszakítani az előző futást (ha volt)
@@ -505,9 +519,13 @@ public class OpenAIWebRequest : MonoBehaviour
             }
             else
             {
-                Debug.Log("User message added to thread successfully. Response: " + webRequest.downloadHandler.text);
-                // Az üzenet sikeresen hozzáadva, most indíthatjuk a futtatást (run)
-                StartCoroutine(CreateAssistantRun());
+                Debug.LogWarning("[OAIWR_LOG] Starting Assistant Run from GetAssistantResponse (NO callback).");
+                StartCoroutine(CreateAssistantRun(
+                    isAnsweringQuestion: false,
+                    userQuestion: null,
+                    followUpPrompt: null,
+                    onRunCompleteCallback: null
+                ));
             }
         }
     }
@@ -525,29 +543,27 @@ public class OpenAIWebRequest : MonoBehaviour
     public void SendUserQuestionDuringLecture(string userQuestionText, string followUpPromptText)
     {
         Debug.Log($"[OpenAIWebRequest] SendUserQuestionDuringLecture called with question: '{userQuestionText}' and prompt: '{followUpPromptText}'");
+        Debug.LogWarning($"[OAIWR_LOG] >>> SendUserQuestionDuringLecture ENTER. Question: '{userQuestionText}'");
 
         if (string.IsNullOrEmpty(assistantThreadId))
         {
             Debug.LogError("[OpenAIWebRequest] Cannot send question: Assistant Thread ID is missing.");
-            // Opcionális: Értesítheted az InteractionFlowManagert a hibáról
-            // InteractionFlowManager.Instance?.HandleError("Assistant connection lost.");
             return;
         }
         if (string.IsNullOrEmpty(userQuestionText))
         {
             Debug.LogWarning("[OpenAIWebRequest] Cannot send empty question.");
-            // Opcionális: Értesítés az IFM-nek?
             return;
         }
-
-        // 1. Indítunk egy külön korutint, ami hozzáadja az üzenetet ÉS utána indítja a futtatást.
-        //    Ez tisztább, mintha mindent ebben a metódusban csinálnánk.
+        Debug.LogWarning("[OAIWR_LOG] Starting AddMessageAndStartAnswerRunCoroutine...");
         StartCoroutine(AddMessageAndStartAnswerRunCoroutine(userQuestionText, followUpPromptText));
+        Debug.LogWarning("[OAIWR_LOG] <<< SendUserQuestionDuringLecture EXIT (Coroutine Started).");
     }
 
     // --- ÚJ SEGÉD KORUTIN AZ ÜZENET HOZZÁADÁSÁHOZ ÉS A VÁLASZ FUTTATÁS INDÍTÁSÁHOZ ---
     private IEnumerator AddMessageAndStartAnswerRunCoroutine(string userQuestionText, string followUpPromptText)
     {
+        Debug.LogWarning("[OAIWR_LOG] >>> AddMessageAndStartAnswerRunCoroutine ENTER.");
         // --- Üzenet hozzáadása a szálhoz (logika átemelve GetAssistantResponse-ból) ---
         string messageURL = $"{apiUrl}/threads/{assistantThreadId}/messages";
         Debug.Log($"[OpenAIWebRequest] Posting User Question to Thread: {assistantThreadId}");
@@ -566,72 +582,71 @@ public class OpenAIWebRequest : MonoBehaviour
             webRequest.downloadHandler = new DownloadHandlerBuffer();
             SetCommonHeaders(webRequest);
 
+            Debug.LogWarning("[OAIWR_LOG] Sending user question message...");
             yield return webRequest.SendWebRequest();
+            Debug.LogWarning($"[OAIWR_LOG] User question message sent. Result: {webRequest.result}");
 
             if (webRequest.result != UnityWebRequest.Result.Success)
             {
                 Debug.LogError($"[OpenAIWebRequest] Error posting user question: {webRequest.error} - {webRequest.downloadHandler.text}");
+                Debug.LogWarning("[OAIWR_LOG] <<< AddMessageAndStartAnswerRunCoroutine EXIT (Error sending message).");
                 yield break; // Állítsd le a korutint itt
             }
             else
             {
                 Debug.Log("[OpenAIWebRequest] User question added to thread successfully.");
-                StartCoroutine(CreateAssistantRun(isAnsweringQuestion: true, userQuestion: userQuestionText, followUpPrompt: followUpPromptText));
+
+                Debug.LogWarning("[OAIWR_LOG] Calling CreateAssistantRun for answering question (NO callback).");
+                StartCoroutine(CreateAssistantRun(
+                    isAnsweringQuestion: true,
+                    userQuestion: userQuestionText,
+                    followUpPrompt: followUpPromptText,
+                    onRunCompleteCallback: null
+                ));
             }
         }
+        Debug.LogWarning("[OAIWR_LOG] <<< AddMessageAndStartAnswerRunCoroutine EXIT (Run Started).");
     }
 
     // Létrehoz és elindít egy új asszisztens futtatást (run) streaming módban
-    private IEnumerator CreateAssistantRun(bool isAnsweringQuestion = false, string userQuestion = null, string followUpPrompt = null)
+    private IEnumerator CreateAssistantRun(bool isAnsweringQuestion = false, string userQuestion = null, string followUpPrompt = null, Action onRunCompleteCallback = null)
     {
-        // <<< MÓDOSÍTOTT LOG >>>
-        Debug.LogWarning($"[OpenAIWebRequest] CreateAssistantRun STARTED - Frame: {Time.frameCount}, IsAnswering: {isAnsweringQuestion}");
+        Debug.LogWarning($"[OAIWR_LOG] >>> CreateAssistantRun ENTER. IsAnswering: {isAnsweringQuestion}, HasCallback: {onRunCompleteCallback != null}, Frame: {Time.frameCount}");
         if (string.IsNullOrEmpty(assistantThreadId))
         {
             Debug.LogError("[OpenAIWebRequest] Assistant Thread ID is invalid before creating run.");
-            yield break;
+            yield break; // Kilépés, ha nincs thread ID
         }
 
         string runUrl = $"{apiUrl}/threads/{assistantThreadId}/runs";
-        // <<< MÓDOSÍTOTT LOG >>>
-        Debug.Log($"[OpenAIWebRequest] Creating assistant run (Is Answering Question: {isAnsweringQuestion}) for thread: {assistantThreadId}");
+        Debug.Log($"[OpenAIWebRequest] Creating assistant run (Is Answering Question: {isAnsweringQuestion}) for thread: {assistantThreadId} at URL: {runUrl}");
 
         // --- Run Body összeállítása ---
         var runBody = new JObject
         {
             ["assistant_id"] = assistantID,
-            ["stream"] = true // <<< KRITIKUS: Streaming bekapcsolása MINDIG >>>
+            ["stream"] = true // Streaming MINDIG bekapcsolva
         };
 
         // --- PROMPT ENGINEERING: Speciális instrukciók hozzáadása, ha kérdésre válaszolunk ---
         if (isAnsweringQuestion)
         {
-            // Ellenőrizzük, hogy megkaptuk-e a promptot
+            // Ellenőrizzük, hogy megkaptuk-e a promptot az IFM-től
             if (string.IsNullOrEmpty(followUpPrompt))
             {
-                Debug.LogWarning("[OpenAIWebRequest] Follow-up prompt was not provided for additional instructions. Using a default.");
-
+                Debug.LogWarning("[OpenAIWebRequest] Follow-up prompt was not provided for additional instructions. Using a default based on language.");
                 // Nyelvi kód lekérése
-                string languageCode = "en"; // Alapértelmezett
-                if (AppStateManager.Instance != null && AppStateManager.Instance.CurrentLanguage != null)
-                {
-                    languageCode = AppStateManager.Instance.CurrentLanguage.languageCode;
-                }
-
+                string langCode = AppStateManager.Instance?.CurrentLanguage?.languageCode ?? "en"; // Alapértelmezett 'en', ha nincs
                 // Alapértelmezett prompt a nyelv alapján
-                followUpPrompt = languageCode == "hu" ?
+                followUpPrompt = langCode == "hu" ?
                     "Van további kérdése ezzel kapcsolatban?" :
                     "Do you have any more questions about this?";
             }
 
-            // Nyelvi kód lekérése az utasításhoz
-            string language = "en"; // Alapértelmezett
-            if (AppStateManager.Instance != null && AppStateManager.Instance.CurrentLanguage != null)
-            {
-                language = AppStateManager.Instance.CurrentLanguage.languageCode;
-            }
+            // Nyelvi kód lekérése az utasításhoz (lehet redundáns, de biztosabb)
+            string language = AppStateManager.Instance?.CurrentLanguage?.languageCode ?? "en";
 
-            // Egyszerűsített instrukció - nincs marker
+            // Egyszerűsített instrukció - nincs marker, csak a válasz és a prompt kérése
             string additionalInstructions =
                 $"INSTRUCTION: The user has interrupted the lecture with a question. " +
                 $"Answer ONLY the user's current question briefly and clearly. " +
@@ -641,105 +656,132 @@ public class OpenAIWebRequest : MonoBehaviour
             runBody["additional_instructions"] = additionalInstructions;
             Debug.LogWarning($"[OpenAIWebRequest] Added simplified question handling instructions using prompt: '{followUpPrompt}' in language: {language}");
         }
+        // Ha nem kérdésre válaszolunk (isAnsweringQuestion == false), akkor nem adunk hozzá extra instrukciót,
+        // az asszisztens a normál promptja alapján folytatja az előadást.
 
         string runJson = runBody.ToString();
-        // Debug.Log("Run creation JSON: " + runJson); // Szükség esetén
+        // Debug.Log("Run creation JSON: " + runJson); // Csak szükség esetén logoljuk
 
-        bool streamEndedSuccessfully = false;
+        // --- Streaming Változók Inicializálása ---
+        bool streamEndedSuccessfully = false; // Jelzi, hogy a [DONE] esemény megérkezett-e
+        StringBuilder currentResponseChunk = new StringBuilder(); // Az aktuális üzenet darabjait gyűjti (főleg logoláshoz)
+        int lastProcessedIndex = 0; // A letöltött adatok feldolgozottságát követi
+        buffer.Clear(); // Kiürítjük a bejövő adatok pufferét
+        bool answerStreamStartNotified = false; // Jelzi, hogy a VÁLASZ stream kezdetét már jeleztük-e az IFM-nek
+        bool lectureStreamStartNotified = false; // Jelzi, hogy az ELŐADÁS stream kezdetét már jeleztük-e az IFM-nek
+        int eventSeparatorIndex; // Segédváltozó az SSE események szétválasztásához
 
+        // --- Web Kérés Indítása és Feldolgozása ---
         using (UnityWebRequest webRequest = new UnityWebRequest(runUrl, "POST"))
         {
             webRequest.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(runJson));
-            webRequest.downloadHandler = new DownloadHandlerBuffer(); // Változatlan
-            SetCommonHeaders(webRequest); // Változatlan
+            // Fontos: A DownloadHandlerBuffer kell, hogy a részleges adatokat olvashassuk
+            webRequest.downloadHandler = new DownloadHandlerBuffer();
+            SetCommonHeaders(webRequest); // API kulcs és egyéb fejlécek beállítása
 
+            // Aszinkron művelet indítása
             UnityWebRequestAsyncOperation asyncOp = webRequest.SendWebRequest();
-            StringBuilder currentResponseChunk = new StringBuilder(); // Változatlan
-            int lastProcessedIndex = 0; // Változatlan
-            buffer.Clear(); // Változatlan
-            bool answerStreamStartNotified = false; // <<< ÚJ VÁLTOZÓ a cikluson belülre (vagy ide kintre)
-            int eventSeparatorIndex; // Változatlan
+            // Debug.LogWarning($"[OAIWR_LOG] CreateAssistantRun - WebRequest Sent. Starting WHILE loop. Frame: {Time.frameCount}");
 
-            while (!asyncOp.isDone && !streamEndedSuccessfully) // <<< MÓDOSÍTÁS: streamEndedSuccessfully flag használata
+            // Ciklus, amíg a kérés be nem fejeződik VAGY a stream véget nem ér ([DONE])
+            while (!asyncOp.isDone && !streamEndedSuccessfully)
             {
-                // ... (Hibakezelés változatlan: if (webRequest.result != UnityWebRequest.Result.InProgress)) ...
-                if (webRequest.result != UnityWebRequest.Result.InProgress) // Hibakezelés
+                // Debug.LogWarning($"[OAIWR_LOG] CreateAssistantRun - WHILE Loop Top. Frame: {Time.frameCount}");
+                // Hibakezelés a cikluson belül
+                if (webRequest.result != UnityWebRequest.Result.InProgress)
                 {
                     Debug.LogError($"[OpenAIWebRequest] Error during assistant run stream: {webRequest.error} - Status: {webRequest.result} - Code: {webRequest.responseCode} - Partial Response: {webRequest.downloadHandler?.text}");
-                    // Notify InteractionFlowManager about the error?
-                    yield break;
+                    // Itt értesíthetnénk az InteractionFlowManagert a hibáról, ha szükséges
+                    // InteractionFlowManager.Instance?.HandleError("Assistant run failed.");
+                    yield break; // Kilépés a korutinból hiba esetén
                 }
 
-
+                // Ellenőrizzük, hogy érkezett-e új adat
                 if (webRequest.downloadHandler.data != null)
                 {
-                    // ... (Adatfeldolgozás, buffer feltöltése változatlan) ...
                     int currentLength = webRequest.downloadHandler.data.Length;
+                    // Csak akkor dolgozunk, ha van új adat a legutóbbi feldolgozás óta
                     if (currentLength > lastProcessedIndex)
                     {
+                        // Kiolvassuk az új adatrészt
                         string newTextChunk = Encoding.UTF8.GetString(webRequest.downloadHandler.data, lastProcessedIndex, currentLength - lastProcessedIndex);
-                        lastProcessedIndex = currentLength;
-                        buffer.Append(newTextChunk);
+                        lastProcessedIndex = currentLength; // Frissítjük a feldolgozott indexet
+                        buffer.Append(newTextChunk); // Hozzáadjuk a pufferhez
 
-                        string bufferContent = buffer.ToString();
-                        int lastEventEndIndex = 0;
+                        string bufferContent = buffer.ToString(); // A puffer aktuális tartalma
+                        int lastEventEndIndex = 0; // Az utolsó feldolgozott esemény vége a pufferben
 
-
+                        // Keressük az SSE eseményeket (amik "\n\n"-nel végződnek)
                         while ((eventSeparatorIndex = bufferContent.IndexOf("\n\n", lastEventEndIndex)) != -1)
                         {
+                            // Debug.LogWarning($"[OAIWR_LOG] CreateAssistantRun - Processing Event Block. Frame: {Time.frameCount}");
+                            // Kivesszük az esemény blokkját
                             string eventBlock = bufferContent.Substring(lastEventEndIndex, eventSeparatorIndex - lastEventEndIndex);
-                            lastEventEndIndex = eventSeparatorIndex + 2;
+                            // Frissítjük az indexet a következő kereséshez
+                            lastEventEndIndex = eventSeparatorIndex + 2; // +2 a "\n\n" miatt
 
-                            // Debug.Log($"[OAIWR LOOP DEBUG] Processing eventBlock:\n---\n{eventBlock}\n---"); // Ezt kikommentelheted, ha túl sok
-
+                            // Feldolgozzuk az esemény blokk sorait
                             string[] lines = eventBlock.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-
                             foreach (string line in lines)
                             {
-                                if (line.StartsWith("event:")) // Külön kezeljük az 'event:' sort, ha van
+                                // Az 'event:' sorokat figyelmen kívül hagyjuk, csak a 'data:' érdekel minket
+                                if (line.StartsWith("event:"))
                                 {
-                                    // string eventName = line.Substring(6).Trim();
-                                    // Debug.Log($"[OAIWR LOOP DEBUG] Raw Event Line: {eventName}");
-                                    // Itt nem csinálunk vele semmit, a 'data:' sor a fontos
-                                    continue; // Ugrás a következő sorra
+                                    continue;
                                 }
 
+                                // Ha 'data:' sorral kezdődik
                                 if (line.StartsWith("data:"))
                                 {
+                                    // Kivesszük a JSON adatot
                                     string jsonString = line.Substring(5).Trim();
+
+                                    // Ellenőrizzük a stream végét jelző [DONE] üzenetet
                                     if (jsonString == "[DONE]")
                                     {
-                                        Debug.LogWarning($"[OAIWR DEBUG] Received [DONE]! Flushing buffers...");
-                                        try { textToSpeechManager?.FlushBuffer(); } catch (Exception e) { Debug.LogError($"TTS Flush Error (DONE): {e.Message}"); }
-                                        try { sentenceHighlighter?.FlushBuffer(); } catch (Exception e) { Debug.LogError($"SH Flush Error (DONE): {e.Message}"); }
-                                        streamEndedSuccessfully = true;
-                                        Debug.LogWarning($"[OAIWR DEBUG] Exiting run coroutine via [DONE].");
-                                        break; // Kilépés a foreach ciklusból
+                                        Debug.LogWarning($"[OAIWR DEBUG] Received [DONE] event. Stream ended.");
+                                        streamEndedSuccessfully = true; // Beállítjuk a flaget
+                                        // Itt már nem kell Flush-t hívni, azt a ciklus után kezeljük
+                                        break; // Kilépés a foreach ciklusból (az aktuális eseményblokk feldolgozása)
                                     }
 
+                                    // Megpróbáljuk feldolgozni a JSON adatot
                                     try
                                     {
-                                        // Debug.Log($"[OAIWR LOOP DEBUG] Parsing JSON: {jsonString}"); // Ezt is kikommentelheted később
                                         JObject dataObject = JObject.Parse(jsonString);
                                         string objectType = dataObject["object"]?.ToString();
 
-                                        // --- ÚJ, OBJEKTUMTÍPUS ALAPÚ KEZELÉS ---
+                                        // Objektumtípus alapján döntünk a feldolgozásról
                                         switch (objectType)
                                         {
                                             case "thread.message.delta":
-                                                // --- VÁLASZ STREAM KEZDETÉNEK JELZÉSE ---
-                                                if (isAnsweringQuestion && !answerStreamStartNotified)
+                                                // --- VÁLASZ/ELŐADÁS STREAM KEZDETÉNEK JELZÉSE ---
+                                                // Csak az első érdemi szöveg delta esetén jelezzük az IFM-nek
+                                                JToken contentValue = dataObject.SelectToken("delta.content[0].text.value");
+                                                if (contentValue != null && !string.IsNullOrEmpty(contentValue.ToString()))
                                                 {
-                                                    JToken contentValue = dataObject.SelectToken("delta.content[0].text.value");
-                                                    if (contentValue != null && !string.IsNullOrEmpty(contentValue.ToString()))
+                                                    if (isAnsweringQuestion) // Ha VÁLASZ stream
                                                     {
-                                                        Debug.LogWarning("[OpenAIWebRequest] First text delta received for ANSWER stream. Notifying InteractionFlowManager.");
-                                                        InteractionFlowManager.Instance?.HandleAIAnswerStreamStart();
-                                                        answerStreamStartNotified = true;
+                                                        if (!answerStreamStartNotified) // És még nem jeleztük
+                                                        {
+                                                            Debug.LogWarning("[OpenAIWebRequest] First text delta received for ANSWER stream. Notifying InteractionFlowManager.");
+                                                            InteractionFlowManager.Instance?.HandleAIAnswerStreamStart(); // IFM értesítése
+                                                            answerStreamStartNotified = true; // Jelöljük, hogy jeleztünk
+                                                        }
+                                                    }
+                                                    else // Ha ELŐADÁS stream
+                                                    {
+                                                        if (!lectureStreamStartNotified) // És még nem jeleztük
+                                                        {
+                                                            Debug.LogWarning("[OpenAIWebRequest] First text delta received for LECTURE stream. Notifying InteractionFlowManager.");
+                                                            InteractionFlowManager.Instance?.HandleLectureStreamStart(); // IFM értesítése (új metódus)
+                                                            lectureStreamStartNotified = true; // Jelöljük, hogy jeleztünk
+                                                        }
                                                     }
                                                 }
+                                                // --- Stream Kezdet Jelzés Vége ---
 
-                                                // --- Szöveg Delta Feldolgozása ---
+                                                // --- Szöveg Delta Feldolgozása és Továbbítása a TTS-nek ---
                                                 JArray contentDeltas = dataObject["delta"]?["content"] as JArray;
                                                 if (contentDeltas != null)
                                                 {
@@ -750,96 +792,184 @@ public class OpenAIWebRequest : MonoBehaviour
                                                             string textDelta = deltaItem["text"]?["value"]?.ToString();
                                                             if (!string.IsNullOrEmpty(textDelta))
                                                             {
-                                                                Debug.LogWarning($"[OAIWR LOOP DEBUG] Appending Delta: '{textDelta}'");
-                                                                currentResponseChunk.Append(textDelta);
+                                                                // Logolás (opcionális, de hasznos lehet)
+                                                                // Debug.LogWarning($"[OAIWR LOOP DEBUG] Appending Delta: '{textDelta}'");
+                                                                currentResponseChunk.Append(textDelta); // Összegyűjtjük a választ (logoláshoz)
 
-                                                                // Egyszerűsített: Minden delta-t továbbítunk, nincs marker kezelés
-                                                                if (sentenceHighlighter != null) { sentenceHighlighter.AppendText(textDelta); }
-                                                                if (textToSpeechManager != null) { textToSpeechManager.AppendText(textDelta); }
+                                                                // Továbbítjuk a megfelelő TTS metódusnak
+                                                                if (textToSpeechManager != null)
+                                                                {
+                                                                    if (isAnsweringQuestion) // Ha válasz
+                                                                    {
+                                                                        // Debug.Log($"[OAIWR DEBUG] >>> Calling AppendAnswerText with delta: '{textDelta}'");
+                                                                        try { textToSpeechManager.AppendAnswerText(textDelta); }
+                                                                        catch (Exception ex) { Debug.LogError($"[OAIWR ERROR] !!! Exception during AppendAnswerText call: {ex.Message}\n{ex.StackTrace}"); }
+                                                                    }
+                                                                    else // Ha előadás
+                                                                    {
+                                                                        // Debug.Log($"[OAIWR DEBUG] >>> Calling AppendText (Lecture) with delta: '{textDelta}'");
+                                                                        try { textToSpeechManager.AppendText(textDelta); }
+                                                                        catch (Exception ex) { Debug.LogError($"[OAIWR ERROR] !!! Exception during AppendText call: {ex.Message}\n{ex.StackTrace}"); }
+                                                                    }
+                                                                }
+                                                                else // Ha nincs TTS Manager
+                                                                {
+                                                                    Debug.LogError("[OAIWR ERROR] !!! textToSpeechManager reference is NULL when trying to append delta!");
+                                                                }
                                                             }
                                                         }
                                                     }
                                                 }
+                                                break; // thread.message.delta vége
+
+                                            // Egyéb objektumtípusok (pl. run step) figyelmen kívül hagyása
+                                            case "thread.run.step":
+                                            case "thread.message":
+                                                // Ezeket most nem dolgozzuk fel aktívan a stream alatt
                                                 break;
 
-
-                                            case "thread.run.step":
-                                                // Debug.Log($"[OAIWR LOOP DEBUG] Ignoring 'thread.run.step' object.");
-                                                break; // Figyelmen kívül hagyjuk
-
-                                            case "thread.message":
-                                                // Debug.Log($"[OAIWR LOOP DEBUG] Ignoring 'thread.message' object (full message).");
-                                                break; // Figyelmen kívül hagyjuk a teljes üzenetet a stream alatt
-
+                                            // Ismeretlen objektumtípus logolása
                                             default:
                                                 Debug.LogWarning($"[OAIWR LOOP DEBUG] Received unhandled object type: '{objectType}'. Full JSON: {jsonString}");
                                                 break;
-                                        }
-                                        // --- Objektumtípus alapú kezelés vége ---
-
+                                        } // switch (objectType) vége
                                     }
-                                    catch (Exception e)
+                                    catch (Exception e) // Hiba a JSON feldolgozása közben
                                     {
                                         Debug.LogError($"Error parsing stream data JSON: {e.Message} - JSON: {jsonString}");
                                     }
 
-                                    if (streamEndedSuccessfully) break; // Kilépés a foreach ciklusból, ha a stream véget ért
+                                    // Ha a [DONE] esemény miatt léptünk ki a foreach-ból, itt is lépjünk ki
+                                    if (streamEndedSuccessfully) break;
                                 } // if (line.StartsWith("data:")) vége
                             } // foreach line vége
 
-                            // --- Buffer ürítése (Változatlan) ---
-                            if (lastEventEndIndex > 0 && buffer.Length >= lastEventEndIndex)
+                            // --- Buffer ürítése a feldolgozott rész után ---
+                            // Ha feldolgoztunk legalább egy eseményt
+                            if (lastEventEndIndex > 0)
                             {
-                                buffer.Remove(0, lastEventEndIndex);
-                                bufferContent = buffer.ToString();
-                                lastEventEndIndex = 0;
+                                // Ha a puffer elég hosszú, eltávolítjuk a feldolgozott részt
+                                if (buffer.Length >= lastEventEndIndex)
+                                {
+                                    buffer.Remove(0, lastEventEndIndex);
+                                    bufferContent = buffer.ToString(); // Frissítjük a stringet is
+                                    lastEventEndIndex = 0; // Reseteljük az indexet
+                                }
+                                else // Ez nem fordulhatna elő, de biztonsági ellenőrzés
+                                {
+                                    Debug.LogError($"[OAIWR Buffer Error] lastEventEndIndex ({lastEventEndIndex}) is invalid for buffer length ({buffer.Length}). Clearing buffer.");
+                                    buffer.Clear(); bufferContent = ""; lastEventEndIndex = 0;
+                                }
                             }
-                            else if (lastEventEndIndex > 0)
-                            {
-                                Debug.LogError($"[OAIWR Buffer Error] lastEventEndIndex ({lastEventEndIndex}) is invalid for buffer length ({buffer.Length}). Clearing buffer.");
-                                buffer.Clear(); bufferContent = ""; lastEventEndIndex = 0;
-                            }
 
-                            if (streamEndedSuccessfully) break; // Kilépés a while (eventSeparatorIndex != -1) ciklusból is
-                        } // while (eventSeparatorIndex != -1) vége
-                    } // if (currentLength > lastProcessedIndex) vége
+                            // Ha a [DONE] esemény miatt léptünk ki a while-ból, itt is lépjünk ki
+                            if (streamEndedSuccessfully) break;
+                        } // while (eseményeket keresünk a pufferben) vége
+                    } // if (van új adat) vége
+                } // if (van letöltött adat) vége
 
-                    // Ha a stream véget ért egy esemény miatt, lépjünk ki a fő while (!asyncOp.isDone) ciklusból is
-                    if (streamEndedSuccessfully) break;
+                // Ha a stream véget ért egy esemény miatt, lépjünk ki a fő while (!asyncOp.isDone) ciklusból is
+                if (streamEndedSuccessfully) break;
 
-                } // if (webRequest.downloadHandler.data != null) vége
-
-                yield return null; // Várakozás a következő frame-re
+                // Várakozás a következő frame-re, hogy ne terheljük túl a CPU-t
+                yield return null;
             } // while (!asyncOp.isDone && !streamEndedSuccessfully) vége
 
-            // --- Korutin Vége - Utófeldolgozás (Változatlan) ---
-            // Ez a rész lefut, ha a while ciklus véget ér (akár hiba, akár befejezés miatt)
+            // --- Korutin Vége - Utófeldolgozás ---
+            Debug.LogWarning($"[OAIWR_LOG] <<< CreateAssistantRun EXIT. Frame: {Time.frameCount}");
             Debug.LogWarning($"[OAIWR DEBUG] Coroutine loop finished OR stream ended. asyncOp.isDone={asyncOp.isDone}, webRequest.result={webRequest.result}, streamEndedSuccessfully={streamEndedSuccessfully}");
 
-            // Ha a kérés sikeres volt, de a stream végére utaló eseményt nem kaptuk meg a ciklusban
-            // (ritka eset, de előfordulhat), akkor is próbáljuk meg üríteni a buffereket.
+            // TTS Bufferek ürítése a stream vége után (fontos, hogy az utolsó mondat is feldolgozódjon)
+            // Csak akkor ürítünk, ha a stream sikeresen véget ért ([DONE]) vagy a web kérés sikeres volt
+            if (streamEndedSuccessfully || webRequest.result == UnityWebRequest.Result.Success)
+            {
+                Debug.LogWarning("[OAIWR DEBUG] Flushing TTS buffers post-loop...");
+                try
+                {
+                    if (textToSpeechManager != null)
+                    {
+                        if (isAnsweringQuestion) // Ha válasz volt
+                        {
+                            textToSpeechManager.FlushAnswerBuffer(); // Válasz buffer ürítése
+                        }
+                        else // Ha előadás volt
+                        {
+                            textToSpeechManager.FlushBuffer(); // Normál buffer ürítése
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError($"TTS Flush Error (Post-Loop): {e.Message}");
+                }
+            }
+
+            // Kezeljük azt az esetet, ha a ciklus azért fejeződött be, mert a web kérés véget ért (asyncOp.isDone),
+            // de a [DONE] eseményt nem kaptuk meg (pl. hálózati hiba a stream végén)
             if (webRequest.result == UnityWebRequest.Result.Success && !streamEndedSuccessfully)
             {
-                Debug.LogWarning("[OAIWR DEBUG] Loop ended via Success & asyncOp.isDone, but stream event wasn't caught in loop. Forcing FlushBuffers post-loop.");
-                try { textToSpeechManager?.FlushBuffer(); } catch (Exception e) { Debug.LogError($"TTS Flush Error (Post-Loop): {e.Message}"); }
-                try { sentenceHighlighter?.FlushBuffer(); } catch (Exception e) { Debug.LogError($"SH Flush Error (Post-Loop): {e.Message}"); }
-                streamEndedSuccessfully = true; // Jelöljük, hogy kezeltük
+                Debug.LogWarning("[OAIWR DEBUG] Loop ended via Success & asyncOp.isDone, but [DONE] event wasn't received. Forcing FlushBuffers just in case.");
+                // Itt is megpróbáljuk üríteni a megfelelő puffert
+                try
+                {
+                    if (textToSpeechManager != null)
+                    {
+                        if (isAnsweringQuestion) { textToSpeechManager.FlushAnswerBuffer(); }
+                        else { textToSpeechManager.FlushBuffer(); }
+                    }
+                }
+                catch (Exception e) { Debug.LogError($"TTS Flush Error (Post-Loop, No DONE): {e.Message}"); }
+                streamEndedSuccessfully = true; // Jelöljük, hogy kezeltük ezt az esetet is
             }
 
             // Végső logolás a futás állapotáról
             if (!streamEndedSuccessfully && webRequest.result != UnityWebRequest.Result.Success)
             {
-                Debug.LogError($"[OpenAIWebRequest] Assistant run finished with error AND stream did not end via event: {webRequest.error}...");
-                // Értesítsd az IFM-et?
+                Debug.LogError($"[OpenAIWebRequest] Assistant run finished with error AND stream did not end via [DONE] event: {webRequest.error}");
+                // Értesíthetjük az IFM-et a hibáról
             }
             else if (!streamEndedSuccessfully)
             {
-                // Ez nem feltétlenül hiba, lehet, hogy csak nem volt 'completed' esemény (pl. [DONE] jött)
-                Debug.LogWarning($"[OpenAIWebRequest] Stream processing finished WITHOUT explicit completion event ([DONE] or completed). Final buffer: '{buffer}'");
+                // Ez nem feltétlenül hiba, de jelzi, hogy a [DONE] nem jött meg valamiért
+                Debug.LogWarning($"[OpenAIWebRequest] Stream processing finished WITHOUT explicit [DONE] event. Final buffer content: '{buffer}'");
+                // Kezeljük ezt az esetet is sikeresként, ha a webRequest maga sikeres volt
+                if (webRequest.result == UnityWebRequest.Result.Success)
+                {
+                    streamEndedSuccessfully = true; // Jelöljük sikeresnek a callback híváshoz
+                    Debug.LogWarning("[OAIWR DEBUG] Treating 'No DONE but Success Request' as successful for callback.");
+                }
             }
             else
             {
-                Debug.Log($"[OpenAIWebRequest] Assistant run stream processing finished successfully via event. Final buffer state: '{buffer}'");
+                // Sikeres befejezés ([DONE] megérkezett)
+                Debug.Log($"[OpenAIWebRequest] Assistant run stream processing finished successfully. Final buffer state: '{buffer}'");
+                // streamEndedSuccessfully már true
+            }
+
+            if (webRequest.result == UnityWebRequest.Result.Success && streamEndedSuccessfully)
+            {
+                Debug.LogWarning("[OAIWR_LOG] Run considered successful for callback invocation."); // <<< ÚJ LOG
+                if (onRunCompleteCallback != null)
+                {
+                    Debug.LogWarning("[OAIWR_LOG] Invoking onRunCompleteCallback...");
+                    try
+                    {
+                        onRunCompleteCallback.Invoke();
+                        Debug.LogWarning("[OAIWR_LOG] onRunCompleteCallback invoked successfully.");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError($"[OAIWR_LOG] Exception during onRunCompleteCallback: {ex.Message}\n{ex.StackTrace}");
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning("[OAIWR_LOG] No onRunCompleteCallback provided for this successful run.");
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"[OAIWR_LOG] Run completed unsuccessfully or without stream success flag. Not invoking callback. Result: {webRequest.result}, StreamSuccessFlag: {streamEndedSuccessfully}");
             }
 
         } // using (UnityWebRequest webRequest = ...) vége
