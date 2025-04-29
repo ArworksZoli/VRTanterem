@@ -77,7 +77,7 @@ public class TranscriptLogger : MonoBehaviour
         Transcript.Add(newEntry);
 
         // Logoljuk a konzolra is a könnyebb követhetőségért
-        Debug.Log($"[Transcript] {newEntry}");
+        Debug.Log($"[Transcript_LOG] {newEntry}");
 
         // Opcionális: Frissítjük a UI kijelzőt
         // UpdateTranscriptUI();

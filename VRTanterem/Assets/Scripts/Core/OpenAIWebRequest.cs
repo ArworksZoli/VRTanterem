@@ -11,35 +11,33 @@ using TMPro;
 public class OpenAIWebRequest : MonoBehaviour
 {
     // --- API és Asszisztens Beállítások ---
-    // [SerializeField] attribútummal tesszük láthatóvá és szerkeszthetővé az Inspectorban,
-    // miközben a változók privátak maradnak a kódban.
-    [Header("OpenAI Configuration")] // Opcionális: Fejléc az Inspectorban a jobb átláthatóságért
-    [Tooltip("Your OpenAI API Key (keep this secret!)")] // Opcionális: Segítő szöveg az Inspectorban
-    [SerializeField] private string apiKey = ""; // Üresen hagyjuk, az értéket az Inspectorban kell megadni
+    [Header("OpenAI Configuration")]
+    [Tooltip("Your OpenAI API Key (keep this secret!)")]
+    [SerializeField] private string apiKey = "";
 
     [Tooltip("The ID of the OpenAI Assistant to use")]
     private string assistantID;
 
-    private string apiUrl = "https://api.openai.com/v1"; // Ezt itt hagyhatjuk, ha nem változik gyakran
+    private string apiUrl = "https://api.openai.com/v1";
 
     // --- UI Elemek ---
-    public string userInput = "Hello!"; // Alapértelmezett első üzenet
-    public TMP_Text TMPResponseText; // AI válasza
-    [SerializeField] private TMP_InputField TMPInputField; // User szöveges üzenetének beviteli mező
-    public TMP_Text TMPUserText; // User válasza elküldéskor
+    public string userInput = "Hello!";
+    public TMP_Text TMPResponseText;
+    [SerializeField] private TMP_InputField TMPInputField;
+    public TMP_Text TMPUserText;
 
     // --- TTS Manager Referencia ---
-    [Header("External Components")] // Opcionális fejléc
+    [Header("External Components")]
     [Tooltip("Reference to the TextToSpeechManager component for audio output.")]
     [SerializeField] private TextToSpeechManager textToSpeechManager;
 
+    public event Action OnRunCompleted;
+
     // --- Belső Változók ---
-    private string assistantThreadId; // Az aktuális beszélgetési szál azonosítója
-    private string currentRunId; // Az aktuális futtatás azonosítója (streaminghez)
-    private StringBuilder messageBuilder = new StringBuilder(); // Üzenetek építéséhez (jelenleg kevésbé használt a streaming miatt)
-    private StringBuilder buffer = new StringBuilder(); // Bejövő streaming adatok puffereléséhez
-    // private string fullMessage = ""; // Eltávolítva vagy újragondolva, ha a teljes üzenet követése szükséges
-    // private string lastProcessedContent = ""; // Eltávolítva vagy újragondolva
+    private string assistantThreadId;
+    private string currentRunId;
+    private StringBuilder messageBuilder = new StringBuilder();
+    private StringBuilder buffer = new StringBuilder();
 
     // Whisper beállítások
     private const string WhisperApiUrl = "https://api.openai.com/v1/audio/transcriptions";
@@ -96,7 +94,7 @@ public class OpenAIWebRequest : MonoBehaviour
                 else if (string.IsNullOrEmpty(assistantThreadId))
                 {
                     Debug.LogWarning("Cannot send message yet, thread is not ready.");
-                    // Esetleg visszajelzés a felhasználónak
+                    
                 }
             });
         }
@@ -105,19 +103,10 @@ public class OpenAIWebRequest : MonoBehaviour
             Debug.LogWarning("TMPInputField nincs beállítva az Inspectorban!");
         }
 
-        // Asszisztens adatainak lekérése és Thread létrehozása (csak ha a konfiguráció rendben van)
-        // StartCoroutine(GetAssistant());
-        // StartCoroutine(CreateThread());
-
         Debug.Log("[OpenAIWebRequest] Start() finished (Automatic thread/run creation DISABLED for menu integration).");
     }
 
-    /// <summary>
-    /// Initializes the component with the necessary configuration and starts the interaction process.
-    /// Called by AppStateManager after the menu selection is complete and this module is activated.
-    /// </summary>
-    /// <param name="selectedAssistantId">The Assistant ID chosen in the menu.</param>
-    /// <param name="selectedVoiceId">The Voice ID chosen in the menu (for TTS initialization).</param>
+    
     public void InitializeAndStartInteraction(string selectedAssistantId, string selectedVoiceId)
     {
         Debug.Log($"[OpenAIWebRequest] InitializeAndStartInteraction called. AssistantID: {selectedAssistantId}, VoiceID: {selectedVoiceId}");
@@ -149,7 +138,7 @@ public class OpenAIWebRequest : MonoBehaviour
 
         // --- ÁTHELYEZETT ELLENŐRZÉSEK ---
         bool configurationValid = true;
-        // API Kulcs ellenőrzése (győződj meg, hogy a 'this.apiKey' már be van állítva!)
+        
         if (string.IsNullOrEmpty(this.apiKey) || this.apiKey.Length < 10)
         {
             Debug.LogError("[OpenAIWebRequest] Initialization Error: API Key is missing or invalid!", this);
@@ -165,26 +154,26 @@ public class OpenAIWebRequest : MonoBehaviour
         if (!configurationValid)
         {
             Debug.LogError("[OpenAIWebRequest] Initialization failed due to invalid configuration. Disabling component.");
-            enabled = false; // Letiltjuk magunkat
-                             // Opcionális UI visszajelzés
-                             // if (TMPResponseText != null) TMPResponseText.text = "ERROR: Initialization Failed!";
-            return; // Megállítjuk az inicializálást
+            enabled = false; 
+                             
+                             
+            return;
         }
         // --- ELLENŐRZÉSEK VÉGE ---
 
 
         // --- 2. Függőségek Resetelése ---
         Debug.Log("[OpenAIWebRequest] Resetting dependent managers...");
-        // ... (TTS, Highlighter reset) ...
+        
 
         // --- 3. TTS Manager Inicializálása ---
         if (textToSpeechManager != null)
         {
             Debug.Log("[OpenAIWebRequest] Initializing TextToSpeechManager...");
-            // Fontos: A TTS Managernek is szüksége lehet az API kulcsra!
+            
             textToSpeechManager.Initialize(this.apiKey, selectedVoiceId);
         }
-        // ...
+        
 
         // --- 4. OpenAI Interakció Indítása ---
         Debug.Log("[OpenAIWebRequest] Starting OpenAI interaction coroutines (GetAssistant, CreateThread)...");
@@ -205,19 +194,19 @@ public class OpenAIWebRequest : MonoBehaviour
         if (string.IsNullOrEmpty(recognizedText))
         {
             Debug.LogWarning("[OpenAIWebRequest] Received empty text from voice input. Ignoring.");
-            // Esetleg visszajelzés a felhasználónak itt is?
+            
             return;
         }
         if (string.IsNullOrEmpty(assistantThreadId))
         {
             Debug.LogError("[OpenAIWebRequest] Cannot process voice input: Assistant Thread ID is missing.");
-            // Visszajelzés a felhasználónak
+           
             if (TMPResponseText != null) TMPResponseText.text = "Error: Assistant connection not ready.";
             return;
         }
 
         // 2. Megjelenítés (Opcionális, de hasznos visszajelzés)
-        // Kiírjuk, mit hallottunk a User szövegmezőbe
+        
         if (TMPUserText != null)
         {
             TMPUserText.text = "User (Voice): " + recognizedText;
@@ -231,12 +220,11 @@ public class OpenAIWebRequest : MonoBehaviour
         // 3. A meglévő üzenetküldési folyamat elindítása
         // Pontosan ugyanazt a korutint indítjuk, mint amit az InputField Enter lenyomása
         Debug.Log("[OpenAIWebRequest] Starting SendMessageSequence for voice input...");
-        messageBuilder.Clear(); // Biztosítjuk a tiszta állapotot
-        buffer.Clear();         // Biztosítjuk a tiszta állapotot
+        messageBuilder.Clear();
+        buffer.Clear();
         StartCoroutine(SendMessageSequence(recognizedText));
 
-        // Az InputField törlését a SendMessageSequence vége már kezeli,
-        // így itt nem kell külön foglalkozni vele.
+        
     }
 
 
@@ -249,10 +237,7 @@ public class OpenAIWebRequest : MonoBehaviour
         request.SetRequestHeader("OpenAI-Beta", "assistants=v2");
     }
 
-    /// <summary>
-    /// Starts a new Assistant Run specifically for the main lecture content.
-    /// Ensures the 'isAnsweringQuestion' flag is false.
-    /// </summary>
+    
     public void StartMainLectureRun()
     {
         Debug.LogWarning("[OAIWR_LOG] >>> StartMainLectureRun ENTER.");
@@ -304,17 +289,17 @@ public class OpenAIWebRequest : MonoBehaviour
         string url = $"{apiUrl}/threads";
         Debug.Log("Creating Thread at URL: " + url);
 
-        // Kezdeti üzenet megadása (opcionális)
+        
         JObject requestBody = new JObject();
-        // A userInput változót az Inspectorban lehet beállítani, vagy itt marad az alapértelmezett "Hello!"
-        if (!string.IsNullOrEmpty(userInput)) // Csak akkor adjuk hozzá, ha van kezdeti üzenet
+       
+        if (!string.IsNullOrEmpty(userInput))
         {
             requestBody["messages"] = new JArray
              {
                  new JObject
                  {
                      ["role"] = "user",
-                     ["content"] = userInput // Az Inspectorban vagy kódban definiált kezdeti üzenet
+                     ["content"] = userInput
                  }
              };
             Debug.Log($"Initial message included in thread creation: '{userInput}'");
@@ -358,14 +343,12 @@ public class OpenAIWebRequest : MonoBehaviour
                     {
                         Debug.Log($"Thread created successfully with ID: {assistantThreadId}");
 
-                        // --- MÓDOSÍTÁS ITT ---
-                        // Ha a thread létrehozásakor küldtünk kezdeti üzenetet (userInput),
-                        // akkor indítsunk el egy futtatást (run), hogy választ kapjunk rá.
+                        
                         if (!string.IsNullOrEmpty(userInput))
                         {
                             Debug.Log("Initial userInput was included in thread creation. Starting run for initial response.");
 
-                            // Jelenítsük meg a kezdeti user üzenetet is a UI-on, ha van hova
+                            
                             if (TMPUserText != null)
                             {
                                 TMPUserText.text = "User: " + userInput;
@@ -383,17 +366,17 @@ public class OpenAIWebRequest : MonoBehaviour
                                 onRunCompleteCallback: InteractionFlowManager.Instance.HandleInitialPromptCompleted // <<< ITT ADJUK ÁT A CALLBACK-ET!
                             ));
                         }
-                        // --- MÓDOSÍTÁS VÉGE ---
+                        
                     }
                     else
                     {
-                        // Hiba, ha nem sikerült kinyerni a thread ID-t a válaszból
+                        
                         Debug.LogError("Failed to retrieve assistantThreadId from thread creation response. Response JSON might be invalid or missing the 'id' field.");
                     }
                 }
                 catch (Exception e)
                 {
-                    // Hiba a JSON feldolgozása közben
+                    
                     Debug.LogError($"Error parsing thread creation response: {e.Message} - Raw Response: {webRequest.downloadHandler.text}");
                 }
             }
@@ -415,18 +398,18 @@ public class OpenAIWebRequest : MonoBehaviour
 
                 yield return webRequest.SendWebRequest();
 
-                // A Cancel API általában 200 OK-t ad vissza akkor is, ha a run már nem törölhető (pl. befejeződött)
+                
                 if (webRequest.result == UnityWebRequest.Result.Success)
                 {
                     Debug.Log($"Cancel request for run {currentRunId} sent. Response: {webRequest.downloadHandler.text}");
                 }
                 else
                 {
-                    // Hiba esetén logoljuk, de nem feltétlenül állítjuk le a folyamatot
+                    
                     Debug.LogWarning($"Run cancellation request failed for run {currentRunId}: {webRequest.error} - {webRequest.downloadHandler.text}");
                 }
             }
-            // Nullázzuk a run ID-t, hogy ne próbáljuk újra törölni ugyanazt
+            
             currentRunId = null;
         }
         else
@@ -435,8 +418,7 @@ public class OpenAIWebRequest : MonoBehaviour
         }
     }
 
-    // --- SendButtonClick metódus törölve ---
-    // public void SendButtonClick() { ... }
+    
 
     // Elindítja az üzenetküldési folyamatot (megszakítás, új üzenet küldése)
     private IEnumerator SendMessageSequence(string input)
@@ -461,7 +443,7 @@ public class OpenAIWebRequest : MonoBehaviour
         yield return StartCoroutine(CancelCurrentRun());
 
         // 2. Rövid várakozás (opcionális, de segíthet elkerülni a race condition-t)
-        // yield return new WaitForSeconds(0.1f); // Szükség esetén visszakapcsolható
+        
 
         // 3. Új üzenet hozzáadása és futtatás indítása
         yield return StartCoroutine(GetAssistantResponse(input)); // Ez indítja a run-t is
@@ -530,16 +512,10 @@ public class OpenAIWebRequest : MonoBehaviour
         }
     }
 
-    // ... (meglévő using direktívák és osztálydefiníció) ...
+    
 
     // --- ÚJ METÓDUS A KÉRDÉS KÜLDÉSÉRE ELŐADÁS KÖZBEN ---
-    /// <summary>
-    /// Sends the user's transcribed question to the Assistant during an ongoing lecture.
-    /// Adds the message to the thread and starts a run with specific instructions
-    /// for the AI to answer briefly and then resume.
-    /// Called by InteractionFlowManager.
-    /// </summary>
-    /// <param name="userQuestionText">The transcribed text of the user's question.</param>
+    
     public void SendUserQuestionDuringLecture(string userQuestionText, string followUpPromptText)
     {
         Debug.Log($"[OpenAIWebRequest] SendUserQuestionDuringLecture called with question: '{userQuestionText}' and prompt: '{followUpPromptText}'");
@@ -656,26 +632,25 @@ public class OpenAIWebRequest : MonoBehaviour
             runBody["additional_instructions"] = additionalInstructions;
             Debug.LogWarning($"[OpenAIWebRequest] Added simplified question handling instructions using prompt: '{followUpPrompt}' in language: {language}");
         }
-        // Ha nem kérdésre válaszolunk (isAnsweringQuestion == false), akkor nem adunk hozzá extra instrukciót,
-        // az asszisztens a normál promptja alapján folytatja az előadást.
+        
 
         string runJson = runBody.ToString();
         // Debug.Log("Run creation JSON: " + runJson); // Csak szükség esetén logoljuk
 
         // --- Streaming Változók Inicializálása ---
-        bool streamEndedSuccessfully = false; // Jelzi, hogy a [DONE] esemény megérkezett-e
-        StringBuilder currentResponseChunk = new StringBuilder(); // Az aktuális üzenet darabjait gyűjti (főleg logoláshoz)
-        int lastProcessedIndex = 0; // A letöltött adatok feldolgozottságát követi
-        buffer.Clear(); // Kiürítjük a bejövő adatok pufferét
-        bool answerStreamStartNotified = false; // Jelzi, hogy a VÁLASZ stream kezdetét már jeleztük-e az IFM-nek
-        bool lectureStreamStartNotified = false; // Jelzi, hogy az ELŐADÁS stream kezdetét már jeleztük-e az IFM-nek
-        int eventSeparatorIndex; // Segédváltozó az SSE események szétválasztásához
+        bool streamEndedSuccessfully = false;
+        StringBuilder currentResponseChunk = new StringBuilder();
+        int lastProcessedIndex = 0;
+        buffer.Clear();
+        bool answerStreamStartNotified = false;
+        bool lectureStreamStartNotified = false;
+        int eventSeparatorIndex;
 
         // --- Web Kérés Indítása és Feldolgozása ---
         using (UnityWebRequest webRequest = new UnityWebRequest(runUrl, "POST"))
         {
             webRequest.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(runJson));
-            // Fontos: A DownloadHandlerBuffer kell, hogy a részleges adatokat olvashassuk
+            
             webRequest.downloadHandler = new DownloadHandlerBuffer();
             SetCommonHeaders(webRequest); // API kulcs és egyéb fejlécek beállítása
 
@@ -686,13 +661,11 @@ public class OpenAIWebRequest : MonoBehaviour
             // Ciklus, amíg a kérés be nem fejeződik VAGY a stream véget nem ér ([DONE])
             while (!asyncOp.isDone && !streamEndedSuccessfully)
             {
-                // Debug.LogWarning($"[OAIWR_LOG] CreateAssistantRun - WHILE Loop Top. Frame: {Time.frameCount}");
-                // Hibakezelés a cikluson belül
+                
                 if (webRequest.result != UnityWebRequest.Result.InProgress)
                 {
                     Debug.LogError($"[OpenAIWebRequest] Error during assistant run stream: {webRequest.error} - Status: {webRequest.result} - Code: {webRequest.responseCode} - Partial Response: {webRequest.downloadHandler?.text}");
-                    // Itt értesíthetnénk az InteractionFlowManagert a hibáról, ha szükséges
-                    // InteractionFlowManager.Instance?.HandleError("Assistant run failed.");
+                    
                     yield break; // Kilépés a korutinból hiba esetén
                 }
 
@@ -756,7 +729,6 @@ public class OpenAIWebRequest : MonoBehaviour
                                         {
                                             case "thread.message.delta":
                                                 // --- VÁLASZ/ELŐADÁS STREAM KEZDETÉNEK JELZÉSE ---
-                                                // Csak az első érdemi szöveg delta esetén jelezzük az IFM-nek
                                                 JToken contentValue = dataObject.SelectToken("delta.content[0].text.value");
                                                 if (contentValue != null && !string.IsNullOrEmpty(contentValue.ToString()))
                                                 {
@@ -792,7 +764,7 @@ public class OpenAIWebRequest : MonoBehaviour
                                                             string textDelta = deltaItem["text"]?["value"]?.ToString();
                                                             if (!string.IsNullOrEmpty(textDelta))
                                                             {
-                                                                // Logolás (opcionális, de hasznos lehet)
+                                                                // Logolás (opcionális)
                                                                 // Debug.LogWarning($"[OAIWR LOOP DEBUG] Appending Delta: '{textDelta}'");
                                                                 currentResponseChunk.Append(textDelta); // Összegyűjtjük a választ (logoláshoz)
 
@@ -845,7 +817,6 @@ public class OpenAIWebRequest : MonoBehaviour
                             } // foreach line vége
 
                             // --- Buffer ürítése a feldolgozott rész után ---
-                            // Ha feldolgoztunk legalább egy eseményt
                             if (lastEventEndIndex > 0)
                             {
                                 // Ha a puffer elég hosszú, eltávolítjuk a feldolgozott részt
@@ -864,9 +835,9 @@ public class OpenAIWebRequest : MonoBehaviour
 
                             // Ha a [DONE] esemény miatt léptünk ki a while-ból, itt is lépjünk ki
                             if (streamEndedSuccessfully) break;
-                        } // while (eseményeket keresünk a pufferben) vége
-                    } // if (van új adat) vége
-                } // if (van letöltött adat) vége
+                        }
+                    }
+                }
 
                 // Ha a stream véget ért egy esemény miatt, lépjünk ki a fő while (!asyncOp.isDone) ciklusból is
                 if (streamEndedSuccessfully) break;
@@ -879,8 +850,7 @@ public class OpenAIWebRequest : MonoBehaviour
             Debug.LogWarning($"[OAIWR_LOG] <<< CreateAssistantRun EXIT. Frame: {Time.frameCount}");
             Debug.LogWarning($"[OAIWR DEBUG] Coroutine loop finished OR stream ended. asyncOp.isDone={asyncOp.isDone}, webRequest.result={webRequest.result}, streamEndedSuccessfully={streamEndedSuccessfully}");
 
-            // TTS Bufferek ürítése a stream vége után (fontos, hogy az utolsó mondat is feldolgozódjon)
-            // Csak akkor ürítünk, ha a stream sikeresen véget ért ([DONE]) vagy a web kérés sikeres volt
+            
             if (streamEndedSuccessfully || webRequest.result == UnityWebRequest.Result.Success)
             {
                 Debug.LogWarning("[OAIWR DEBUG] Flushing TTS buffers post-loop...");
@@ -904,8 +874,7 @@ public class OpenAIWebRequest : MonoBehaviour
                 }
             }
 
-            // Kezeljük azt az esetet, ha a ciklus azért fejeződött be, mert a web kérés véget ért (asyncOp.isDone),
-            // de a [DONE] eseményt nem kaptuk meg (pl. hálózati hiba a stream végén)
+            
             if (webRequest.result == UnityWebRequest.Result.Success && !streamEndedSuccessfully)
             {
                 Debug.LogWarning("[OAIWR DEBUG] Loop ended via Success & asyncOp.isDone, but [DONE] event wasn't received. Forcing FlushBuffers just in case.");
@@ -966,6 +935,17 @@ public class OpenAIWebRequest : MonoBehaviour
                 {
                     Debug.LogWarning("[OAIWR_LOG] No onRunCompleteCallback provided for this successful run.");
                 }
+
+                Debug.LogWarning("[OAIWR_LOG] Invoking OnRunCompleted event...");
+                try
+                {
+                    OnRunCompleted?.Invoke(); // Kiváltjuk az eseményt
+                    Debug.LogWarning("[OAIWR_LOG] OnRunCompleted event invoked.");
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"[OAIWR_LOG] Exception during OnRunCompleted invocation: {ex.Message}\n{ex.StackTrace}");
+                }
             }
             else
             {
@@ -982,8 +962,8 @@ public class OpenAIWebRequest : MonoBehaviour
         if (string.IsNullOrEmpty(apiKey) || apiKey == "SK-xxxxxxxxxxxxxxxxxxxx")
         {
             Debug.LogError("OpenAI API Key is not set in OpenAIWebRequest Inspector!");
-            onCompleted?.Invoke(null); // Visszajelzés a hívónak, hogy hiba történt
-            yield break; // Leállítja a korutint
+            onCompleted?.Invoke(null);
+            yield break;
         }
 
         if (audioData == null || audioData.Length == 0)
@@ -999,7 +979,6 @@ public class OpenAIWebRequest : MonoBehaviour
         List<IMultipartFormSection> formData = new List<IMultipartFormSection>();
 
         // 1. A hangfájl adat
-        // Fontos a fájlnév megadása (bármi lehet .wav kiterjesztéssel)
         formData.Add(new MultipartFormFileSection("file", audioData, "audio.wav", "audio/wav"));
 
         // 2. A modell neve
@@ -1018,9 +997,6 @@ public class OpenAIWebRequest : MonoBehaviour
         // Használjuk a dinamikusan meghatározott nyelvi kódot
         formData.Add(new MultipartFormDataSection("language", targetLanguage));
 
-        // Opcionális: Válasz formátuma (alapértelmezetten json)
-        // formData.Add(new MultipartFormDataSection("response_format", "json"));
-
 
         // --- UnityWebRequest létrehozása és konfigurálása ---
         UnityWebRequest request = UnityWebRequest.Post(WhisperApiUrl, formData);
@@ -1028,9 +1004,6 @@ public class OpenAIWebRequest : MonoBehaviour
         // API Kulcs hozzáadása a Headerhez
         request.SetRequestHeader("Authorization", $"Bearer {apiKey}");
 
-        // FONTOS: NE állítsd be manuálisan a Content-Type-ot multipart kérésnél!
-        // A UnityWebRequest.Post(url, formData) ezt automatikusan kezeli.
-        // request.SetRequestHeader("Content-Type", "multipart/form-data"); // <<< EZT NE!
 
         // Várakozási idő növelése hosszabb hangfájlok esetén (opcionális)
         request.timeout = 60; // 60 másodperc
