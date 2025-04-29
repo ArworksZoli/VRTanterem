@@ -915,9 +915,12 @@ public class OpenAIWebRequest : MonoBehaviour
                 // streamEndedSuccessfully már true
             }
 
-            if (webRequest.result == UnityWebRequest.Result.Success && streamEndedSuccessfully)
+            if (streamEndedSuccessfully)
             {
-                Debug.LogWarning("[OAIWR_LOG] Run considered successful for callback invocation."); // <<< ÚJ LOG
+                // <<< MÓDOSÍTOTT LOG >>>
+                Debug.LogWarning($"[OAIWR_LOG] Stream ended successfully (streamEndedSuccessfully=True). Invoking callback/event. (webRequest.result was: {webRequest.result})");
+
+                // 1. Callback hívása (ha volt megadva)
                 if (onRunCompleteCallback != null)
                 {
                     Debug.LogWarning("[OAIWR_LOG] Invoking onRunCompleteCallback...");
@@ -936,6 +939,7 @@ public class OpenAIWebRequest : MonoBehaviour
                     Debug.LogWarning("[OAIWR_LOG] No onRunCompleteCallback provided for this successful run.");
                 }
 
+                // 2. OnRunCompleted esemény kiváltása (MINDIG, ha a stream sikeresen véget ért)
                 Debug.LogWarning("[OAIWR_LOG] Invoking OnRunCompleted event...");
                 try
                 {
@@ -946,10 +950,11 @@ public class OpenAIWebRequest : MonoBehaviour
                 {
                     Debug.LogError($"[OAIWR_LOG] Exception during OnRunCompleted invocation: {ex.Message}\n{ex.StackTrace}");
                 }
+
             }
             else
             {
-                Debug.LogWarning($"[OAIWR_LOG] Run completed unsuccessfully or without stream success flag. Not invoking callback. Result: {webRequest.result}, StreamSuccessFlag: {streamEndedSuccessfully}");
+                Debug.LogWarning($"[OAIWR_LOG] Stream did NOT end successfully (streamEndedSuccessfully=False). Not invoking callback or event. (webRequest.result was: {webRequest.result})");
             }
 
         } // using (UnityWebRequest webRequest = ...) vége
