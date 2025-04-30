@@ -237,28 +237,27 @@ public class OpenAIWebRequest : MonoBehaviour
         request.SetRequestHeader("OpenAI-Beta", "assistants=v2");
     }
 
-    
+
     public void StartMainLectureRun()
     {
-        Debug.LogWarning("[OAIWR_LOG] >>> StartMainLectureRun ENTER.");
+        Debug.LogWarning($"[OAIWR_LOG] >>> StartMainLectureRun ENTER.");
 
         if (string.IsNullOrEmpty(assistantThreadId))
         {
-            Debug.LogError("[OAIWR_LOG] Cannot start main lecture run: Assistant Thread ID is missing.");
-            return; // Ne indítsunk korutint, ha nincs thread
+            Debug.LogError("[OpenAIWebRequest] Cannot start lecture run: Assistant Thread ID is invalid.");
+            return;
         }
 
-        Debug.LogWarning("[OAIWR_LOG] Calling CreateAssistantRun for main lecture (NO callback).");
-
+        // Most már nem adunk át isResuming flag-et
+        Debug.LogWarning($"[OAIWR_LOG] Calling CreateAssistantRun for main lecture (NO callback).");
         StartCoroutine(CreateAssistantRun(
             isAnsweringQuestion: false,
             userQuestion: null,
             followUpPrompt: null,
             onRunCompleteCallback: null
         ));
-        
 
-        Debug.LogWarning("[OAIWR_LOG] <<< StartMainLectureRun EXIT (Coroutine Started).");
+        Debug.LogWarning($"[OAIWR_LOG] <<< StartMainLectureRun EXIT (Coroutine Started).");
     }
 
     // Lekéri az asszisztens adatait (opcionális)

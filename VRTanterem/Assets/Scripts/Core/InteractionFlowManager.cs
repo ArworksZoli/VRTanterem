@@ -206,20 +206,17 @@ public class InteractionFlowManager : MonoBehaviour
         if (waitingForLectureStartConfirmation)
         {
             // --- Branch 1: Lecture Start Confirmation ---
+            // (Ez az ág változatlan, az AddUserMessageAndStartLectureRun hívással)
             Debug.LogWarning("[IFM_LOG] --- Branch: Lecture Start Confirmation ---");
             waitingForLectureStartConfirmation = false;
             Debug.Log($"[IFM_LOG] Flag set to false inside branch. New value: {waitingForLectureStartConfirmation}");
 
             if (openAIWebRequest != null)
             {
-                // <<< MÓDOSÍTÁS KEZDETE >>>
-                // Most már elküldjük a user válaszát ("Nincs", stb.) a thread-be,
-                // MIELŐTT elindítjuk a lecture run-t.
                 Debug.LogWarning($"[IFM_LOG] Calling OAIWR.AddUserMessageAndStartLectureRun('{transcription}')...");
-                isOaiRunComplete = false; // Fontos: A run még nem fejeződött be
+                isOaiRunComplete = false;
                 StartCoroutine(openAIWebRequest.AddUserMessageAndStartLectureRun(transcription));
                 Debug.LogWarning("[IFM_LOG] OAIWR.AddUserMessageAndStartLectureRun() coroutine started.");
-                // <<< MÓDOSÍTÁS VÉGE >>>
             }
             else
             {
@@ -231,7 +228,6 @@ public class InteractionFlowManager : MonoBehaviour
         else
         {
             // --- Branch 2: Handling Response After System Prompt (Interruption or Follow-up) ---
-            // (Ez az ág változatlan marad a legutóbbi módosítás óta)
             Debug.LogWarning("[IFM_LOG] --- Branch: Handling Response After System Prompt (Not Initial Confirmation) ---");
             Debug.LogWarning($"[IFM_LOG] Entered this branch because waitingForLectureStartConfirmation was {waitingForLectureStartConfirmation}");
 
@@ -246,13 +242,18 @@ public class InteractionFlowManager : MonoBehaviour
 
             if (wantsToContinue)
             {
+                // Felhasználó nem kérdez többet, folytatjuk az előadást
                 Debug.LogWarning("[IFM_LOG] User indicated no further questions. Resuming lecture.");
                 if (openAIWebRequest != null)
                 {
-                    Debug.LogWarning("[IFM_LOG] Calling OAIWR.StartMainLectureRun() to get next lecture part...");
+                    // <<< MÓDOSÍTÁS KEZDETE >>>
+                    // Most már itt is az AddUserMessageAndStartLectureRun-t hívjuk,
+                    // hogy a "Nincs" válasz bekerüljön a thread-be a folytatás előtt.
+                    Debug.LogWarning($"[IFM_LOG] Calling OAIWR.AddUserMessageAndStartLectureRun('{transcription}') for lecture continuation...");
                     isOaiRunComplete = false;
-                    openAIWebRequest.StartMainLectureRun();
-                    Debug.LogWarning("[IFM_LOG] OAIWR.StartMainLectureRun() called for lecture continuation.");
+                    StartCoroutine(openAIWebRequest.AddUserMessageAndStartLectureRun(transcription)); // <<< EZT HÍVJUK
+                    Debug.LogWarning("[IFM_LOG] OAIWR.AddUserMessageAndStartLectureRun() coroutine started for lecture continuation.");
+                    // <<< MÓDOSÍTÁS VÉGE >>>
                 }
                 else
                 {
@@ -263,6 +264,7 @@ public class InteractionFlowManager : MonoBehaviour
             }
             else
             {
+                // Felhasználó újabb kérdést tett fel (ez a rész változatlan)
                 Debug.LogWarning("[IFM_LOG] User asked another question. Sending to OpenAI.");
                 Debug.Log($"[IFM] Input '{transcription}' treated as a follow-up question.");
 
