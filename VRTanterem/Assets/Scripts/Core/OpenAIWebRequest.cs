@@ -536,6 +536,68 @@ public class OpenAIWebRequest : MonoBehaviour
         Debug.LogWarning("[OAIWR_LOG] <<< SendUserQuestionDuringLecture EXIT (Coroutine Started).");
     }
 
+    public IEnumerator AddUserMessageAndStartLectureRun(string userMessage)
+    {
+        Debug.LogWarning($"[OAIWR_LOG] >>> AddUserMessageAndStartLectureRun ENTER. Message: '{userMessage}'");
+
+        if (string.IsNullOrEmpty(assistantThreadId))
+        {
+            Debug.LogError("[OpenAIWebRequest] Cannot add message: Assistant Thread ID is invalid.");
+            // TODO: Handle error state in IFM?
+            yield break;
+        }
+        if (string.IsNullOrEmpty(userMessage))
+        {
+            Debug.LogWarning("[OpenAIWebRequest] Cannot add empty user message. Starting lecture run directly.");
+            StartMainLectureRun(); // Fallback: start run without adding message
+            yield break;
+        }
+
+        // --- Step 1: Add User Message to Thread ---
+        string messagesUrl = $"{apiUrl}/threads/{assistantThreadId}/messages";
+        Debug.Log($"[OpenAIWebRequest] Adding user message to thread: {assistantThreadId} at URL: {messagesUrl}");
+
+        var messageBody = new JObject
+        {
+            ["role"] = "user",
+            ["content"] = userMessage
+        };
+        string messageJson = messageBody.ToString();
+        byte[] bodyRaw = System.Text.Encoding.UTF8.GetBytes(messageJson);
+
+        using (UnityWebRequest messageRequest = new UnityWebRequest(messagesUrl, "POST"))
+        {
+            messageRequest.uploadHandler = new UploadHandlerRaw(bodyRaw);
+            messageRequest.downloadHandler = new DownloadHandlerBuffer();
+            messageRequest.SetRequestHeader("Content-Type", "application/json");
+            messageRequest.SetRequestHeader("Authorization", $"Bearer {apiKey}");
+            messageRequest.SetRequestHeader("OpenAI-Beta", "assistants=v2");
+
+            yield return messageRequest.SendWebRequest();
+
+            if (messageRequest.result == UnityWebRequest.Result.Success)
+            {
+                Debug.Log($"[OpenAIWebRequest] User message added successfully to thread {assistantThreadId}. Response: {messageRequest.downloadHandler.text}");
+
+                // --- Step 2: Start the Lecture Run (Now that the message is added) ---
+                Debug.LogWarning("[OAIWR_LOG] Message added. Now calling StartMainLectureRun internally.");
+                StartMainLectureRun(); // Indítjuk a normál lecture run-t
+            }
+            else
+            {
+                Debug.LogError($"[OpenAIWebRequest] Error adding message to thread {assistantThreadId}: {messageRequest.responseCode} - {messageRequest.error}\nResponse: {messageRequest.downloadHandler.text}");
+                // TODO: Handle error state in IFM? Maybe retry? For now, just log.
+                // Optionally, we could still try to start the lecture run as a fallback,
+                // but it might lead to the same incorrect AI behavior.
+                // Let's not start the run on message failure for now.
+                // Consider notifying IFM about the failure.
+                // interactionFlowManager?.HandleOpenAIError("Failed to add user message to thread.");
+            }
+        } // using messageRequest
+
+        Debug.LogWarning($"[OAIWR_LOG] <<< AddUserMessageAndStartLectureRun EXIT.");
+    }
+
     // --- ÚJ SEGÉD KORUTIN AZ ÜZENET HOZZÁADÁSÁHOZ ÉS A VÁLASZ FUTTATÁS INDÍTÁSÁHOZ ---
     private IEnumerator AddMessageAndStartAnswerRunCoroutine(string userQuestionText, string followUpPromptText)
     {
@@ -607,32 +669,18 @@ public class OpenAIWebRequest : MonoBehaviour
         // --- PROMPT ENGINEERING: Speciális instrukciók hozzáadása, ha kérdésre válaszolunk ---
         if (isAnsweringQuestion)
         {
-            // Ellenőrizzük, hogy megkaptuk-e a promptot az IFM-től
-            if (string.IsNullOrEmpty(followUpPrompt))
-            {
-                Debug.LogWarning("[OpenAIWebRequest] Follow-up prompt was not provided for additional instructions. Using a default based on language.");
-                // Nyelvi kód lekérése
-                string langCode = AppStateManager.Instance?.CurrentLanguage?.languageCode ?? "en"; // Alapértelmezett 'en', ha nincs
-                // Alapértelmezett prompt a nyelv alapján
-                followUpPrompt = langCode == "hu" ?
-                    "Van további kérdése ezzel kapcsolatban?" :
-                    "Do you have any more questions about this?";
-            }
-
-            // Nyelvi kód lekérése az utasításhoz (lehet redundáns, de biztosabb)
             string language = AppStateManager.Instance?.CurrentLanguage?.languageCode ?? "en";
 
-            // Egyszerűsített instrukció - nincs marker, csak a válasz és a prompt kérése
+            // Instrukció az AI-nak
             string additionalInstructions =
-                $"INSTRUCTION: The user has interrupted the lecture with a question. " +
+                $"INSTRUCTION: The user has interrupted the lecture or asked a question during a pause. " +
                 $"Answer ONLY the user's current question briefly and clearly. " +
-                $"After your answer, ask: \"{followUpPrompt}\". " +
-                $"Use language: {language}";
+                $"Use language: {language}. Your response must contain ONLY the answer itself.";
 
             runBody["additional_instructions"] = additionalInstructions;
-            Debug.LogWarning($"[OpenAIWebRequest] Added simplified question handling instructions using prompt: '{followUpPrompt}' in language: {language}");
+            Debug.LogWarning($"[OpenAIWebRequest] Added simplified question handling instructions (Answer ONLY) in language: {language}");
         }
-        
+
 
         string runJson = runBody.ToString();
         // Debug.Log("Run creation JSON: " + runJson); // Csak szükség esetén logoljuk

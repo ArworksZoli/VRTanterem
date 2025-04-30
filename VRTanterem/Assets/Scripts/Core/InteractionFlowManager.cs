@@ -175,8 +175,8 @@ public class InteractionFlowManager : MonoBehaviour
     // Ezt hívja a WhisperMicController
     public void HandleUserQuestionReceived(string transcription)
     {
-        Debug.LogWarning($"[IFM] HandleUserQuestionReceived. Transcription: '{transcription}'. Current state: {currentState}");
-        Debug.LogWarning($"[IFM_LOG] >>> HandleUserQuestionReceived ENTER. State: {currentState}, Flag: {waitingForLectureStartConfirmation}, Text: '{transcription}'");
+        // <<< Logolás a metódus elején (flag értékkel) >>>
+        Debug.LogWarning($"[IFM_LOG] >>> HandleUserQuestionReceived ENTER. State: {currentState}, Flag at START: {waitingForLectureStartConfirmation}, Text: '{transcription}'");
 
         // --- Kezdeti ellenőrzések ---
         if (string.IsNullOrEmpty(transcription))
@@ -184,10 +184,9 @@ public class InteractionFlowManager : MonoBehaviour
             Debug.LogError("[IFM] Received empty transcription. Ignoring.");
             return;
         }
-        // Ellenőrizzük, hogy a megfelelő állapotban vagyunk-e a felhasználói input fogadására
-        if (currentState != InteractionState.WaitingForUserInput && currentState != InteractionState.ProcessingUserInput)
+        if (currentState != InteractionState.WaitingForUserInput)
         {
-            Debug.LogWarning($"[IFM] Received transcription but state is not WaitingForUserInput or ProcessingUserInput ({currentState}). Ignoring.");
+            Debug.LogWarning($"[IFM] Received transcription but state is not WaitingForUserInput ({currentState}). Ignoring.");
             return;
         }
 
@@ -198,7 +197,7 @@ public class InteractionFlowManager : MonoBehaviour
         }
         TranscriptLogger.Instance?.AddEntry("User", transcription);
 
-        // --- Állapotváltás és Mikrofon Tiltása  ---
+        // --- Állapotváltás és Mikrofon Tiltása ---
         SetState(InteractionState.ProcessingUserInput);
         whisperMicController?.DisableSpeakButton();
 
@@ -206,68 +205,101 @@ public class InteractionFlowManager : MonoBehaviour
         Debug.LogWarning($"[IFM_LOG] Checking flag BEFORE 'if'. waitingForLectureStartConfirmation = {waitingForLectureStartConfirmation}");
         if (waitingForLectureStartConfirmation)
         {
+            // --- Branch 1: Lecture Start Confirmation ---
             Debug.LogWarning("[IFM_LOG] --- Branch: Lecture Start Confirmation ---");
             waitingForLectureStartConfirmation = false;
-            Debug.Log("[IFM_LOG] Flag set to false.");
+            Debug.Log($"[IFM_LOG] Flag set to false inside branch. New value: {waitingForLectureStartConfirmation}");
 
-            // Megkérjük az OpenAIWebRequest-et, hogy indítsa el a normál lecture futtatást (isAnsweringQuestion: false)
             if (openAIWebRequest != null)
             {
-                Debug.LogWarning("[IFM_LOG] Calling OAIWR.StartMainLectureRun()...");
-                isOaiRunComplete = false;
-                openAIWebRequest.StartMainLectureRun();
-                Debug.LogWarning("[IFM_LOG] OAIWR.StartMainLectureRun() called.");
+                // <<< MÓDOSÍTÁS KEZDETE >>>
+                // Most már elküldjük a user válaszát ("Nincs", stb.) a thread-be,
+                // MIELŐTT elindítjuk a lecture run-t.
+                Debug.LogWarning($"[IFM_LOG] Calling OAIWR.AddUserMessageAndStartLectureRun('{transcription}')...");
+                isOaiRunComplete = false; // Fontos: A run még nem fejeződött be
+                StartCoroutine(openAIWebRequest.AddUserMessageAndStartLectureRun(transcription));
+                Debug.LogWarning("[IFM_LOG] OAIWR.AddUserMessageAndStartLectureRun() coroutine started.");
+                // <<< MÓDOSÍTÁS VÉGE >>>
             }
-            else // Ha nincs OAIWR referencia, nem tudunk mit tenni
+            else
             {
                 Debug.LogError("[IFM] Cannot start main lecture: OpenAIWebRequest reference is null!");
                 TranscriptLogger.Instance?.AddEntry("System", "Error: Cannot start lecture, connection missing.");
-                SetState(InteractionState.Idle); // Vissza alapállapotba hiba esetén
+                SetState(InteractionState.Idle);
             }
         }
         else
         {
-            Debug.LogWarning("[IFM_LOG] --- Branch: Question Handling ---");
-            Debug.LogWarning($"[IFM_LOG] Entered ELSE branch because waitingForLectureStartConfirmation was {waitingForLectureStartConfirmation}");
-            Debug.Log($"[IFM] Input '{transcription}' received while waitingForLectureStartConfirmation was false. Treating as a question to be sent to OpenAI.");
+            // --- Branch 2: Handling Response After System Prompt (Interruption or Follow-up) ---
+            // (Ez az ág változatlan marad a legutóbbi módosítás óta)
+            Debug.LogWarning("[IFM_LOG] --- Branch: Handling Response After System Prompt (Not Initial Confirmation) ---");
+            Debug.LogWarning($"[IFM_LOG] Entered this branch because waitingForLectureStartConfirmation was {waitingForLectureStartConfirmation}");
 
-            // Elküldjük kérdésként az OpenAI-nak a SendUserQuestionDuringLecture metódussal
-            if (openAIWebRequest != null)
+            string lowerTranscription = transcription.ToLowerInvariant();
+            bool wantsToContinue = lowerTranscription.Contains("nincs") ||
+                                   lowerTranscription.Contains("nem") ||
+                                   lowerTranscription.Contains("folytas") ||
+                                   lowerTranscription.Contains("mehet") ||
+                                   lowerTranscription.Contains("tovább") ||
+                                   lowerTranscription.Contains("no") ||
+                                   lowerTranscription.Contains("continue");
+
+            if (wantsToContinue)
             {
-                try
+                Debug.LogWarning("[IFM_LOG] User indicated no further questions. Resuming lecture.");
+                if (openAIWebRequest != null)
                 {
-                    // Prompt lekérése a LanguageConfig-ból a válasz utáni kérdéshez
-                    string followUpPrompt = AppStateManager.Instance?.CurrentLanguage?.FollowUpQuestionPrompt;
-                    if (string.IsNullOrEmpty(followUpPrompt))
-                    {
-                        Debug.LogWarning("[IFM] FollowUpQuestionPrompt is missing from current language config! Using fallback.");
-                        // Egyszerű fallback, lehetne jobb is
-                        followUpPrompt = (AppStateManager.Instance?.CurrentLanguage?.languageCode == "hu") ?
-                                         "Van további kérdése ezzel kapcsolatban?" :
-                                         "Do you have any more questions about this?";
-                    }
-
-                    Debug.LogWarning($"[IFM_LOG] Calling OAIWR.SendUserQuestionDuringLecture('{transcription}', '{followUpPrompt}')...");
-                    Debug.LogWarning($"[IFM] Forwarding transcription '{transcription}' (as question) and prompt '{followUpPrompt}' to OpenAIWebRequest...");
+                    Debug.LogWarning("[IFM_LOG] Calling OAIWR.StartMainLectureRun() to get next lecture part...");
                     isOaiRunComplete = false;
-                    openAIWebRequest.SendUserQuestionDuringLecture(transcription, followUpPrompt);
-                    Debug.LogWarning("[IFM_LOG] OAIWR.SendUserQuestionDuringLecture() called.");
+                    openAIWebRequest.StartMainLectureRun();
+                    Debug.LogWarning("[IFM_LOG] OAIWR.StartMainLectureRun() called for lecture continuation.");
                 }
-                catch (Exception ex) // Hiba az OpenAIWebRequest hívása közben
+                else
                 {
-                    Debug.LogError($"[IFM] Exception when sending question to OpenAIWebRequest: {ex.Message}\n{ex.StackTrace}");
-                    TranscriptLogger.Instance?.AddEntry("System", $"Error sending question: {ex.Message}");
-                    SetState(InteractionState.Idle); // Vissza alapállapotba hiba esetén
+                    Debug.LogError("[IFM] Cannot resume lecture: OpenAIWebRequest reference is null!");
+                    TranscriptLogger.Instance?.AddEntry("System", "Error: Cannot resume lecture, connection missing.");
+                    SetState(InteractionState.Idle);
                 }
             }
-            else // Ha nincs OAIWR referencia
+            else
             {
-                Debug.LogError("[IFM] Cannot send question: OpenAIWebRequest reference is null!");
-                TranscriptLogger.Instance?.AddEntry("System", "Error: OpenAIWebRequest reference missing.");
-                SetState(InteractionState.Idle); // Vissza alapállapotba hiba esetén
+                Debug.LogWarning("[IFM_LOG] User asked another question. Sending to OpenAI.");
+                Debug.Log($"[IFM] Input '{transcription}' treated as a follow-up question.");
+
+                if (openAIWebRequest != null)
+                {
+                    try
+                    {
+                        string followUpPrompt = AppStateManager.Instance?.CurrentLanguage?.FollowUpQuestionPrompt;
+                        if (string.IsNullOrEmpty(followUpPrompt))
+                        {
+                            Debug.LogWarning("[IFM] FollowUpQuestionPrompt is missing for SendUserQuestionDuringLecture fallback! Using default.");
+                            followUpPrompt = (AppStateManager.Instance?.CurrentLanguage?.languageCode == "hu") ?
+                                             "Van további kérdése ezzel kapcsolatban?" :
+                                             "Do you have any more questions about this?";
+                        }
+
+                        Debug.LogWarning($"[IFM_LOG] Calling OAIWR.SendUserQuestionDuringLecture('{transcription}', '{followUpPrompt}')...");
+                        isOaiRunComplete = false;
+                        openAIWebRequest.SendUserQuestionDuringLecture(transcription, followUpPrompt);
+                        Debug.LogWarning("[IFM_LOG] OAIWR.SendUserQuestionDuringLecture() called for follow-up question.");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError($"[IFM] Exception when sending follow-up question to OpenAIWebRequest: {ex.Message}\n{ex.StackTrace}");
+                        TranscriptLogger.Instance?.AddEntry("System", $"Error sending question: {ex.Message}");
+                        SetState(InteractionState.Idle);
+                    }
+                }
+                else
+                {
+                    Debug.LogError("[IFM] Cannot send follow-up question: OpenAIWebRequest reference is null!");
+                    TranscriptLogger.Instance?.AddEntry("System", "Error: OpenAIWebRequest reference missing.");
+                    SetState(InteractionState.Idle);
+                }
             }
         }
-        Debug.LogWarning("[IFM_LOG] <<< HandleUserQuestionReceived EXIT.");
+        Debug.LogWarning($"[IFM_LOG] <<< HandleUserQuestionReceived EXIT. Flag value at END: {waitingForLectureStartConfirmation}");
     }
 
     // Ezt hívja az OpenAIWebRequest, amikor a VÁLASZ streamje elkezdődik
@@ -476,36 +508,47 @@ public class InteractionFlowManager : MonoBehaviour
     /// </summary>
     public void HandleAnswerPlaybackCompleted()
     {
-        Debug.LogWarning($"[IFM_LOG] >>> HandleAnswerPlaybackCompleted ENTER. Current state: {currentState}"); // <<< ÚJ LOG
+        Debug.LogWarning($"[IFM_LOG] >>> HandleAnswerPlaybackCompleted ENTER. Current state: {currentState}");
 
         if (currentState == InteractionState.AnsweringQuestion)
         {
-            Debug.Log("[IFM] AI answer playback finished. Resuming lecture.");
-            // TranscriptLogger.Instance?.AddEntry("AI", ???); // TODO: Hogyan kapjuk meg a teljes választ?
+            Debug.Log("[IFM] AI answer playback finished. Asking follow-up question.");
+            // TranscriptLogger.Instance?.AddEntry("AI", ???); // TODO: Still need a way to get the full answer text here if needed for logging.
 
-            SetState(InteractionState.ResumingLecture); // Átmeneti állapot
-
+            // --- Ask Follow-up Question via TTS ---
             if (textToSpeechManager != null)
             {
-                Debug.Log($"[IFM] Calling ResumePlayback from index {lastPlayedLectureSentenceIndex + 1}");
-                textToSpeechManager.ResumePlayback(lastPlayedLectureSentenceIndex + 1); // Folytatjuk a fő előadást
+                // Get the localized follow-up prompt
+                string followUpPrompt = AppStateManager.Instance?.CurrentLanguage?.FollowUpQuestionPrompt;
+                if (string.IsNullOrEmpty(followUpPrompt))
+                {
+                    Debug.LogWarning("[IFM] FollowUpQuestionPrompt is missing from current language config! Using fallback.");
+                    followUpPrompt = (AppStateManager.Instance?.CurrentLanguage?.languageCode == "hu") ?
+                                     "Van további kérdése ezzel kapcsolatban?" :
+                                     "Do you have any more questions about this?";
+                }
 
-                // Miután elindult a folytatás, visszaválthatunk Lecturing-re
-                // és újra engedélyezhetjük a jelentkezést.
-                SetState(InteractionState.Lecturing);
-                // A SetState(Lecturing) már kezeli a RaiseHand gomb engedélyezését.
+                Debug.Log($"[IFM] Requesting TTS to speak follow-up prompt: '{followUpPrompt}'");
+                // SpeakSingleSentence will handle enabling the mic after playback
+                textToSpeechManager.SpeakSingleSentence(followUpPrompt);
+
+                // --- Transition to Waiting State ---
+                // Set state AFTER calling SpeakSingleSentence, as it might rely on the current state implicitly
+                SetState(InteractionState.WaitingForUserInput);
+                Debug.LogWarning("[IFM_LOG] State set to WaitingForUserInput, waiting for response to follow-up prompt.");
+
             }
             else
             {
-                Debug.LogError("[IFM] Cannot resume lecture: textToSpeechManager is null!");
-                SetState(InteractionState.Idle); // Hiba esetén Idle
+                Debug.LogError("[IFM] Cannot ask follow-up question: textToSpeechManager is null!");
+                SetState(InteractionState.Idle); // Fallback to Idle on error
             }
         }
         else
         {
             Debug.LogWarning($"[IFM] HandleAnswerPlaybackCompleted called in unexpected state: {currentState}. Ignoring.");
         }
-        Debug.LogWarning($"[IFM_LOG] <<< HandleAnswerPlaybackCompleted EXIT."); // <<< ÚJ LOG
+        Debug.LogWarning($"[IFM_LOG] <<< HandleAnswerPlaybackCompleted EXIT.");
     }
 
     private IEnumerator EnableSpeakButtonAfterDelay(float delay)
