@@ -646,7 +646,11 @@ public class OpenAIWebRequest : MonoBehaviour
     }
 
     // Létrehoz és elindít egy új asszisztens futtatást (run) streaming módban
-    private IEnumerator CreateAssistantRun(bool isAnsweringQuestion = false, string userQuestion = null, string followUpPrompt = null, Action onRunCompleteCallback = null)
+    private IEnumerator CreateAssistantRun(
+        bool isAnsweringQuestion = false,
+        string userQuestion = null, // Ezek a paraméterek most nincsenek közvetlenül használva az instrukciókhoz itt
+        string followUpPrompt = null,
+        Action onRunCompleteCallback = null)
     {
         Debug.LogWarning($"[OAIWR_LOG] >>> CreateAssistantRun ENTER. IsAnswering: {isAnsweringQuestion}, HasCallback: {onRunCompleteCallback != null}, Frame: {Time.frameCount}");
         if (string.IsNullOrEmpty(assistantThreadId))
@@ -670,15 +674,22 @@ public class OpenAIWebRequest : MonoBehaviour
         {
             string language = AppStateManager.Instance?.CurrentLanguage?.languageCode ?? "en";
 
-            // Instrukció az AI-nak
+            // <<< MÓDOSÍTÁS KEZDETE >>>
+            // Instrukció az AI-nak - Most már a követő kérdés tiltását is tartalmazza!
             string additionalInstructions =
-                $"INSTRUCTION: The user has interrupted the lecture or asked a question during a pause. " +
-                $"Answer ONLY the user's current question briefly and clearly. " +
-                $"Use language: {language}. Your response must contain ONLY the answer itself.";
+                $"INSTRUCTION: The user has interrupted the lecture or asked a question. " + // Enyhe pontosítás
+                $"Provide ONLY a SHORT, direct answer to the user's specific question. " + // Pontosítás
+                $"The answer MUST NOT include continuation of the lecture content. " +
+                $"Use language: {language}. " +
+                $"CRITICAL: Your response MUST consist ONLY of the short answer. Do NOT ask any follow-up questions (like 'Van további kérdése...?'). Your role ends after the short answer."; // <<< EZ AZ ÚJ, FONTOS RÉSZ
 
             runBody["additional_instructions"] = additionalInstructions;
-            Debug.LogWarning($"[OpenAIWebRequest] Added simplified question handling instructions (Answer ONLY) in language: {language}");
+            // Frissített log üzenet
+            Debug.LogWarning($"[OpenAIWebRequest] Added INTERRUPT handling instructions (Answer ONLY, NO follow-up) in language: {language}");
+            // <<< MÓDOSÍTÁS VÉGE >>>
         }
+        // Ha nem kérdésre válaszolunk (isAnsweringQuestion == false), akkor nem adunk hozzá additional_instructions-t
+        // ebben a metódusban, az AI a fő prompt alapján fog működni.
 
 
         string runJson = runBody.ToString();
@@ -688,7 +699,7 @@ public class OpenAIWebRequest : MonoBehaviour
         bool streamEndedSuccessfully = false;
         StringBuilder currentResponseChunk = new StringBuilder();
         int lastProcessedIndex = 0;
-        buffer.Clear();
+        buffer.Clear(); // Győződj meg róla, hogy a buffer változó létezik az osztály szintjén
         bool answerStreamStartNotified = false;
         bool lectureStreamStartNotified = false;
         int eventSeparatorIndex;
@@ -697,7 +708,7 @@ public class OpenAIWebRequest : MonoBehaviour
         using (UnityWebRequest webRequest = new UnityWebRequest(runUrl, "POST"))
         {
             webRequest.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(runJson));
-            
+
             webRequest.downloadHandler = new DownloadHandlerBuffer();
             SetCommonHeaders(webRequest); // API kulcs és egyéb fejlécek beállítása
 
@@ -708,11 +719,10 @@ public class OpenAIWebRequest : MonoBehaviour
             // Ciklus, amíg a kérés be nem fejeződik VAGY a stream véget nem ér ([DONE])
             while (!asyncOp.isDone && !streamEndedSuccessfully)
             {
-                
-                if (webRequest.result != UnityWebRequest.Result.InProgress)
+
+                if (webRequest.result != UnityWebRequest.Result.InProgress && webRequest.result != UnityWebRequest.Result.Success) // Pontosabb hibakezelés
                 {
                     Debug.LogError($"[OpenAIWebRequest] Error during assistant run stream: {webRequest.error} - Status: {webRequest.result} - Code: {webRequest.responseCode} - Partial Response: {webRequest.downloadHandler?.text}");
-                    
                     yield break; // Kilépés a korutinból hiba esetén
                 }
 
@@ -841,10 +851,10 @@ public class OpenAIWebRequest : MonoBehaviour
                                                 }
                                                 break; // thread.message.delta vége
 
-                                            // Egyéb objektumtípusok (pl. run step) figyelmen kívül hagyása
+                                            // Egyéb objektumtípusok (pl. run step, run status) figyelmen kívül hagyása
                                             case "thread.run.step":
                                             case "thread.message":
-                                                // Ezeket most nem dolgozzuk fel aktívan a stream alatt
+                                            case "thread.run": // Ezeket most nem dolgozzuk fel aktívan a stream alatt
                                                 break;
 
                                             // Ismeretlen objektumtípus logolása
@@ -882,9 +892,9 @@ public class OpenAIWebRequest : MonoBehaviour
 
                             // Ha a [DONE] esemény miatt léptünk ki a while-ból, itt is lépjünk ki
                             if (streamEndedSuccessfully) break;
-                        }
-                    }
-                }
+                        } // while (eventSeparatorIndex != -1) vége
+                    } // if (currentLength > lastProcessedIndex) vége
+                } // if (webRequest.downloadHandler.data != null) vége
 
                 // Ha a stream véget ért egy esemény miatt, lépjünk ki a fő while (!asyncOp.isDone) ciklusból is
                 if (streamEndedSuccessfully) break;
@@ -897,7 +907,7 @@ public class OpenAIWebRequest : MonoBehaviour
             Debug.LogWarning($"[OAIWR_LOG] <<< CreateAssistantRun EXIT. Frame: {Time.frameCount}");
             Debug.LogWarning($"[OAIWR DEBUG] Coroutine loop finished OR stream ended. asyncOp.isDone={asyncOp.isDone}, webRequest.result={webRequest.result}, streamEndedSuccessfully={streamEndedSuccessfully}");
 
-            
+
             if (streamEndedSuccessfully || webRequest.result == UnityWebRequest.Result.Success)
             {
                 Debug.LogWarning("[OAIWR DEBUG] Flushing TTS buffers post-loop...");
@@ -921,7 +931,7 @@ public class OpenAIWebRequest : MonoBehaviour
                 }
             }
 
-            
+
             if (webRequest.result == UnityWebRequest.Result.Success && !streamEndedSuccessfully)
             {
                 Debug.LogWarning("[OAIWR DEBUG] Loop ended via Success & asyncOp.isDone, but [DONE] event wasn't received. Forcing FlushBuffers just in case.");

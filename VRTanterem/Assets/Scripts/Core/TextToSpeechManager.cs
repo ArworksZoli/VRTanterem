@@ -336,12 +336,7 @@ public class TextToSpeechManager : MonoBehaviour
     {
         Debug.LogWarning("[TTS LOG Answer] PlayAnswerAudioCoroutine STARTED.");
 
-        // Logoljuk a választ a transcriptbe, amikor a *lejátszás* elkezdődik
-        // Mivel a válasz több mondatból állhat, nehéz pontosan logolni a teljes választ.
-        // Logolhatnánk minden mondatot külön, vagy megpróbálhatnánk összevárni.
-        // Egyszerűbb megoldás: Az OpenAIWebRequest logolja a teljes választ, miután a stream véget ért?
-        // Vagy az IFM logolja, amikor az AnsweringQuestion állapot véget ér?
-        // Most ne logoljunk innen, hogy ne duplikáljunk.
+        // Logoljuk a választ a transcriptbe... (komment változatlan)
 
         while (answerAudioQueue.Count > 0)
         {
@@ -363,10 +358,20 @@ public class TextToSpeechManager : MonoBehaviour
 
                 // Várjunk a klip végéig (vagy amíg le nem állítják)
                 float startTime = Time.time;
-                yield return new WaitWhile(() => promptAudioSource.isPlaying && promptAudioSource.clip == clipToPlay && (Time.time - startTime < clipToPlay.length + 5f)); // Timeout
+                // <<< KIS PONTOSÍTÁS A LOGIKÁBAN: Elég csak az isPlaying-et figyelni, ha a Play() után vagyunk >>>
+                // yield return new WaitWhile(() => promptAudioSource.isPlaying && promptAudioSource.clip == clipToPlay && (Time.time - startTime < clipToPlay.length + 5f)); // Timeout
+                yield return new WaitWhile(() => promptAudioSource.isPlaying);
+                Debug.LogWarning($"[TTS LOG Answer] promptAudioSource.isPlaying is now false for clip. (Actual time: {Time.time - startTime}s vs Clip length: {clipToPlay.length}s)");
+
 
                 // Klip törlése lejátszás után
-                Destroy(clipToPlay);
+                // <<< FONTOS: Csak akkor töröljük, ha biztosan mi hoztuk létre dinamikusan! >>>
+                // Ha ez egy előre betöltött klip lenne, ez hibát okozna. TTS esetén valószínűleg helyes.
+                if (clipToPlay != null) // Biztonsági ellenőrzés, hátha közben null lett
+                {
+                    Destroy(clipToPlay);
+                    // Debug.Log($"[TTS LOG Answer] Destroyed played answer clip."); // Opcionális log
+                }
             }
             else
             {
@@ -374,16 +379,32 @@ public class TextToSpeechManager : MonoBehaviour
             }
         }
 
-        Debug.LogWarning("[TTS LOG Answer] PlayAnswerAudioCoroutine FINISHED (Queue Empty).");
+        Debug.LogWarning("[TTS LOG Answer] PlayAnswerAudioCoroutine FINISHED (Queue Empty). Attempting to call IFM Handler...");
 
         // --- FONTOS: Jelezzük az IFM-nek, hogy a válasz lejátszása befejeződött ---
-        // Ezt az IFM fogja használni a Lecturing folytatásához.
-        // Használhatnánk egy új eseményt (pl. OnAnswerPlaybackCompleted), vagy közvetlenül hívhatnánk egy IFM metódust.
-        // Legyen most egy közvetlen hívás, ha az IFM elérhető.
-        InteractionFlowManager.Instance?.HandleAnswerPlaybackCompleted();
+        // <<< ÚJ LOGOK KEZDETE >>>
+        if (InteractionFlowManager.Instance != null)
+        {
+            Debug.LogWarning("[TTS LOG Answer] InteractionFlowManager.Instance is VALID. Calling HandleAnswerPlaybackCompleted()...");
+            try
+            {
+                InteractionFlowManager.Instance.HandleAnswerPlaybackCompleted();
+                Debug.LogWarning("[TTS LOG Answer] InteractionFlowManager.Instance.HandleAnswerPlaybackCompleted() called successfully.");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[TTS LOG Answer] Exception during HandleAnswerPlaybackCompleted call: {ex.Message}\n{ex.StackTrace}");
+            }
+        }
+        else
+        {
+            Debug.LogError("[TTS LOG Answer] InteractionFlowManager.Instance is NULL! Cannot call HandleAnswerPlaybackCompleted.");
+        }
+        // <<< ÚJ LOGOK VÉGE >>>
 
 
         currentAnswerPlaybackCoroutine = null; // Jelzi, hogy a korutin végzett
+        Debug.LogWarning("[TTS LOG Answer] PlayAnswerAudioCoroutine coroutine reference nulled."); // <<< ÚJ LOG >>>
     }
 
     /// <summary>
