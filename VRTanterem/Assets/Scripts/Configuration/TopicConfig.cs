@@ -14,4 +14,7 @@ public class TopicConfig : ScriptableObject
 
     [Tooltip("Az ehhez a témához választható OpenAI Voice ID-k (pl. alloy, echo, fable, onyx, nova, shimmer).")]
     public List<string> availableVoiceIds = new List<string> { "alloy", "shimmer" }; // Alapértelmezettként kettő, de szerkeszthető
+
+    [Tooltip("A témához kapcsolódó kép, ami a táblán jelenik meg. A kép Texture Type-jának 'Sprite (2D and UI)'-nak kell lennie.")]
+    public Sprite topicImage;
 }

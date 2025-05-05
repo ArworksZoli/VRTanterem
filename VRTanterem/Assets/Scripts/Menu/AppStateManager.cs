@@ -24,6 +24,10 @@ public class AppStateManager : MonoBehaviour
     [Tooltip("Assign the parent GameObject containing OpenAIWebRequest, TTSManager, etc.")]
     [SerializeField] private GameObject interactionModuleObject; // Ezt aktiváljuk/deaktiváljuk
 
+    [Header("Scene References")]
+    [Tooltip("A UI Image komponens a táblán, ami a téma képét mutatja.")]
+    [SerializeField] private UnityEngine.UI.Image topicDisplayImage;
+
     // --- Tárolt Konfiguráció ---
     // Ezeket a SelectionManager tölti fel a StartInteraction hívásakor
     public LanguageConfig CurrentLanguage { get; private set; }
@@ -61,6 +65,13 @@ public class AppStateManager : MonoBehaviour
             setupOk = false;
         }
 
+        if (topicDisplayImage == null)
+        {
+            Debug.LogWarning("[AppStateManager] Awake Warning: Topic Display Image is not assigned in the Inspector! Image display feature will be disabled.", this);
+            // Nem feltétlenül hiba, lehet, hogy nincs kép megjelenítés az adott jelenetben
+            // De ha kellene, akkor ez fontos figyelmeztetés.
+        }
+
         if (!setupOk)
         {
             Debug.LogError("[AppStateManager] Setup incomplete. Disabling component.", this);
@@ -77,6 +88,13 @@ public class AppStateManager : MonoBehaviour
         else
         {
             Debug.Log("[AppStateManager] Interaction Module is already inactive (initial state).");
+        }
+
+        if (topicDisplayImage != null)
+        {
+            topicDisplayImage.enabled = false; // Kezdetben legyen kikapcsolva
+            topicDisplayImage.sprite = null;   // Töröljük a sprite-ot is
+            Debug.Log("[AppStateManager] Initialized Topic Display Image (disabled, sprite cleared).");
         }
 
         Debug.Log("[AppStateManager] Awake finished successfully.");
@@ -116,9 +134,29 @@ public class AppStateManager : MonoBehaviour
         CurrentSubject = subj;
         CurrentTopic = topic;
         CurrentVoiceId = voiceId;
-        CurrentAssistantId = topic.assistantId; // <<< A LÉNYEGES SOR!
+        CurrentAssistantId = topic.assistantId;
 
-        Debug.Log($"[AppStateManager] Configuration saved. Assistant ID: {CurrentAssistantId}, Voice ID: {CurrentVoiceId}"); // Ellenőrző log
+        Debug.Log($"[AppStateManager] Configuration saved. Assistant ID: {CurrentAssistantId}, Voice ID: {CurrentVoiceId}");
+
+        if (topicDisplayImage != null)
+        {
+            if (CurrentTopic.topicImage != null)
+            {
+                Debug.Log($"[AppStateManager] Setting topic image '{CurrentTopic.topicImage.name}' for topic '{CurrentTopic.topicName}'.");
+                topicDisplayImage.sprite = CurrentTopic.topicImage;
+                topicDisplayImage.enabled = true; // Most jelenítsük meg
+            }
+            else
+            {
+                Debug.LogWarning($"[AppStateManager] No topic image assigned for topic '{CurrentTopic.topicName}'. Hiding display image.");
+                topicDisplayImage.sprite = null;
+                topicDisplayImage.enabled = false; // Rejtsük el, ha nincs kép
+            }
+        }
+        else
+        {
+            Debug.LogWarning("[AppStateManager] Cannot display topic image: topicDisplayImage reference is null.");
+        }
 
         // --- 3. Menü Elrejtése (Ez valószínűleg itt volt korábban, tedd vissza, ha kell) ---
         SelectionManager selectionManager = FindObjectOfType<SelectionManager>();
@@ -165,6 +203,16 @@ public class AppStateManager : MonoBehaviour
         else
         {
             Debug.LogError("[AppStateManager] Cannot activate Interaction Module - reference is missing!");
+        }
+    }
+
+    public void ResetDisplay()
+    {
+        if (topicDisplayImage != null)
+        {
+            topicDisplayImage.sprite = null;
+            topicDisplayImage.enabled = false;
+            Debug.Log("[AppStateManager] Topic display image cleared and hidden.");
         }
     }
 
