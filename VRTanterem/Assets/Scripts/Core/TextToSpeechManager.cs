@@ -35,6 +35,9 @@ public class TextToSpeechManager : MonoBehaviour
     [Tooltip("The AudioSource used for playing prompts and immediate answers.")]
     [SerializeField] private AudioSource promptAudioSource;
 
+    public AudioSource MainAudioSource => audioSource;
+    public AudioSource PromptAudioSource => promptAudioSource;
+
     // --- ESEMÉNYEK ---
     /// <summary>Fired when a regular lecture sentence starts playing.</summary>
     public event Action<int> OnTTSPlaybackStart;
