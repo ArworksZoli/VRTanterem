@@ -532,21 +532,22 @@ public class InteractionFlowManager : MonoBehaviour
         // Tegyük fel, hogy az OpenAIWebRequest rendelkezik egy ilyen property-vel:
         if (openAIWebRequest != null)
         {
-            lastCompleteUtteranceFromAI = openAIWebRequest.GetLastFullResponse(); // <<< ÚJ FELTÉTELEZETT METÓDUS/PROPERTY AZ OAIWR-BEN
+            lastCompleteUtteranceFromAI = openAIWebRequest.GetLastFullResponse();
             if (string.IsNullOrEmpty(lastCompleteUtteranceFromAI))
             {
-                // Ha az OAIWR nem adott vissza semmit, próbálkozhatunk a TranscriptLoggerrel, de ez kevésbé megbízható.
                 lastCompleteUtteranceFromAI = TranscriptLogger.Instance?.GetLastAIEntryText() ?? string.Empty;
-                Debug.LogWarning($"[IFM_LOG] OAIWR GetLastFullResponse was empty. Fallback to TranscriptLogger: '{lastCompleteUtteranceFromAI.Substring(0, Math.Min(lastCompleteUtteranceFromAI.Length, 70))}'");
+                // Logolás a fallbackről, de a lastCompleteUtteranceFromAI a teljes szöveget tartalmazza
+                Debug.LogWarning($"[IFM_LOG] OAIWR GetLastFullResponse was empty. Fallback to TranscriptLogger. Full text for analysis: '{lastCompleteUtteranceFromAI}'");
             }
             else
             {
-                Debug.LogWarning($"[IFM_LOG] Last utterance from AI (via OAIWR): '{lastCompleteUtteranceFromAI.Substring(0, Math.Min(lastCompleteUtteranceFromAI.Length, 70))}'");
+                // Logolás, de a lastCompleteUtteranceFromAI a teljes szöveget tartalmazza
+                Debug.LogWarning($"[IFM_LOG] Last utterance from AI (via OAIWR). Full text for analysis: '{lastCompleteUtteranceFromAI}'");
             }
         }
         else
         {
-            lastCompleteUtteranceFromAI = string.Empty; // Nincs OAIWR, nincs mit elemezni
+            lastCompleteUtteranceFromAI = string.Empty;
             Debug.LogError("[IFM_LOG] OpenAIWebRequest is null, cannot get last AI utterance.");
         }
 
@@ -556,35 +557,56 @@ public class InteractionFlowManager : MonoBehaviour
         if ((currentState == InteractionState.Lecturing || currentState == InteractionState.AnsweringQuestion) && !string.IsNullOrEmpty(lastCompleteUtteranceFromAI))
         {
             // <<< KVÍZKÉRDÉS DETEKTÁLÁSA >>>
-            // Ezt a logikát finomítani kell a promptjaidhoz és az AI várható kimenetéhez!
-            // Használj specifikus kulcsszavakat, amiket az AI-nak mondania kell kvízkérdés esetén.
             bool isQuiz = false;
             string lowerUtterance = lastCompleteUtteranceFromAI.ToLowerInvariant();
+            Debug.LogWarning($"[IFM_LOG] Analyzing for quiz (full lowercased text): '{lowerUtterance}'");
 
-            // Példa kulcsszavakra (ezeket a fő AI promptodban is meg kell erősíteni):
-            string[] quizKeywords = { "ellenőrző kérdés", "tesztkérdés", "kvízkérdés", "válaszoljon erre a kérdésre" };
-            // Példa kizáró kulcsszavakra (hogy ne keverjük az általános "Van kérdése?"-sel):
-            string[] exclusionKeywords = { "van kérdése", "további kérdése", "kérdése van-e" };
+            string[] explicitQuizIntroducers = {
+    "ellenőrző kérdés következik", // Pontosabb, mint csak "ellenőrző kérdés"
+    "kvízkérdés következik",
+    "tesztkérdés következik",
+    "válaszoljon a következő kérdésre:", // Ha az AI így vezetné be
+    "a kvízkérdés a következő:"
+};
+            // Általános kérdésfeltevésre utaló kifejezések, amik NEM kvízek
+            string[] generalQuestionPrompts = {
+    "van kérdése",
+    "további kérdése",
+    "kérdése van-e",
+    "kérdezzen bátran",
+    "mi a kérdésed" // Ezt az IFM mondja, de biztos, ami biztos
+};
 
-            foreach (string keyword in quizKeywords)
+            foreach (string introducer in explicitQuizIntroducers)
             {
-                if (lowerUtterance.Contains(keyword))
+                if (lowerUtterance.Contains(introducer))
                 {
                     isQuiz = true;
+                    Debug.LogWarning($"[IFM_LOG] Detected EXPLICIT QUIZ introducer: '{introducer}'");
                     break;
                 }
             }
 
-            if (isQuiz) // Ha találtunk kvíz kulcsszót, ellenőrizzük a kizárókat
+            if (!isQuiz && lowerUtterance.Trim().EndsWith("?"))
             {
-                foreach (string exclusion in exclusionKeywords)
+                bool isGeneralPrompt = false;
+                foreach (string generalPrompt in generalQuestionPrompts)
                 {
-                    if (lowerUtterance.Contains(exclusion))
+                    if (lowerUtterance.Contains(generalPrompt))
                     {
-                        isQuiz = false; // Mégsem kvíz, hanem általános kérdésfeltevés
-                        Debug.LogWarning($"[IFM_LOG] Detected quiz keyword, but also exclusion keyword '{exclusion}'. Treating as general question.");
+                        isGeneralPrompt = true;
+                        Debug.LogWarning($"[IFM_LOG] Ends with '?', but contains general prompt exclusion: '{generalPrompt}'");
                         break;
                     }
+                }
+                if (!isGeneralPrompt)
+                {
+                    // Ha az AI-t úgy instruálod, hogy a kvízkérdéseket mindig egyedi módon vezesse be,
+                    // akkor erre a gyengébb feltételre lehet, hogy nincs is szükség, vagy nagyon specifikusnak kell lennie.
+                    // Jelenleg, ha az "ellenőrző kérdés következik" bevezetőt használja az AI, ez az ág nem is kell.
+                    // De ha a TranscriptLogger csak magát a kérdést adja vissza, ez segíthet.
+                    isQuiz = true;
+                    Debug.LogWarning($"[IFM_LOG] Detected as POTENTIAL QUIZ (ends with '?' and not a general prompt). This detection might need refinement.");
                 }
             }
             // <<< KVÍZKÉRDÉS DETEKTÁLÁSA VÉGE >>>
@@ -593,14 +615,14 @@ public class InteractionFlowManager : MonoBehaviour
             {
                 Debug.LogWarning($"[IFM_LOG] AI asked a QUIZ QUESTION: '{lastCompleteUtteranceFromAI}'. Setting up for quiz answer.");
                 expectingQuizAnswer = true;
-                currentQuizQuestionText = lastCompleteUtteranceFromAI; // Mentsük el a kvízkérdést
+                currentQuizQuestionText = lastCompleteUtteranceFromAI; // Mentsük el a teljes (nem lowercased) kvízkérdést
                 SetState(InteractionState.WaitingForUserInput);
                 StartCoroutine(EnableSpeakButtonAfterDelay(0.3f));
             }
             else
             {
-                // Nem kvízkérdés volt, hanem valószínűleg egy standard "Van kérdése?" vagy az előadás egy természetes megállása.
-                Debug.LogWarning("[IFM_LOG] AI finished speaking (not a quiz question). Assuming natural pause for general questions.");
+                // Nem kvízkérdés volt...
+                Debug.LogWarning($"[IFM_LOG] AI finished speaking (NOT a quiz question based on analysis). Assuming natural pause for general questions. Utterance: '{lastCompleteUtteranceFromAI.Substring(0, Math.Min(lastCompleteUtteranceFromAI.Length, 100))}'");
                 expectingQuizAnswer = false;
                 currentQuizQuestionText = string.Empty;
                 SetState(InteractionState.WaitingForUserInput);
