@@ -108,6 +108,25 @@ public class TranscriptLogger : MonoBehaviour
         // AddEntry("System", "Transcript cleared."); // Opcionális rendszerüzenet
     }
 
+    public string GetLastAIEntryText()
+    {
+        // Visszafelé iterálunk a listán, hogy a legutóbbit találjuk meg először
+        for (int i = Transcript.Count - 1; i >= 0; i--)
+        {
+            // Fontos: A "Speaker" stringnek pontosan egyeznie kell azzal,
+            // amit az AddEntry-ben használsz az AI üzeneteihez.
+            // Ha pl. "AI Assistant" a speaker, akkor itt is azt kell keresni.
+            // Javasolt konstansokat használni a speaker nevekhez a hibák elkerülése érdekében.
+            if (Transcript[i].Speaker.Equals("AI", StringComparison.OrdinalIgnoreCase)) // Kis-nagybetű érzéketlen összehasonlítás
+            {
+                return Transcript[i].Text; // Visszaadjuk a megtalált AI üzenet szövegét
+            }
+        }
+        // Ha nem találtunk "AI" speakert, üres stringet adunk vissza
+        Debug.LogWarning("[TranscriptLogger] GetLastAIEntryText: No entry found with speaker 'AI'.");
+        return string.Empty;
+    }
+
     // --- Opcionális UI Frissítő Metódus ---
     /*
     private void UpdateTranscriptUI()

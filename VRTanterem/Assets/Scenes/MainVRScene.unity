@@ -17624,7 +17624,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   apiKey: 
-  userInput: Hello!
   TMPResponseText: {fileID: 7679562417209752150}
   TMPInputField: {fileID: 7679562417014403810}
   TMPUserText: {fileID: 7679562416999354787}
