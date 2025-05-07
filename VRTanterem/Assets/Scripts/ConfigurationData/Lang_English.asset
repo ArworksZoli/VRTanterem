@@ -20,3 +20,16 @@ MonoBehaviour:
   AskQuestionPrompt: What is your question?
   ResumeLecturePrompt: Let's get back to where we left off.
   FollowUpQuestionPrompt: Do you have any further questions regarding this part?
+  ExplicitQuizIntroducers:
+  - now for a quiz question
+  - here's a test question
+  - answer the following question
+  - the quiz question is
+  - let's have a quick check
+  - a short quiz question for you
+  GeneralQuestionPrompts:
+  - do you have any questions
+  - any questions so far
+  - what is your question
+  - is anything unclear
+  - shall we continue or do you have a question

@@ -5,6 +5,7 @@ using TMPro;
 using UnityEngine.UI;
 using System.Net;
 using UnityEngine.Networking;
+using System.Collections.Generic;
 // using UnityEngine.InputSystem; // Ha az inputot is itt kezeled
 
 public class InteractionFlowManager : MonoBehaviour
@@ -284,25 +285,60 @@ public class InteractionFlowManager : MonoBehaviour
         {
             Debug.LogWarning("[IFM_LOG] --- Branch: General Question Handling (Not Quiz, Not Initial Confirmation) ---");
             string lowerTranscription = transcription.ToLowerInvariant();
-            // Kulcsszavak annak eldöntésére, hogy a felhasználó folytatni akarja-e, vagy kérdezett
-            // Ezeket a kulcsszavakat érdemes lehet a LanguageConfig-ból venni.
-            bool wantsToContinue = lowerTranscription.Contains("nincs") ||
-                                   lowerTranscription.Contains("nem kérdezek") ||
-                                   lowerTranscription.Contains("folytas") || // Figyelj a ragozásra: folytasd, folytathatod
-                                   lowerTranscription.Contains("mehet") ||
-                                   lowerTranscription.Contains("tovább") ||
-                                   lowerTranscription.Contains("oké") ||
-                                   lowerTranscription.Contains("értem") ||
-                                   lowerTranscription.Contains("rendben") ||
-                                   lowerTranscription.Contains("no question") ||
-                                   lowerTranscription.Contains("continue");
+            bool wantsToContinue = false;
+            LanguageConfig currentLang = AppStateManager.Instance?.CurrentLanguage;
+            string langCode = currentLang?.languageCode?.ToLowerInvariant() ?? "en"; // Alapértelmezett angol, ha nincs nyelv
+
+            // Általános, nyelvfüggetlen(ebb) kulcsszavak
+            string[] generalContinueKeywords = {
+                "oké", "értem", "rendben", "mehet", "tovább", "folytas", // "folytasd", "folytathatod"
+                "okay", "ok", "i understand", "got it", "go on", "proceed", "continue"
+            };
+
+            // Nyelvspecifikus "nincs kérdésem" / "nem" típusú válaszok
+            string[] noQuestionKeywords;
+            if (langCode == "hu")
+            {
+                noQuestionKeywords = new string[] { "nincs", "nem kérdezek", "nem", "semmi" };
+            }
+            else // Alapértelmezés (angol és egyéb)
+            {
+                noQuestionKeywords = new string[] { "no", "nope", "nothing", "i don't have any", "no questions" };
+            }
+
+            foreach (string keyword in generalContinueKeywords)
+            {
+                if (lowerTranscription.Contains(keyword))
+                {
+                    wantsToContinue = true;
+                    break;
+                }
+            }
+
+            if (!wantsToContinue) // Csak akkor ellenőrizzük a "no question" kulcsszavakat, ha az általánosak nem illeszkedtek
+            {
+                foreach (string keyword in noQuestionKeywords)
+                {
+                    // Itt lehetünk szigorúbbak, pl. a "no" önmagában csak akkor legyen folytatás,
+                    // ha a kontextus (AI kérdése) egyértelműen erre utal.
+                    // Egy egyszerű "no." válasz esetén a Contains(keyword) megfelelő.
+                    if (lowerTranscription.Contains(keyword))
+                    {
+                        // Speciális eset: ha a felhasználó csak annyit mond "no", és az AI előtte kérdezte, hogy van-e kérdés,
+                        // akkor ez egyértelműen a folytatásra utal.
+                        // Ha az AI nem kérdezett, egy sima "no" lehet másra válasz.
+                        // Jelenlegi kontextusban (AI kérdése után) ez rendben van.
+                        wantsToContinue = true;
+                        break;
+                    }
+                }
+            }
 
             if (wantsToContinue)
             {
                 Debug.LogWarning($"[IFM_LOG] User indicated no further questions or wants to continue ('{transcription}'). Resuming lecture.");
                 if (openAIWebRequest != null)
                 {
-                    // A "nincs kérdésem" típusú választ is hozzáadjuk a threadhez, mielőtt folytatnánk.
                     Debug.LogWarning($"[IFM_LOG] Calling OAIWR.AddUserMessageAndStartLectureRun('{transcription}') to acknowledge user and continue lecture.");
                     isOaiRunComplete = false;
                     StartCoroutine(openAIWebRequest.AddUserMessageAndStartLectureRun(transcription));
@@ -316,14 +352,10 @@ public class InteractionFlowManager : MonoBehaviour
             }
             else // A felhasználó valószínűleg kérdést tett fel
             {
-                Debug.LogWarning($"[IFM_LOG] User asked a question ('{transcription}'). Sending to OpenAI for a short answer.");
+                Debug.LogWarning($"[IFM_LOG] User asked a question OR gave an ambiguous short answer ('{transcription}'). Sending to OpenAI for a short answer.");
                 if (openAIWebRequest != null)
                 {
-                    // Itt az OpenAIWebRequest.SendUserQuestionDuringLecture-t hívjuk,
-                    // ami az AssistantRunType.InterruptionAnswer-t fogja használni.
-                    // A followUpPrompt itt lehet egy általános, vagy akár üres is,
-                    // mivel az InterruptionAnswer instrukciója már elég specifikus.
-                    string followUpPromptForInterruption = AppStateManager.Instance?.CurrentLanguage?.FollowUpQuestionPrompt ?? "Answer the user's question directly and briefly, then stop."; // Vagy egy semlegesebb
+                    string followUpPromptForInterruption = AppStateManager.Instance?.CurrentLanguage?.FollowUpQuestionPrompt ?? "Answer the user's question directly and briefly, then stop.";
 
                     Debug.LogWarning($"[IFM_LOG] Calling OAIWR.SendUserQuestionDuringLecture('{transcription}', '{followUpPromptForInterruption}')...");
                     isOaiRunComplete = false;
@@ -507,29 +539,15 @@ public class InteractionFlowManager : MonoBehaviour
     {
         Debug.LogWarning($"[IFM_LOG] >>> HandlePlaybackQueueCompleted ENTER. Current state: {currentState}, LastPlayedIndex: {lastPlayedLectureSentenceIndex}, isOaiRunComplete: {isOaiRunComplete}");
 
-        // Csak akkor folytatjuk az elemzést, ha az OpenAI futtatás is befejeződött.
-        // Ez biztosítja, hogy az AI már elküldte az összes adatot, és a TTS csak a már megkapottakat játszotta le.
         if (!isOaiRunComplete)
         {
             Debug.LogWarning("[IFM_LOG] Playback queue empty, but AI run is NOT YET marked as complete. Waiting for OnRunCompleted event before analyzing AI utterance.");
-            // Itt nem teszünk semmit, várunk a HandleRunCompleted-re, ami majd újraértékelheti a helyzetet,
-            // vagy ha a HandleRunCompleted már lefutott és true-ra állította isOaiRunComplete-et, akkor a következő
-            // TTS esemény (ha van) vagy a felhasználói input fogja továbbvinni a logikát.
-            // Ez a helyzet akkor állhat elő, ha a TTS nagyon gyorsan lejátszik mindent, mielőtt az OAI [DONE] megérkezne.
             Debug.LogWarning($"[IFM_LOG] <<< HandlePlaybackQueueCompleted EXIT (Waiting for OAI Run to complete).");
             return;
         }
 
-        // Ha ide eljutunk, az OAI run már befejezettnek van jelölve.
         Debug.LogWarning("[IFM_LOG] OAI Run is complete. Proceeding to analyze AI's last utterance.");
 
-        // Az AI által utoljára mondott TELJES szöveg lekérése.
-        // FONTOS: Ezt a részt robusztussá kell tenni!
-        // Ideális esetben a TextToSpeechManager gyűjtené és adná át a teljes szöveget az eseményben.
-        // Vagy az OpenAIWebRequestnek kellene egy metódust biztosítania a legutóbbi teljes válasz lekérésére.
-        // Jelenleg a TranscriptLoggerre támaszkodunk placeholderként.
-        // Ha az OpenAIWebRequest.fullResponseForLogging-ot használjuk, akkor azt kellene itt elérni.
-        // Tegyük fel, hogy az OpenAIWebRequest rendelkezik egy ilyen property-vel:
         if (openAIWebRequest != null)
         {
             lastCompleteUtteranceFromAI = openAIWebRequest.GetLastFullResponse();
@@ -551,9 +569,6 @@ public class InteractionFlowManager : MonoBehaviour
             Debug.LogError("[IFM_LOG] OpenAIWebRequest is null, cannot get last AI utterance.");
         }
 
-
-        // Csak akkor elemezzük, ha az állapot Lecturing (vagy AnsweringQuestion, ha a kvízválasz+folytatás is ezen a csatornán jön)
-        // és van mit elemezni.
         if ((currentState == InteractionState.Lecturing || currentState == InteractionState.AnsweringQuestion) && !string.IsNullOrEmpty(lastCompleteUtteranceFromAI))
         {
             // <<< KVÍZKÉRDÉS DETEKTÁLÁSA >>>
@@ -561,25 +576,43 @@ public class InteractionFlowManager : MonoBehaviour
             string lowerUtterance = lastCompleteUtteranceFromAI.ToLowerInvariant();
             Debug.LogWarning($"[IFM_LOG] Analyzing for quiz (full lowercased text): '{lowerUtterance}'");
 
-            string[] explicitQuizIntroducers = {
-    "ellenőrző kérdés következik", // Pontosabb, mint csak "ellenőrző kérdés"
-    "kvízkérdés következik",
-    "tesztkérdés következik",
-    "válaszoljon a következő kérdésre:", // Ha az AI így vezetné be
-    "a kvízkérdés a következő:"
-};
-            // Általános kérdésfeltevésre utaló kifejezések, amik NEM kvízek
-            string[] generalQuestionPrompts = {
-    "van kérdése",
-    "további kérdése",
-    "kérdése van-e",
-    "kérdezzen bátran",
-    "mi a kérdésed" // Ezt az IFM mondja, de biztos, ami biztos
-};
+            // --- KULCSSZAVAK BETÖLTÉSE A LANGUAGECONFIG-BÓL ---
+            LanguageConfig currentLang = AppStateManager.Instance?.CurrentLanguage;
+            List<string> explicitQuizIntroducersList = new List<string>();
+            List<string> generalQuestionPromptsList = new List<string>();
 
-            foreach (string introducer in explicitQuizIntroducers)
+            if (currentLang != null)
             {
-                if (lowerUtterance.Contains(introducer))
+                if (currentLang.ExplicitQuizIntroducers != null && currentLang.ExplicitQuizIntroducers.Count > 0)
+                {
+                    explicitQuizIntroducersList.AddRange(currentLang.ExplicitQuizIntroducers);
+                    Debug.Log($"[IFM_LOG] Loaded {explicitQuizIntroducersList.Count} explicit quiz introducers from LanguageConfig '{currentLang.displayName}'.");
+                }
+                else
+                {
+                    Debug.LogWarning($"[IFM_LOG] No ExplicitQuizIntroducers found in LanguageConfig '{currentLang.displayName}'. Using empty list.");
+                }
+
+                if (currentLang.GeneralQuestionPrompts != null && currentLang.GeneralQuestionPrompts.Count > 0)
+                {
+                    generalQuestionPromptsList.AddRange(currentLang.GeneralQuestionPrompts);
+                    Debug.Log($"[IFM_LOG] Loaded {generalQuestionPromptsList.Count} general question prompts from LanguageConfig '{currentLang.displayName}'.");
+                }
+                else
+                {
+                    Debug.LogWarning($"[IFM_LOG] No GeneralQuestionPrompts found in LanguageConfig '{currentLang.displayName}'. Using empty list.");
+                }
+            }
+            else
+            {
+                Debug.LogError("[IFM_LOG] CurrentLanguage is null in AppStateManager! Cannot load quiz/general prompts. Quiz detection might be unreliable.");
+            }
+
+            foreach (string introducer in explicitQuizIntroducersList)
+            {
+                // Fontos: Ha a LanguageConfig-ban nem kisbetűvel vannak a kulcsszavak, itt kell ToLowerInvariant()-t használni rajtuk is.
+                // De a LanguageConfig tooltipje azt javasolta, hogy ott már kisbetűsek legyenek.
+                if (lowerUtterance.Contains(introducer.ToLowerInvariant())) // Biztonság kedvéért itt is ToLowerInvariant
                 {
                     isQuiz = true;
                     Debug.LogWarning($"[IFM_LOG] Detected EXPLICIT QUIZ introducer: '{introducer}'");
@@ -590,9 +623,9 @@ public class InteractionFlowManager : MonoBehaviour
             if (!isQuiz && lowerUtterance.Trim().EndsWith("?"))
             {
                 bool isGeneralPrompt = false;
-                foreach (string generalPrompt in generalQuestionPrompts)
+                foreach (string generalPrompt in generalQuestionPromptsList)
                 {
-                    if (lowerUtterance.Contains(generalPrompt))
+                    if (lowerUtterance.Contains(generalPrompt.ToLowerInvariant())) // Biztonság kedvéért itt is ToLowerInvariant
                     {
                         isGeneralPrompt = true;
                         Debug.LogWarning($"[IFM_LOG] Ends with '?', but contains general prompt exclusion: '{generalPrompt}'");
@@ -601,10 +634,6 @@ public class InteractionFlowManager : MonoBehaviour
                 }
                 if (!isGeneralPrompt)
                 {
-                    // Ha az AI-t úgy instruálod, hogy a kvízkérdéseket mindig egyedi módon vezesse be,
-                    // akkor erre a gyengébb feltételre lehet, hogy nincs is szükség, vagy nagyon specifikusnak kell lennie.
-                    // Jelenleg, ha az "ellenőrző kérdés következik" bevezetőt használja az AI, ez az ág nem is kell.
-                    // De ha a TranscriptLogger csak magát a kérdést adja vissza, ez segíthet.
                     isQuiz = true;
                     Debug.LogWarning($"[IFM_LOG] Detected as POTENTIAL QUIZ (ends with '?' and not a general prompt). This detection might need refinement.");
                 }
@@ -615,13 +644,12 @@ public class InteractionFlowManager : MonoBehaviour
             {
                 Debug.LogWarning($"[IFM_LOG] AI asked a QUIZ QUESTION: '{lastCompleteUtteranceFromAI}'. Setting up for quiz answer.");
                 expectingQuizAnswer = true;
-                currentQuizQuestionText = lastCompleteUtteranceFromAI; // Mentsük el a teljes (nem lowercased) kvízkérdést
+                currentQuizQuestionText = lastCompleteUtteranceFromAI;
                 SetState(InteractionState.WaitingForUserInput);
                 StartCoroutine(EnableSpeakButtonAfterDelay(0.3f));
             }
             else
             {
-                // Nem kvízkérdés volt...
                 Debug.LogWarning($"[IFM_LOG] AI finished speaking (NOT a quiz question based on analysis). Assuming natural pause for general questions. Utterance: '{lastCompleteUtteranceFromAI.Substring(0, Math.Min(lastCompleteUtteranceFromAI.Length, 100))}'");
                 expectingQuizAnswer = false;
                 currentQuizQuestionText = string.Empty;
@@ -631,8 +659,6 @@ public class InteractionFlowManager : MonoBehaviour
         }
         else if (string.IsNullOrEmpty(lastCompleteUtteranceFromAI) && currentState == InteractionState.Lecturing)
         {
-            // Az AI run befejeződött, a TTS sor üres, de az AI nem mondott semmit.
-            // Ez lehet egy csendes befejezés, vagy hiba. Ilyenkor is adjunk lehetőséget a felhasználónak.
             Debug.LogWarning("[IFM_LOG] Playback queue empty, OAI run complete, but AI utterance was empty. Moving to WaitingForUserInput as a fallback.");
             expectingQuizAnswer = false;
             currentQuizQuestionText = string.Empty;
@@ -644,10 +670,7 @@ public class InteractionFlowManager : MonoBehaviour
             Debug.LogWarning($"[IFM_LOG] Playback queue completed in state {currentState} or AI utterance was empty. No specific quiz/question analysis triggered.");
         }
 
-        // Fontos: Az OpenAIWebRequest.GetLastFullResponse() hívása után érdemes lehet üríteni
-        // az OAIWR belső `fullResponseForLogging` bufferét, hogy a következő futtatás tiszta lappal induljon.
-        // Ezt az OAIWR-ben kellene megvalósítani, pl. egy ClearLastResponse() metódussal, amit itt hívnánk.
-        openAIWebRequest?.ClearLastFullResponse(); // <<< ÚJ FELTÉTELEZETT METÓDUS HÍVÁSA AZ OAIWR-BEN
+        openAIWebRequest?.ClearLastFullResponse();
 
         Debug.LogWarning($"[IFM_LOG] <<< HandlePlaybackQueueCompleted EXIT. ExpectingQuizAnswer: {expectingQuizAnswer}");
     }

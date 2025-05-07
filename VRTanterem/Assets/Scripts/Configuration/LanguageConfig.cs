@@ -22,4 +22,11 @@ public class LanguageConfig : ScriptableObject
     [Header("AI Instrukció Promptjai")]
     [Tooltip("Az utókérdés, amelyet az AI-nak fel kell tennie, miután megszakítás közben válaszolt. (additional instrictions-ben használatos)")]
     public string FollowUpQuestionPrompt;
+
+    [Header("Kvíz Detektálási Kulcsszavak")]
+    [Tooltip("Kifejezések, amelyekkel az AI egyértelműen kvízkérdést vezet be. Kisbetűvel, írásjelek nélkül.")]
+    public List<string> ExplicitQuizIntroducers = new List<string>();
+
+    [Tooltip("Általános kérdésfeltevő promptok, amelyek NEM kvízkérdések, még ha kérdőjellel is végződnek. Kisbetűvel, írásjelek nélkül.")]
+    public List<string> GeneralQuestionPrompts = new List<string>();
 }
