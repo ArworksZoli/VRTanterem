@@ -945,6 +945,7 @@ GameObject:
   m_Component:
   - component: {fileID: 173263437}
   - component: {fileID: 173263438}
+  - component: {fileID: 173263439}
   m_Layer: 0
   m_Name: AppManager
   m_TagString: Untagged
@@ -982,6 +983,18 @@ MonoBehaviour:
   openAiApiKey: 
   interactionModuleObject: {fileID: 1292375650}
   topicDisplayImage: {fileID: 1826826921}
+--- !u!114 &173263439
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 173263436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 196e2418910e64841a7842e78bba1643, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &225787448
 GameObject:
   m_ObjectHideFlags: 0
@@ -3947,6 +3960,7 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 1272746008}
   - {fileID: 1511403169}
   - {fileID: 1512174750}
   m_Father: {fileID: 12224733}
@@ -6856,6 +6870,10 @@ MonoBehaviour:
   statusText: {fileID: 1793093058}
   pressSound: {fileID: 8300000, guid: c362bffa4cd68f84bbd58b5203613aea, type: 3}
   releaseSound: {fileID: 8300000, guid: cb5d7f5e2755e6048a6cd4de0d944da9, type: 3}
+  microphoneIconImage: {fileID: 821218889}
+  iconColorDefault: {r: 0.15686275, g: 0.26666668, b: 0.3019608, a: 1}
+  iconColorReady: {r: 0.2, g: 0.8, b: 0.2, a: 1}
+  iconColorRecording: {r: 0.9, g: 0.2, b: 0.2, a: 1}
 --- !u!1 &1248045382
 GameObject:
   m_ObjectHideFlags: 0
@@ -7004,7 +7022,7 @@ RectTransform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1272746007}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: -0.01999998}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -7012,11 +7030,11 @@ RectTransform:
   - {fileID: 1798492888}
   - {fileID: 947118018}
   - {fileID: 713338680}
-  m_Father: {fileID: 1512174750}
+  m_Father: {fileID: 659553120}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0.00021376264}
+  m_AnchoredPosition: {x: 0, y: 0.348}
   m_SizeDelta: {x: 3.8, y: 1.2}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1292375650
@@ -7302,13 +7320,48 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2483171112407822886, guid: f54012181eacade4ea242c65f804720f,
         type: 3}
+      propertyPath: _sharpenType
+      value: 65536
+      objectReference: {fileID: 0}
+    - target: {fileID: 2483171112407822886, guid: f54012181eacade4ea242c65f804720f,
+        type: 3}
       propertyPath: _trackingOriginType
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2483171112407822886, guid: f54012181eacade4ea242c65f804720f,
         type: 3}
+      propertyPath: _enableDynamicResolution
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2483171112407822886, guid: f54012181eacade4ea242c65f804720f,
+        type: 3}
       propertyPath: isInsightPassthroughEnabled
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2483171112407822886, guid: f54012181eacade4ea242c65f804720f,
+        type: 3}
+      propertyPath: quest2MaxDynamicResolutionScale
+      value: 1.1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2483171112407822886, guid: f54012181eacade4ea242c65f804720f,
+        type: 3}
+      propertyPath: quest2MinDynamicResolutionScale
+      value: 1.1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2483171112407822886, guid: f54012181eacade4ea242c65f804720f,
+        type: 3}
+      propertyPath: quest3MaxDynamicResolutionScale
+      value: 1.1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2483171112407822886, guid: f54012181eacade4ea242c65f804720f,
+        type: 3}
+      propertyPath: quest3MinDynamicResolutionScale
+      value: 1.1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2483171112407822886, guid: f54012181eacade4ea242c65f804720f,
+        type: 3}
+      propertyPath: requestBodyTrackingPermissionOnStartup
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2514675399181695721, guid: f54012181eacade4ea242c65f804720f,
         type: 3}
@@ -9854,7 +9907,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1512174750
 RectTransform:
   m_ObjectHideFlags: 0
@@ -9866,8 +9919,7 @@ RectTransform:
   m_LocalPosition: {x: 0, y: 0, z: -0.02}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 1272746008}
+  m_Children: []
   m_Father: {fileID: 659553120}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
@@ -16169,7 +16221,7 @@ Transform:
   m_GameObject: {fileID: 6713304853510536941}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0.010613773, z: -0, w: 0.99994373}
-  m_LocalPosition: {x: 0.0116, y: -0.9176, z: 1.4642}
+  m_LocalPosition: {x: 0.09, y: -0.918, z: 1.466}
   m_LocalScale: {x: 1.4, y: 1.4, z: 1.4}
   m_ConstrainProportionsScale: 1
   m_Children: []
