@@ -39,7 +39,7 @@ public class WhisperMicController : MonoBehaviour
     [SerializeField] private Color iconColorRecording = new Color(0.9f, 0.2f, 0.2f, 1f);
 
     // --- Státusz Szövegek ---
-    private const string StatusIdle = "Hold <Speak Button> to talk";
+    private const string StatusIdle = "Hold A Button to talk";
     private const string StatusDisabled = "";
     private const string StatusRecording = "RECORDING...";
     private const string StatusProcessing = "Processing...";

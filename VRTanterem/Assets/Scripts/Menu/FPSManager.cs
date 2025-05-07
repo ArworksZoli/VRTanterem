@@ -9,11 +9,18 @@ public class FPSManager : MonoBehaviour
     void Start()
     {
         OVRManager.display.displayFrequency = 90.0f;
+        OVRManager.foveatedRenderingLevel = 0;
+
+        StartCoroutine(SetGraphicsInSeconds());
     }
 
-    // Update is called once per frame
-    void Update()
+    IEnumerator SetGraphicsInSeconds()
     {
-        
+        yield return new WaitForSeconds(1f);
+
+        OVRManager.display.displayFrequency = 90.0f;
+        OVRManager.foveatedRenderingLevel = 0;
+
+        Unity.XR.Oculus.Utils.foveatedRenderingLevel = 0;
     }
 }
