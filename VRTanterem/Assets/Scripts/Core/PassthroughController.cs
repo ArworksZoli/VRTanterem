@@ -148,12 +148,22 @@ public class PassthroughController : MonoBehaviour
         }
     }
 
+    public void TogglePassthrough()
+    {
+        // Logoljuk, hogy ez a specifikus metódus lett meghívva, és mi az aktuális állapot
+        Debug.Log($"--- TogglePassthrough() method called (e.g., from UI Button). Current isPassthroughActive: {isPassthroughActive} ---");
+
+        // Ugyanazt a logikát használjuk, mint az InputAction eseménykezelő:
+        // megfordítjuk az aktuális állapotot.
+        SetPassthroughState(!isPassthroughActive);
+    }
+
     // --- Input Esemény Kezelő ---
 
     private void OnTogglePassthroughPerformed(InputAction.CallbackContext context)
     {
         // Ez az a log, amit már láttál működni!
-        Debug.LogError("!!!!!!!!!! TOGGLE PASSTHROUGH ACTION PERFORMED !!!!!!!!!!");
+        Debug.Log("!!!!!!!!!! TOGGLE PASSTHROUGH ACTION PERFORMED !!!!!!!!!!");
 
         // Itt hívjuk meg a váltást végző logikát
         Debug.Log($"   Action '{toggleActionName}' performed. Calling SetPassthroughState to toggle.");
