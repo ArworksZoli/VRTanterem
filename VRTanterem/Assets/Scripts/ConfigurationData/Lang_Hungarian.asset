@@ -17,6 +17,7 @@ MonoBehaviour:
   availableSubjects:
   - {fileID: 11400000, guid: d6c53bba4140ce14b8e69b3da57fc5c9, type: 2}
   - {fileID: 11400000, guid: a56125d22a78ba445ba16530709764f8, type: 2}
+  - {fileID: 11400000, guid: 5fabb9106e36a4f49a77a4ba789b7c10, type: 2}
   AskQuestionPrompt: "Mi a k\xE9rd\xE9sed?"
   ResumeLecturePrompt: "T\xE9rj\xFCnk akkor vissza oda, ahol abbahagytuk."
   FollowUpQuestionPrompt: "Van tov\xE1bbi k\xE9rd\xE9se ezzel kapcsolatban?"
