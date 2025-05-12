@@ -17,4 +17,8 @@ public class TopicConfig : ScriptableObject
 
     [Tooltip("A témához kapcsolódó kép, ami a táblán jelenik meg. A kép Texture Type-jának 'Sprite (2D and UI)'-nak kell lennie.")]
     public Sprite topicImage;
+
+    [Header("Keyword Images")]
+    [Tooltip("Kulcsszó-kép párosítások az előadás közbeni képváltáshoz. A kulcsszavakat az AI szövegében keressük.")]
+    public List<KeywordImagePair> keywordImages = new List<KeywordImagePair>();
 }

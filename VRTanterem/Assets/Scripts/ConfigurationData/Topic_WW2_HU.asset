@@ -19,4 +19,15 @@ MonoBehaviour:
   - shimmer
   - onyx
   - ash
-  topicImage: {fileID: 21300000, guid: 70e3d55cd71775f4cbdaeecfd365938e, type: 3}
+  topicImage: {fileID: 21300000, guid: bf3cfc037ca778542b189d047ed009c4, type: 3}
+  keywordImages:
+  - keyword: versailles
+    image: {fileID: 21300000, guid: 308a09be6f86e4f4e85c0a5432ed9f41, type: 3}
+  - keyword: "lengyelorsz\xE1g"
+    image: {fileID: 21300000, guid: efecd7f2b74d38e42b9902c73536e265, type: 3}
+  - keyword: blitzkrieg
+    image: {fileID: 21300000, guid: dde67f756e0515f4381ab2fca4f63eba, type: 3}
+  - keyword: jalta
+    image: {fileID: 21300000, guid: 70e3d55cd71775f4cbdaeecfd365938e, type: 3}
+  - keyword: "szt\xE1lingr\xE1d"
+    image: {fileID: 21300000, guid: b3e58a757429ead49ac2d33fe7add700, type: 3}

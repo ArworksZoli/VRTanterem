@@ -1,14 +1,14 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
-using System.Text; // Szükséges a StringBuilderhez
-using System; // Szükséges a DateTime-hoz
+using System.Text;
+using System;
 
-// Struktúra egy naplóbejegyzés tárolásához
-[System.Serializable] // Láthatóvá teszi az Inspectorban (ha szükséges)
+
+[System.Serializable]
 public struct LogEntry
 {
     public DateTime Timestamp;
-    public string Speaker; // Pl. "User", "AI", "System"
+    public string Speaker;
     public string Text;
 
     public LogEntry(string speaker, string text)
@@ -31,9 +31,9 @@ public class TranscriptLogger : MonoBehaviour
     public static TranscriptLogger Instance { get; private set; }
 
     // --- Napló Tárolása ---
-    // A private set biztosítja, hogy kívülről csak olvasni lehessen a listát,
-    // de módosítani csak ezen az osztályon belül lehet az AddEntry metódussal.
     public List<LogEntry> Transcript { get; private set; } = new List<LogEntry>();
+
+    public event Action<string> OnNewAIEntryAdded;
 
     // --- Opcionális: UI megjelenítéshez ---
     // Ha szeretnéd valós időben látni a logot egy UI elemen
@@ -60,11 +60,6 @@ public class TranscriptLogger : MonoBehaviour
         // AddEntry("System", "Transcript logger started.");
     }
 
-    /// <summary>
-    /// Adds a new entry to the transcript log.
-    /// </summary>
-    /// <param name="speaker">Who said it (e.g., "User", "AI", "System").</param>
-    /// <param name="text">The content of the message.</param>
     public void AddEntry(string speaker, string text)
     {
         if (string.IsNullOrEmpty(speaker) || string.IsNullOrWhiteSpace(text))
@@ -76,16 +71,18 @@ public class TranscriptLogger : MonoBehaviour
         LogEntry newEntry = new LogEntry(speaker, text.Trim()); // Trim whitespace
         Transcript.Add(newEntry);
 
-        // Logoljuk a konzolra is a könnyebb követhetőségért
         Debug.Log($"[Transcript_LOG] {newEntry}");
+
+        if (speaker.Equals("AI", StringComparison.OrdinalIgnoreCase))
+        {
+            OnNewAIEntryAdded?.Invoke(newEntry.Text);
+            // Debug.Log("[TranscriptLogger] OnNewAIEntryAdded event invoked."); // Opcionális logolás
+        }
 
         // Opcionális: Frissítjük a UI kijelzőt
         // UpdateTranscriptUI();
     }
 
-    /// <summary>
-    /// Returns the entire transcript as a single formatted string.
-    /// </summary>
     public string GetFormattedTranscript()
     {
         StringBuilder sb = new StringBuilder();
@@ -96,9 +93,6 @@ public class TranscriptLogger : MonoBehaviour
         return sb.ToString();
     }
 
-    /// <summary>
-    /// Clears the current transcript log.
-    /// </summary>
     public void ClearTranscript()
     {
         Transcript.Clear();
@@ -110,19 +104,14 @@ public class TranscriptLogger : MonoBehaviour
 
     public string GetLastAIEntryText()
     {
-        // Visszafelé iterálunk a listán, hogy a legutóbbit találjuk meg először
+        
         for (int i = Transcript.Count - 1; i >= 0; i--)
         {
-            // Fontos: A "Speaker" stringnek pontosan egyeznie kell azzal,
-            // amit az AddEntry-ben használsz az AI üzeneteihez.
-            // Ha pl. "AI Assistant" a speaker, akkor itt is azt kell keresni.
-            // Javasolt konstansokat használni a speaker nevekhez a hibák elkerülése érdekében.
             if (Transcript[i].Speaker.Equals("AI", StringComparison.OrdinalIgnoreCase)) // Kis-nagybetű érzéketlen összehasonlítás
             {
                 return Transcript[i].Text; // Visszaadjuk a megtalált AI üzenet szövegét
             }
         }
-        // Ha nem találtunk "AI" speakert, üres stringet adunk vissza
         Debug.LogWarning("[TranscriptLogger] GetLastAIEntryText: No entry found with speaker 'AI'.");
         return string.Empty;
     }

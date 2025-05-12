@@ -1,14 +1,5 @@
 ﻿using UnityEngine;
-
-// Előre deklaráljuk a Config típusokat, hogy a script tudjon róluk
-// Ha ezek más névtérben vannak, használd a 'using' direktívát
-// using YourProject.Configuration; // Példa
-
-// Feltételezzük, hogy ezek a típusok globálisan elérhetők vagy a megfelelő using direktíva megvan
-// public class LanguageConfig : ScriptableObject { /*...*/ }
-// public class SubjectConfig : ScriptableObject { /*...*/ }
-// public class TopicConfig : ScriptableObject { /*...*/ }
-
+using UnityEngine.UI;
 
 public class AppStateManager : MonoBehaviour
 {
@@ -28,8 +19,11 @@ public class AppStateManager : MonoBehaviour
     [Tooltip("A UI Image komponens a táblán, ami a téma képét mutatja.")]
     [SerializeField] private UnityEngine.UI.Image topicDisplayImage;
 
+    [Header("Feature Controllers")]
+    [Tooltip("Húzd ide a LectureImageController komponenst tartalmazó GameObjectet, vagy magát a komponenst.")]
+    [SerializeField] private LectureImageController lectureImageController;
+
     // --- Tárolt Konfiguráció ---
-    // Ezeket a SelectionManager tölti fel a StartInteraction hívásakor
     public LanguageConfig CurrentLanguage { get; private set; }
     public SubjectConfig CurrentSubject { get; private set; }
     public TopicConfig CurrentTopic { get; private set; }
@@ -50,37 +44,45 @@ public class AppStateManager : MonoBehaviour
             return;
         }
         Instance = this;
-        // DontDestroyOnLoad(gameObject); // Csak akkor kell, ha több jelenetet használsz
+        // DontDestroyOnLoad(gameObject);
 
-        // Ellenőrizzük a kritikus referenciákat és beállításokat
+        // --- Kritikus referenciák ellenőrzése ---
         bool setupOk = true;
-        if (string.IsNullOrEmpty(openAiApiKey) || openAiApiKey.Length < 10) // Egyszerű ellenőrzés
+        if (string.IsNullOrEmpty(openAiApiKey) || openAiApiKey.Length < 10)
         {
-            Debug.LogError("[AppStateManager] Awake Error: OpenAI API Key is not set or looks invalid in the Inspector!", this);
+            Debug.LogError("[AppStateManager] Awake Error: OpenAI API Key is not set or looks invalid!", this);
             setupOk = false;
         }
         if (interactionModuleObject == null)
         {
-            Debug.LogError("[AppStateManager] Awake Error: Interaction Module Object is not assigned in the Inspector!", this);
+            Debug.LogError("[AppStateManager] Awake Error: Interaction Module Object is not assigned!", this);
             setupOk = false;
         }
-
         if (topicDisplayImage == null)
         {
-            Debug.LogWarning("[AppStateManager] Awake Warning: Topic Display Image is not assigned in the Inspector! Image display feature will be disabled.", this);
-            // Nem feltétlenül hiba, lehet, hogy nincs kép megjelenítés az adott jelenetben
-            // De ha kellene, akkor ez fontos figyelmeztetés.
+            // Ez most már lehet kritikusabb, ha a LectureImageController-nek szüksége van rá
+            Debug.LogError("[AppStateManager] Awake Error: Topic Display Image is not assigned! Image features will fail.", this);
+            setupOk = false;
         }
+        // --- LectureImageController Ellenőrzése ---
+        if (lectureImageController == null)
+        {
+            // Lehet, hogy nem hiba, ha ez a funkció opcionális, de most szükségesnek tekintjük.
+            Debug.LogError("[AppStateManager] Awake Error: Lecture Image Controller is not assigned! Keyword image feature will be disabled.", this);
+            setupOk = false;
+        }
+        // --- Ellenőrzés Vége ---
+
 
         if (!setupOk)
         {
             Debug.LogError("[AppStateManager] Setup incomplete. Disabling component.", this);
-            enabled = false; // Letiltjuk a komponenst, ha a beállítások hiányosak
+            enabled = false;
             return;
         }
 
-        // Kezdetben a fő modul legyen inaktív
-        if (interactionModuleObject.activeSelf) // Csak akkor logolunk/deaktiválunk, ha aktív volt
+        // Kezdeti állapotok beállítása
+        if (interactionModuleObject.activeSelf)
         {
             interactionModuleObject.SetActive(false);
             Debug.Log("[AppStateManager] Interaction Module was active, setting to inactive.");
@@ -90,10 +92,12 @@ public class AppStateManager : MonoBehaviour
             Debug.Log("[AppStateManager] Interaction Module is already inactive (initial state).");
         }
 
+        // A topicDisplayImage kezdeti beállítását most már a LectureImageController is kezelheti,
+        // de itt is kikapcsolhatjuk biztosítékként.
         if (topicDisplayImage != null)
         {
-            topicDisplayImage.enabled = false; // Kezdetben legyen kikapcsolva
-            topicDisplayImage.sprite = null;   // Töröljük a sprite-ot is
+            topicDisplayImage.enabled = false;
+            topicDisplayImage.sprite = null;
             Debug.Log("[AppStateManager] Initialized Topic Display Image (disabled, sprite cleared).");
         }
 
@@ -102,31 +106,21 @@ public class AppStateManager : MonoBehaviour
 
     // --- Fő Vezérlő Metódus ---
 
-    /// <summary>
-    /// Ezt a metódust hívja meg a SelectionManager, miután minden ki lett választva.
-    /// Elmenti a konfigurációt, elrejti a menüt, és aktiválja/inicializálja az interakciós modult.
-    /// </summary>
-    
     public void StartInteraction(LanguageConfig lang, SubjectConfig subj, TopicConfig topic, string voiceId)
     {
         Debug.LogWarning($"[AppStateManager] StartInteraction CALLED - Frame: {Time.frameCount}");
-        // 1. Logolás (Ez már megvan)
-        if (topic != null)
-        {
-            Debug.Log($"[AppStateManager] StartInteraction RECEIVED. Topic Name: '{topic.topicName}', Assistant ID from received Topic: '{topic.assistantId}'");
-        }
-        else
+        // 1. Bemeneti adatok logolása és ellenőrzése
+        if (topic == null)
         {
             Debug.LogError("[AppStateManager] StartInteraction RECEIVED a NULL Topic object!");
-            return; // Fontos kilépni, ha nincs topic
+            return;
         }
-        Debug.Log($"[AppStateManager] Received Voice ID: '{voiceId}'");
+        Debug.Log($"[AppStateManager] StartInteraction RECEIVED. Topic Name: '{topic.topicName}', Assistant ID: '{topic.assistantId}', Voice ID: '{voiceId}'");
 
-        // --- 2. Konfiguráció Validálása és Mentése (EZ HIÁNYZOTT!) ---
-        if (lang == null || subj == null /* topic már ellenőrizve */ || string.IsNullOrEmpty(voiceId) || string.IsNullOrEmpty(topic.assistantId))
+        // 2. Konfiguráció validálása és mentése
+        if (lang == null || subj == null || string.IsNullOrEmpty(voiceId) || string.IsNullOrEmpty(topic.assistantId))
         {
             Debug.LogError("[AppStateManager] Critical Error: Received incomplete configuration! Cannot proceed.");
-            // Ideális esetben itt vissza kellene navigálni a menübe, vagy legalább megállni.
             return;
         }
 
@@ -137,6 +131,20 @@ public class AppStateManager : MonoBehaviour
         CurrentAssistantId = topic.assistantId;
 
         Debug.Log($"[AppStateManager] Configuration saved. Assistant ID: {CurrentAssistantId}, Voice ID: {CurrentVoiceId}");
+
+        // --- 3. LectureImageController Inicializálása ---
+
+        if (lectureImageController != null)
+        {
+            Debug.Log($"[AppStateManager] Initializing LectureImageController for topic '{CurrentTopic.topicName}'...");
+            lectureImageController.InitializeForTopic(topicDisplayImage, CurrentTopic);
+            Debug.Log("[AppStateManager] LectureImageController initialized.");
+        }
+        else
+        {
+            Debug.LogError("[AppStateManager] LectureImageController reference is NULL during StartInteraction! Cannot initialize.");
+            // Ha a LectureImageController kritikus, itt akár le is állhatnánk: return;
+        }
 
         if (topicDisplayImage != null)
         {
@@ -158,7 +166,7 @@ public class AppStateManager : MonoBehaviour
             Debug.LogWarning("[AppStateManager] Cannot display topic image: topicDisplayImage reference is null.");
         }
 
-        // --- 3. Menü Elrejtése (Ez valószínűleg itt volt korábban, tedd vissza, ha kell) ---
+        // --- 4. Menü Elrejtése ---
         SelectionManager selectionManager = FindObjectOfType<SelectionManager>();
         if (selectionManager != null)
         {
@@ -171,18 +179,17 @@ public class AppStateManager : MonoBehaviour
         }
 
 
-        // --- 4. Fő Interakciós Modul Aktiválása és Inicializálása ---
+        // --- 5. Fő Interakciós Modul Aktiválása és Inicializálása ---
         if (interactionModuleObject != null)
         {
             Debug.Log("[AppStateManager] Activating Interaction Module...");
             interactionModuleObject.SetActive(true);
 
-            // OpenAIWebRequest inicializálása (CSAK EGYSZER!)
+            // OpenAIWebRequest inicializálása
             OpenAIWebRequest openAIComp = interactionModuleObject.GetComponentInChildren<OpenAIWebRequest>(true);
             if (openAIComp != null)
             {
-                // Most már a helyesen beállított CurrentAssistantId-t adjuk át
-                Debug.Log($"[AppStateManager] Found OpenAIWebRequest. About to call InitializeAndStartInteraction. CurrentAssistantId value: '{CurrentAssistantId}'");
+                Debug.Log($"[AppStateManager] Found OpenAIWebRequest. Calling InitializeAndStartInteraction with Assistant ID: '{CurrentAssistantId}', Voice ID: '{CurrentVoiceId}'");
                 openAIComp.InitializeAndStartInteraction(CurrentAssistantId, CurrentVoiceId);
             }
             else { Debug.LogError("[AppStateManager] OpenAIWebRequest component not found!"); }
@@ -195,6 +202,7 @@ public class AppStateManager : MonoBehaviour
             }
             else
             {
+                // Ha az IFM az interactionModuleObject része, akkor itt már nem lehet null, hacsak nem volt hiba az Awake-jében.
                 Debug.LogError("[AppStateManager] InteractionFlowManager.Instance is NULL after activating the module! Cannot initialize IFM.");
             }
 
@@ -202,8 +210,10 @@ public class AppStateManager : MonoBehaviour
         }
         else
         {
+            // Ezt az esetet is az Awake-nek kellene kezelnie.
             Debug.LogError("[AppStateManager] Cannot activate Interaction Module - reference is missing!");
         }
+        Debug.LogWarning($"[AppStateManager] StartInteraction FINISHED - Frame: {Time.frameCount}");
     }
 
     public void ResetDisplay()
