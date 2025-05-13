@@ -1,0 +1,1 @@
+ovr-platform-util upload-quest-build --app-id 9950698381672282 --app-secret bb3cdcb46c8b3e857a336fe1b027b9dd --apk C:\DATA\UnityProjektek\000Buildek\VRTanterem\VRTanterem.apk --channel RC
