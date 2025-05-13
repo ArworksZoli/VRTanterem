@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using System;
 using System.Collections;
+using System.Linq;
 using TMPro;
 using UnityEngine.UI;
 using System.Net;
@@ -554,12 +555,10 @@ public class InteractionFlowManager : MonoBehaviour
             if (string.IsNullOrEmpty(lastCompleteUtteranceFromAI))
             {
                 lastCompleteUtteranceFromAI = TranscriptLogger.Instance?.GetLastAIEntryText() ?? string.Empty;
-                // Logolás a fallbackről, de a lastCompleteUtteranceFromAI a teljes szöveget tartalmazza
                 Debug.LogWarning($"[IFM_LOG] OAIWR GetLastFullResponse was empty. Fallback to TranscriptLogger. Full text for analysis: '{lastCompleteUtteranceFromAI}'");
             }
             else
             {
-                // Logolás, de a lastCompleteUtteranceFromAI a teljes szöveget tartalmazza
                 Debug.LogWarning($"[IFM_LOG] Last utterance from AI (via OAIWR). Full text for analysis: '{lastCompleteUtteranceFromAI}'");
             }
         }
@@ -571,12 +570,13 @@ public class InteractionFlowManager : MonoBehaviour
 
         if ((currentState == InteractionState.Lecturing || currentState == InteractionState.AnsweringQuestion) && !string.IsNullOrEmpty(lastCompleteUtteranceFromAI))
         {
-            // <<< KVÍZKÉRDÉS DETEKTÁLÁSA >>>
-            bool isQuiz = false;
+            // <<< KVÍZKÉRDÉS DETEKTÁLÁSA (ÚJ LOGIKA) >>>
             string lowerUtterance = lastCompleteUtteranceFromAI.ToLowerInvariant();
-            Debug.LogWarning($"[IFM_LOG] Analyzing for quiz (full lowercased text): '{lowerUtterance}'");
+            string trimmedUtterance = lastCompleteUtteranceFromAI.Trim(); // Ezt használjuk az EndsWith("?") ellenőrzéshez
+            bool endsWithQuestionMark = trimmedUtterance.EndsWith("?");
 
-            // --- KULCSSZAVAK BETÖLTÉSE A LANGUAGECONFIG-BÓL ---
+            Debug.LogWarning($"[IFM_LOG] Analyzing for quiz (full lowercased text): '{lowerUtterance}', ends with '?': {endsWithQuestionMark}");
+
             LanguageConfig currentLang = AppStateManager.Instance?.CurrentLanguage;
             List<string> explicitQuizIntroducersList = new List<string>();
             List<string> generalQuestionPromptsList = new List<string>();
@@ -590,7 +590,7 @@ public class InteractionFlowManager : MonoBehaviour
                 }
                 else
                 {
-                    Debug.LogWarning($"[IFM_LOG] No ExplicitQuizIntroducers found in LanguageConfig '{currentLang.displayName}'. Using empty list.");
+                    Debug.LogWarning($"[IFM_LOG] No ExplicitQuizIntroducers found in LanguageConfig '{currentLang.displayName}'.");
                 }
 
                 if (currentLang.GeneralQuestionPrompts != null && currentLang.GeneralQuestionPrompts.Count > 0)
@@ -600,7 +600,7 @@ public class InteractionFlowManager : MonoBehaviour
                 }
                 else
                 {
-                    Debug.LogWarning($"[IFM_LOG] No GeneralQuestionPrompts found in LanguageConfig '{currentLang.displayName}'. Using empty list.");
+                    Debug.LogWarning($"[IFM_LOG] No GeneralQuestionPrompts found in LanguageConfig '{currentLang.displayName}'.");
                 }
             }
             else
@@ -608,54 +608,74 @@ public class InteractionFlowManager : MonoBehaviour
                 Debug.LogError("[IFM_LOG] CurrentLanguage is null in AppStateManager! Cannot load quiz/general prompts. Quiz detection might be unreliable.");
             }
 
-            foreach (string introducer in explicitQuizIntroducersList)
+            bool isExplicitQuiz = false;
+            // 1. Explicit kvíz bevezetők ellenőrzése (mondat elején)
+            if (explicitQuizIntroducersList.Count > 0)
             {
-                // Fontos: Ha a LanguageConfig-ban nem kisbetűvel vannak a kulcsszavak, itt kell ToLowerInvariant()-t használni rajtuk is.
-                // De a LanguageConfig tooltipje azt javasolta, hogy ott már kisbetűsek legyenek.
-                if (lowerUtterance.Contains(introducer.ToLowerInvariant())) // Biztonság kedvéért itt is ToLowerInvariant
+                foreach (string introducer in explicitQuizIntroducersList)
                 {
-                    isQuiz = true;
-                    Debug.LogWarning($"[IFM_LOG] Detected EXPLICIT QUIZ introducer: '{introducer}'");
-                    break;
-                }
-            }
-
-            if (!isQuiz && lowerUtterance.Trim().EndsWith("?"))
-            {
-                bool isGeneralPrompt = false;
-                foreach (string generalPrompt in generalQuestionPromptsList)
-                {
-                    if (lowerUtterance.Contains(generalPrompt.ToLowerInvariant())) // Biztonság kedvéért itt is ToLowerInvariant
+                    // Fontos: Az introducer-nek a LanguageConfig-ban kisbetűsnek és trimmeltnek kell lennie a legjobb eredményért,
+                    // vagy itt kell normalizálni: introducer.ToLowerInvariant().Trim()
+                    if (lowerUtterance.StartsWith(introducer.ToLowerInvariant().Trim()))
                     {
-                        isGeneralPrompt = true;
-                        Debug.LogWarning($"[IFM_LOG] Ends with '?', but contains general prompt exclusion: '{generalPrompt}'");
+                        isExplicitQuiz = true;
+                        Debug.LogWarning($"[IFM_LOG] Detected EXPLICIT QUIZ introducer: '{introducer}' in '{lastCompleteUtteranceFromAI}'");
                         break;
                     }
                 }
-                if (!isGeneralPrompt)
+            }
+
+            bool isGeneralQuestion = false;
+            // 2. Ha nem explicit kvíz, akkor általános kérdésfeltevések ellenőrzése (teljes egyezés)
+            if (!isExplicitQuiz && generalQuestionPromptsList.Count > 0)
+            {
+                foreach (string generalPrompt in generalQuestionPromptsList)
                 {
-                    isQuiz = true;
-                    Debug.LogWarning($"[IFM_LOG] Detected as POTENTIAL QUIZ (ends with '?' and not a general prompt). This detection might need refinement.");
+                    // Fontos: A generalPrompt-nak a LanguageConfig-ban pontosan kell egyeznie az AI által mondottakkal (kisbetűsítve és trimmelve).
+                    // Itt a lowerUtterance már tartalmazza a teljes, kisbetűsített AI mondatot.
+                    if (lowerUtterance.Equals(generalPrompt.ToLowerInvariant().Trim()))
+                    {
+                        isGeneralQuestion = true;
+                        Debug.LogWarning($"[IFM_LOG] Detected GENERAL QUESTION prompt (exact match): '{generalPrompt}' in '{lastCompleteUtteranceFromAI}'");
+                        break;
+                    }
                 }
             }
-            // <<< KVÍZKÉRDÉS DETEKTÁLÁSA VÉGE >>>
 
-            if (isQuiz)
+            // 3. Döntési logika
+            if (isExplicitQuiz)
             {
-                Debug.LogWarning($"[IFM_LOG] AI asked a QUIZ QUESTION: '{lastCompleteUtteranceFromAI}'. Setting up for quiz answer.");
+                Debug.LogWarning($"[IFM_LOG] AI asked an EXPLICIT QUIZ QUESTION: '{lastCompleteUtteranceFromAI}'. Setting up for quiz answer.");
                 expectingQuizAnswer = true;
-                currentQuizQuestionText = lastCompleteUtteranceFromAI;
+                currentQuizQuestionText = lastCompleteUtteranceFromAI; // Mentsük el a kvízkérdést
                 SetState(InteractionState.WaitingForUserInput);
                 StartCoroutine(EnableSpeakButtonAfterDelay(0.3f));
             }
-            else
+            else if (isGeneralQuestion)
             {
-                Debug.LogWarning($"[IFM_LOG] AI finished speaking (NOT a quiz question based on analysis). Assuming natural pause for general questions. Utterance: '{lastCompleteUtteranceFromAI.Substring(0, Math.Min(lastCompleteUtteranceFromAI.Length, 100))}'");
+                Debug.LogWarning($"[IFM_LOG] AI asked a GENERAL QUESTION (natural pause, exact match): '{lastCompleteUtteranceFromAI}'. Waiting for user input or 'no questions'.");
+                expectingQuizAnswer = false;
+                currentQuizQuestionText = string.Empty; // Nem kvíz
+                SetState(InteractionState.WaitingForUserInput);
+                StartCoroutine(EnableSpeakButtonAfterDelay(0.3f));
+            }
+            else if (endsWithQuestionMark) // Nem explicit kvíz, nem ismert általános kérdés, de kérdőjellel végződik
+            {
+                Debug.LogWarning($"[IFM_LOG] AI asked an UNRECOGNIZED QUESTION (ends with '?'): '{lastCompleteUtteranceFromAI}'. Treating as general pause. This might need refinement if it's a quiz not starting with an introducer or a general question not in the list.");
+                expectingQuizAnswer = false;
+                currentQuizQuestionText = string.Empty; // Nem felismert kvíz
+                SetState(InteractionState.WaitingForUserInput);
+                StartCoroutine(EnableSpeakButtonAfterDelay(0.3f));
+            }
+            else // Nem kérdőjellel végződik, és nem is explicit kvíz (tehát valószínűleg az előadás folytatása vagy befejezése)
+            {
+                Debug.LogWarning($"[IFM_LOG] AI finished speaking (NOT a question based on analysis). Utterance: '{lastCompleteUtteranceFromAI.Substring(0, Math.Min(lastCompleteUtteranceFromAI.Length, 100))}'");
                 expectingQuizAnswer = false;
                 currentQuizQuestionText = string.Empty;
                 SetState(InteractionState.WaitingForUserInput);
                 StartCoroutine(EnableSpeakButtonAfterDelay(0.3f));
             }
+            // <<< KVÍZKÉRDÉS DETEKTÁLÁSA VÉGE >>>
         }
         else if (string.IsNullOrEmpty(lastCompleteUtteranceFromAI) && currentState == InteractionState.Lecturing)
         {
@@ -668,6 +688,10 @@ public class InteractionFlowManager : MonoBehaviour
         else
         {
             Debug.LogWarning($"[IFM_LOG] Playback queue completed in state {currentState} or AI utterance was empty. No specific quiz/question analysis triggered.");
+            // Ebben az esetben is érdemes lehet biztosítani, hogy expectingQuizAnswer false legyen,
+            // és a currentQuizQuestionText üres, hacsak nincs más logika, ami ezt felülírná.
+            expectingQuizAnswer = false;
+            currentQuizQuestionText = string.Empty;
         }
 
         openAIWebRequest?.ClearLastFullResponse();

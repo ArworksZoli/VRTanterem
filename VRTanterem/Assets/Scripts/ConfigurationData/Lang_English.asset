@@ -28,6 +28,9 @@ MonoBehaviour:
   - the quiz question is
   - let's have a quick check
   - a short quiz question for you
+  - let a check-up question come
+  - a little quiz follows
+  - let's see how much you paid attention, a question is coming
   GeneralQuestionPrompts:
   - do you have any questions
   - any questions so far
