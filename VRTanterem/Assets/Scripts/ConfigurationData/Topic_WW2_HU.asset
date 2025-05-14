@@ -21,7 +21,7 @@ MonoBehaviour:
   - ash
   topicImage: {fileID: 21300000, guid: bf3cfc037ca778542b189d047ed009c4, type: 3}
   keywordImages:
-  - keyword: versailles
+  - keyword: versailles-i
     image: {fileID: 21300000, guid: 308a09be6f86e4f4e85c0a5432ed9f41, type: 3}
   - keyword: "lengyelorsz\xE1g"
     image: {fileID: 21300000, guid: efecd7f2b74d38e42b9902c73536e265, type: 3}
@@ -31,3 +31,23 @@ MonoBehaviour:
     image: {fileID: 21300000, guid: 70e3d55cd71775f4cbdaeecfd365938e, type: 3}
   - keyword: "szt\xE1lingr\xE1d"
     image: {fileID: 21300000, guid: b3e58a757429ead49ac2d33fe7add700, type: 3}
+  - keyword: barbarossa
+    image: {fileID: 21300000, guid: afa332a63e8ff9d40805f9eb36a252f0, type: 3}
+  - keyword: hitler
+    image: {fileID: 21300000, guid: 447f6b0f66fb17c47bbb58d7913a651e, type: 3}
+  - keyword: normandiai
+    image: {fileID: 21300000, guid: 6ff2dbc3b59e100429e7b7ae64638ed9, type: 3}
+  - keyword: D-nap
+    image: {fileID: 21300000, guid: 6ff2dbc3b59e100429e7b7ae64638ed9, type: 3}
+  - keyword: pearl harbor
+    image: {fileID: 21300000, guid: 978531a094d16de469024c09443a991c, type: 3}
+  - keyword: atombomba
+    image: {fileID: 21300000, guid: 0d5505a5bf4ab4449be3a0ee4f403d54, type: 3}
+  - keyword: maginot-vonal
+    image: {fileID: 21300000, guid: 8f73958cd8aeb874f97806d8279e86c9, type: 3}
+  - keyword: luftwaffe
+    image: {fileID: 21300000, guid: 625d2cca3d0b39a43820771b4e020a34, type: 3}
+  - keyword: pearl harbor-i
+    image: {fileID: 21300000, guid: 978531a094d16de469024c09443a991c, type: 3}
+  - keyword: midway
+    image: {fileID: 21300000, guid: c3474145eaf557c4f955832b953c0811, type: 3}
