@@ -20,7 +20,10 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 23e0c859dcf8e8340bb27e18e0503a60, type: 2}
   AskQuestionPrompt: What is your question?
   ResumeLecturePrompt: Let's get back to where we left off.
-  FollowUpQuestionPrompt: Do you have any further questions regarding this part?
+  AIInstructionOnInterruptionResponse: Respond briefly and directly to the user's
+    question or comment, then smoothly continue the presentation from where you left
+    off or from the next logical point. Don't ask again if they have any questions,
+    just continue.
   ExplicitQuizIntroducers:
   - now for a quiz question
   - here's a test question

@@ -20,7 +20,11 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 5fabb9106e36a4f49a77a4ba789b7c10, type: 2}
   AskQuestionPrompt: "Mi a k\xE9rd\xE9sed?"
   ResumeLecturePrompt: "T\xE9rj\xFCnk akkor vissza oda, ahol abbahagytuk."
-  FollowUpQuestionPrompt: "Van tov\xE1bbi k\xE9rd\xE9se ezzel kapcsolatban?"
+  AIInstructionOnInterruptionResponse: "V\xE1laszolj r\xF6viden \xE9s k\xF6zvetlen\xFCl
+    a felhaszn\xE1l\xF3 k\xE9rd\xE9s\xE9re vagy megjegyz\xE9s\xE9re, majd z\xF6kken\u0151mentesen
+    folytasd az el\u0151ad\xE1st onnan, ahol abbahagytad, vagy a k\xF6vetkez\u0151
+    logikai pontt\xF3l. Ne k\xE9rdezz meg \xFAjra, hogy van-e k\xE9rd\xE9se, csak
+    folytasd."
   ExplicitQuizIntroducers:
   - "ellen\u0151rz\u0151 k\xE9rd\xE9s k\xF6vetkezik"
   - "most pedig egy kv\xEDzk\xE9rd\xE9s"

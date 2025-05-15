@@ -635,7 +635,7 @@ public class OpenAIWebRequest : MonoBehaviour
     // --- ÚJ SEGÉD KORUTIN AZ ÜZENET HOZZÁADÁSÁHOZ ÉS A VÁLASZ FUTTATÁS INDÍTÁSÁHOZ ---
     private IEnumerator AddMessageAndStartAnswerRunCoroutine(string userQuestionText, string followUpPromptText)
     {
-        Debug.LogWarning("[OAIWR_LOG] >>> AddMessageAndStartAnswerRunCoroutine ENTER.");
+        Debug.LogWarning($"[OAIWR_LOG] >>> AddMessageAndStartAnswerRunCoroutine ENTER. FollowUpPrompt: '{followUpPromptText}'");
         // --- Üzenet hozzáadása a szálhoz (logika átemelve GetAssistantResponse-ból) ---
         string messageURL = $"{apiUrl}/threads/{assistantThreadId}/messages";
         Debug.Log($"[OpenAIWebRequest] Posting User Question to Thread: {assistantThreadId}");
@@ -671,7 +671,8 @@ public class OpenAIWebRequest : MonoBehaviour
                 StartCoroutine(CreateAssistantRun(
                     runType: AssistantRunType.InterruptionAnswer, // <<< MODIFIED
                                                                   // originalQuizQuestionForContext and userAnswerForContext are not needed for InterruptionAnswer
-                    onRunCompleteCallback: null // Or a callback if IFM needs to know when the short answer is done
+                    customInstructions: followUpPromptText,
+                    onRunCompleteCallback: null
                 ));
             }
         }
@@ -694,7 +695,8 @@ public class OpenAIWebRequest : MonoBehaviour
     AssistantRunType runType,
     string originalQuizQuestionForContext = null,
     string userAnswerForContext = null,
-    Action onRunCompleteCallback = null)
+    Action onRunCompleteCallback = null,
+    string customInstructions = null)
     {
         Debug.LogWarning($"[OAIWR_LOG] >>> CreateAssistantRun ENTER. RunType: {runType}, HasCallback: {onRunCompleteCallback != null}, Frame: {Time.frameCount}");
         if (string.IsNullOrEmpty(assistantThreadId))
@@ -721,14 +723,25 @@ public class OpenAIWebRequest : MonoBehaviour
         switch (runType)
         {
             case AssistantRunType.InterruptionAnswer:
-                string interruptInstructions =
-                    $"INSTRUCTION: The user has interrupted the lecture or asked a question. " +
-                    $"Provide ONLY a SHORT, direct answer to the user's specific question. " +
-                    $"The answer MUST NOT include continuation of the lecture content. " +
-                    $"Use language: {language}. " +
-                    $"CRITICAL: Your response MUST consist ONLY of the short answer. Do NOT ask any follow-up questions (like 'Van további kérdése...?'). Your role ends after the short answer.";
-                runBody["additional_instructions"] = interruptInstructions;
-                Debug.LogWarning($"[OpenAIWebRequest] Added INTERRUPT handling instructions in language: {language}");
+                if (!string.IsNullOrEmpty(customInstructions))
+                {
+                    // Ha kaptunk egyéni instrukciót (a followUpPromptText-et), akkor azt használjuk.
+                    // Fontos, hogy ez az instrukció már tartalmazza a nyelvi specifikációt és a folytatásra való utasítást.
+                    runBody["additional_instructions"] = customInstructions;
+                    Debug.LogWarning($"[OpenAIWebRequest] Added CUSTOM INTERRUPT handling instructions (from IFM): {customInstructions}");
+                }
+                else
+                {
+                    // Fallback a régi, beégetett instrukcióra, ha valamiért nem kapunk customInstructions-t
+                    // (De ideális esetben mindig kellene kapnunk az IFM-ből)
+                    string fallbackInterruptInstructions =
+                        $"INSTRUCTION: The user has interrupted the lecture or asked a question. " +
+                        $"Provide ONLY a SHORT, direct answer to the user's specific question. " +
+                        $"Use language: {language}. " +
+                        $"CRITICAL: Your response MUST consist ONLY of the short answer. Do NOT ask any follow-up questions. Your role ends after the short answer.";
+                    runBody["additional_instructions"] = fallbackInterruptInstructions;
+                    Debug.LogWarning($"[OpenAIWebRequest] Added FALLBACK INTERRUPT handling instructions in language: {language} (Custom instructions were empty)");
+                }
                 break;
 
             case AssistantRunType.QuizAnswerAndContinue:

@@ -20,8 +20,8 @@ public class LanguageConfig : ScriptableObject
     public string ResumeLecturePrompt;
 
     [Header("AI Instrukció Promptjai")]
-    [Tooltip("Az utókérdés, amelyet az AI-nak fel kell tennie, miután megszakítás közben válaszolt. (additional instrictions-ben használatos)")]
-    public string FollowUpQuestionPrompt;
+    [Tooltip("Instrukció az AI számára, hogyan viselkedjen, miután válaszolt egy közbevetett felhasználói kérdésre/megjegyzésre. Ezt az 'additional_instructions' mezőben használjuk az OpenAI API hívásakor.")]
+    public string AIInstructionOnInterruptionResponse;
 
     [Header("Kvíz Detektálási Kulcsszavak")]
     [Tooltip("Kifejezések, amelyekkel az AI egyértelműen kvízkérdést vezet be. Kisbetűvel, írásjelek nélkül.")]

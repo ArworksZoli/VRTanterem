@@ -31,6 +31,8 @@ public class InteractionFlowManager : MonoBehaviour
     private InteractionState currentState = InteractionState.Idle;
     public InteractionState CurrentState => currentState;
 
+    private const float DEFAULT_SPEAK_BUTTON_ENABLE_DELAY = 0.3f;
+
     private bool userHasRequestedQuestion = false;
     private int lastPlayedLectureSentenceIndex = -1;
     private bool waitingForLectureStartConfirmation = false;
@@ -284,63 +286,97 @@ public class InteractionFlowManager : MonoBehaviour
         {
             Debug.LogWarning("[IFM_LOG] --- Branch: General Question Handling (Not Quiz, Not Initial Confirmation) ---");
             string lowerTranscription = transcription.ToLowerInvariant();
-            bool wantsToContinue = false;
-            LanguageConfig currentLang = AppStateManager.Instance?.CurrentLanguage;
-            string langCode = currentLang?.languageCode?.ToLowerInvariant() ?? "en"; // Alapértelmezett angol, ha nincs nyelv
+            string trimmedTranscription = transcription.Trim();
 
-            // Általános, nyelvfüggetlen(ebb) kulcsszavak
+            bool isConsideredQuestion = false;
+            bool isConsideredContinuation = false;
+
+            LanguageConfig currentLang = AppStateManager.Instance?.CurrentLanguage;
+            string langCode = currentLang?.languageCode?.ToLowerInvariant() ?? "en";
+
+            // Általános, nyelvfüggetlen(ebb) kulcsszavak a folytatáshoz/megerősítéshez
             string[] generalContinueKeywords = {
-                "oké", "értem", "rendben", "mehet", "tovább", "folytas", // "folytasd", "folytathatod"
-                "okay", "ok", "i understand", "got it", "go on", "proceed", "continue"
+                "oké", "értem", "rendben", "mehet", "tovább", "folytas", "igen", "persze",
+                "okay", "ok", "i understand", "got it", "go on", "proceed", "continue", "yes", "sure"
             };
 
-            // Nyelvspecifikus "nincs kérdésem" / "nem" típusú válaszok
+            // Nyelvspecifikus "nincs kérdésem" / "nem" típusú válaszok, amelyek szintén folytatást jelentenek
             string[] noQuestionKeywords;
             if (langCode == "hu")
             {
-                noQuestionKeywords = new string[] { "nincs", "nem kérdezek", "nem", "semmi" };
+                noQuestionKeywords = new string[] { "nincs kérdés", "nincs semmi", "nem kérdezek", "nem szeretnék", "nincs több" };
             }
             else // Alapértelmezés (angol és egyéb)
             {
-                noQuestionKeywords = new string[] { "no", "nope", "nothing", "i don't have any", "no questions" };
+                noQuestionKeywords = new string[] { "no questions", "nothing else", "i don't have any", "no more questions" };
             }
 
+            // 1. Ellenőrizzük, hogy a felhasználó expliciten folytatást/megerősítést kért-e
             foreach (string keyword in generalContinueKeywords)
             {
                 if (lowerTranscription.Contains(keyword))
                 {
-                    wantsToContinue = true;
+                    isConsideredContinuation = true;
                     break;
                 }
             }
-
-            if (!wantsToContinue) // Csak akkor ellenőrizzük a "no question" kulcsszavakat, ha az általánosak nem illeszkedtek
+            if (!isConsideredContinuation)
             {
                 foreach (string keyword in noQuestionKeywords)
                 {
-                    // Itt lehetünk szigorúbbak, pl. a "no" önmagában csak akkor legyen folytatás,
-                    // ha a kontextus (AI kérdése) egyértelműen erre utal.
-                    // Egy egyszerű "no." válasz esetén a Contains(keyword) megfelelő.
                     if (lowerTranscription.Contains(keyword))
                     {
-                        // Speciális eset: ha a felhasználó csak annyit mond "no", és az AI előtte kérdezte, hogy van-e kérdés,
-                        // akkor ez egyértelműen a folytatásra utal.
-                        // Ha az AI nem kérdezett, egy sima "no" lehet másra válasz.
-                        // Jelenlegi kontextusban (AI kérdése után) ez rendben van.
-                        wantsToContinue = true;
+                        isConsideredContinuation = true;
                         break;
                     }
                 }
             }
 
-            if (wantsToContinue)
+            string[] questionWords = { "miért", "hogyan", "mikor", "ki", "mit", "melyik", "hány", "mennyi", "hol", "hova", "lesz-e", "van-e", "tudna-e" }; // Bővíthető
+            if (trimmedTranscription.EndsWith("?"))
+            {
+                isConsideredQuestion = true;
+            }
+            else
+            {
+                foreach (string qWord in questionWords)
+                {
+                    if (lowerTranscription.Contains(qWord + " ") || lowerTranscription.StartsWith(qWord)) // Szóköz a végén, hogy ne illeszkedjen pl. "semmit" a "mit"-re
+                    {
+                        isConsideredQuestion = true;
+                        break;
+                    }
+                }
+            }
+
+            // Döntés:
+            if (isConsideredQuestion) // Ha kérdésnek tűnik, akkor az az elsődleges
+            {
+                Debug.LogWarning($"[IFM_LOG] User asked a question ('{transcription}'). Sending to OpenAI for a short answer.");
+                if (openAIWebRequest != null)
+                {
+                    string instructionForAIafterInterruption = AppStateManager.Instance?.CurrentLanguage?.AIInstructionOnInterruptionResponse ??
+                                                               "Answer the user's question or comment directly and briefly, then seamlessly continue the lecture.";
+
+                    Debug.LogWarning($"[IFM_LOG] Calling OAIWR.SendUserQuestionDuringLecture('{transcription}', '{instructionForAIafterInterruption}')...");
+                    isOaiRunComplete = false;
+                    openAIWebRequest.SendUserQuestionDuringLecture(transcription, instructionForAIafterInterruption);
+                    Debug.LogWarning("[IFM_LOG] OAIWR.SendUserQuestionDuringLecture() called for interruption.");
+                }
+                else
+                {
+                    Debug.LogError("[IFM] Cannot send user question: OpenAIWebRequest reference is null!");
+                    SetState(InteractionState.Idle);
+                }
+            }
+            else if (isConsideredContinuation) // Ha nem kérdés, de folytatásnak tűnik
             {
                 Debug.LogWarning($"[IFM_LOG] User indicated no further questions or wants to continue ('{transcription}'). Resuming lecture.");
                 if (openAIWebRequest != null)
                 {
                     Debug.LogWarning($"[IFM_LOG] Calling OAIWR.AddUserMessageAndStartLectureRun('{transcription}') to acknowledge user and continue lecture.");
                     isOaiRunComplete = false;
-                    StartCoroutine(openAIWebRequest.AddUserMessageAndStartLectureRun(transcription));
+                    StartCoroutine(openAIWebRequest.AddUserMessageAndStartLectureRun(transcription)); // Ez MainLecture RunType-ot használ
                     Debug.LogWarning("[IFM_LOG] OAIWR.AddUserMessageAndStartLectureRun() coroutine started for lecture continuation.");
                 }
                 else
@@ -349,21 +385,23 @@ public class InteractionFlowManager : MonoBehaviour
                     SetState(InteractionState.Idle);
                 }
             }
-            else // A felhasználó valószínűleg kérdést tett fel
+            else // Ha sem kérdésnek, sem folytatásnak nem tűnik (pl. egyedi kijelentés)
             {
-                Debug.LogWarning($"[IFM_LOG] User asked a question OR gave an ambiguous short answer ('{transcription}'). Sending to OpenAI for a short answer.");
+                Debug.LogWarning($"[IFM_LOG] User gave an ambiguous short answer or statement ('{transcription}'). Sending to OpenAI for a short answer as a general interruption.");
                 if (openAIWebRequest != null)
                 {
-                    string followUpPromptForInterruption = AppStateManager.Instance?.CurrentLanguage?.FollowUpQuestionPrompt ?? "Answer the user's question directly and briefly, then stop.";
+                    string instructionForAIafterInterruption = AppStateManager.Instance?.CurrentLanguage?.AIInstructionOnInterruptionResponse ??
+                                                               "Answer the user's question or comment directly and briefly, then seamlessly continue the lecture.";
+                    // Itt is fontos a prompt!
 
-                    Debug.LogWarning($"[IFM_LOG] Calling OAIWR.SendUserQuestionDuringLecture('{transcription}', '{followUpPromptForInterruption}')...");
+                    Debug.LogWarning($"[IFM_LOG] Calling OAIWR.SendUserQuestionDuringLecture('{transcription}', '{instructionForAIafterInterruption}')...");
                     isOaiRunComplete = false;
-                    openAIWebRequest.SendUserQuestionDuringLecture(transcription, followUpPromptForInterruption);
-                    Debug.LogWarning("[IFM_LOG] OAIWR.SendUserQuestionDuringLecture() called for interruption.");
+                    openAIWebRequest.SendUserQuestionDuringLecture(transcription, instructionForAIafterInterruption);
+                    Debug.LogWarning("[IFM_LOG] OAIWR.SendUserQuestionDuringLecture() called for ambiguous interruption.");
                 }
                 else
                 {
-                    Debug.LogError("[IFM] Cannot send user question: OpenAIWebRequest reference is null!");
+                    Debug.LogError("[IFM] Cannot send user statement: OpenAIWebRequest reference is null!");
                     SetState(InteractionState.Idle);
                 }
             }
@@ -754,32 +792,25 @@ public class InteractionFlowManager : MonoBehaviour
     /// (on the promptAudioSource) has completed.
     /// Transitions the state to resume the lecture.
     /// </summary>
-    public void HandleAnswerPlaybackCompleted()
+    public void HandleAnswerPlaybackCompleted() // Ezt a TextToSpeechManager hívja, amikor az "answerQueue" kiürül
     {
-        Debug.LogWarning($"[IFM_LOG] >>> HandleAnswerPlaybackCompleted ENTER. Current state: {currentState}");
+        Debug.LogWarning($"[IFM_LOG] >>> HandleAnswerPlaybackCompleted ENTER. Current state: {currentState}, isOaiRunComplete: {isOaiRunComplete}");
 
         if (currentState == InteractionState.AnsweringQuestion)
         {
-            Debug.LogWarning("[IFM_LOG] AI's short answer playback (on prompt channel) finished.");
-            // Mivel ez egy rövid válasz volt egy megszakításra, az AI-nak most folytatnia kellene az előadást
-            // onnan, ahol abbahagyta, vagy a következő logikai ponttól.
-            // Az OpenAIWebRequest.StartMainLectureRun() ezt a célt szolgálja.
-            if (openAIWebRequest != null)
-            {
-                Debug.LogWarning("[IFM_LOG] Requesting OAIWR.StartMainLectureRun() to resume lecture after short answer.");
-                isOaiRunComplete = false;
-                openAIWebRequest.StartMainLectureRun(); // Ez AssistantRunType.MainLecture-t fog használni
+            Debug.LogWarning("[IFM_LOG] AI's short answer (which might have included lecture continuation via InterruptionAnswer run type) playback finished.");
 
-                // Az állapotot ProcessingUserInput-ra állítjuk, amíg az AI el nem kezdi a lecture stream-et.
-                // Amikor a lecture stream elindul, a HandleLectureStreamStart() majd Lecturing-re vált.
-                SetState(InteractionState.ProcessingUserInput);
-                Debug.LogWarning("[IFM_LOG] OAIWR.StartMainLectureRun() called, state set to ProcessingUserInput, waiting for lecture stream.");
-            }
-            else
+            if (!isOaiRunComplete)
             {
-                Debug.LogError("[IFM] Cannot resume lecture after answer: OpenAIWebRequest reference is null!");
-                SetState(InteractionState.Idle);
+                Debug.LogWarning("[IFM_LOG] HandleAnswerPlaybackCompleted: isOaiRunComplete was false. This might indicate an issue with OnRunCompleted event from OAIWR for InterruptionAnswer. Ensure OAIWR correctly fires OnRunCompleted for InterruptionAnswer runs.");
             }
+
+            Debug.LogWarning("[IFM_LOG] AI's interruption answer playback finished. Transitioning to WaitingForUserInput to allow user to speak or for lecture to naturally end if AI continued and finished.");
+            SetState(InteractionState.WaitingForUserInput);
+
+            // --- JAVÍTÁS ITT ---
+            StartCoroutine(EnableSpeakButtonAfterDelay(DEFAULT_SPEAK_BUTTON_ENABLE_DELAY)); // Add meg a késleltetési időt!
+
         }
         else
         {
@@ -789,33 +820,29 @@ public class InteractionFlowManager : MonoBehaviour
     }
 
 
-    private IEnumerator EnableSpeakButtonAfterDelay(float delay)
+    private IEnumerator EnableSpeakButtonAfterDelay(float delaySeconds)
     {
-        // <<< Log a korutin elején >>>
-        Debug.LogWarning($"[IFM_LOG] >>> EnableSpeakButtonAfterDelay ENTER. Waiting {delay} seconds...");
-        yield return new WaitForSeconds(delay);
+        Debug.LogWarning($"[IFM_LOG] >>> EnableSpeakButtonAfterDelay ENTER. Waiting {delaySeconds} seconds...");
+        yield return new WaitForSeconds(delaySeconds);
 
-        // <<< Log közvetlenül a hívás előtt >>>
         Debug.LogWarning("[IFM_LOG] Delay finished. Attempting to call whisperMicController.EnableSpeakButton()...");
-        try
+        if (whisperMicController != null)
         {
-            whisperMicController?.EnableSpeakButton();
-            // <<< Log a sikeres hívás után (ha nem volt null) >>>
-            if (whisperMicController != null)
+            try
             {
+                whisperMicController.EnableSpeakButton();
                 Debug.LogWarning("[IFM_LOG] whisperMicController.EnableSpeakButton() called successfully.");
             }
-            else
+            catch (Exception e)
             {
-                Debug.LogError("[IFM_LOG] whisperMicController reference was NULL! Cannot enable speak button.");
+                Debug.LogError($"[IFM_LOG] Error calling EnableSpeakButton on WhisperMicController: {e.Message}");
             }
         }
-        catch (Exception ex)
+        else
         {
-            // <<< Log hiba esetén >>>
-            Debug.LogError($"[IFM_LOG] Exception during EnableSpeakButton(): {ex.Message}\n{ex.StackTrace}");
+            Debug.LogError("[IFM_LOG] Cannot enable speak button: WhisperMicController reference is null!");
         }
-        Debug.LogWarning($"[IFM_LOG] <<< EnableSpeakButtonAfterDelay EXIT."); // <<< Log a korutin végén >>>
+        Debug.LogWarning("[IFM_LOG] <<< EnableSpeakButtonAfterDelay EXIT.");
     }
 
     private void EnableRaiseHandButtonUI() // <<< HOZZÁADVA
