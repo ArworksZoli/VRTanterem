@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using System;
+using System.Linq;
 
 
 [System.Serializable]
@@ -116,24 +117,60 @@ public class TranscriptLogger : MonoBehaviour
         return string.Empty;
     }
 
-    // --- Opcionális UI Frissítő Metódus ---
-    /*
-    private void UpdateTranscriptUI()
+    public string GetConcatenatedLastNAiEntries(int count, string separator = " ")
     {
-        if (transcriptDisplayUI == null) return;
-
-        StringBuilder uiText = new StringBuilder();
-        int startIndex = Mathf.Max(0, Transcript.Count - maxDisplayedLines); // Csak az utolsó X sort mutatjuk
-
-        for (int i = startIndex; i < Transcript.Count; i++)
+        if (Transcript == null || count <= 0)
         {
-            uiText.AppendLine(Transcript[i].ToString());
+            return string.Empty;
         }
-        transcriptDisplayUI.text = uiText.ToString();
 
-        // Opcionális: Automatikus görgetés az aljára (ha ScrollRect-ben van)
-        // Canvas.ForceUpdateCanvases(); // Biztosítja a frissítést
-        // scrollRect?.verticalNormalizedPosition = 0f; // Ha van scrollRect referencia
+        // Szűrjük az AI bejegyzéseket, megfordítjuk, hogy az utolsóaktól kezdjük,
+        // vesszük a 'count' darabot, majd újra megfordítjuk, hogy az eredeti sorrendben legyenek,
+        // végül kiválasztjuk a szövegeket.
+        List<string> aiTexts = Transcript
+            .Where(entry => entry.Speaker.Equals("AI", StringComparison.OrdinalIgnoreCase))
+            .Reverse() // Hátulról kezdjük a keresést (legutóbbiak elöl)
+            .Take(count) // Veszünk 'count' darabot
+            .Reverse() // Visszafordítjuk az eredeti időrendi sorrendbe
+            .Select(entry => entry.Text)
+            .ToList();
+
+        if (aiTexts.Count == 0)
+        {
+            Debug.LogWarning($"[TranscriptLogger] GetConcatenatedLastNAiEntries: No AI entries found to concatenate for the last {count} entries.");
+            return string.Empty;
+        }
+
+        // Debug logolás az összefűzött elemekről
+        // Debug.Log($"[TranscriptLogger] Concatenating {aiTexts.Count} AI entries: {string.Join(" | ", aiTexts)}");
+
+        return string.Join(separator, aiTexts);
     }
-    */
+
+    public List<LogEntry> GetLastNAiLogEntries(int count)
+    {
+        if (Transcript == null || count <= 0)
+        {
+            // Debug.LogWarning($"[TranscriptLogger] GetLastNAiLogEntries: Transcript is null or count is invalid ({count}). Returning empty list.");
+            return new List<LogEntry>(); // Üres lista, ha nincs mit visszaadni
+        }
+
+        List<LogEntry> aiEntries = Transcript
+            .Where(entry => entry.Speaker.Equals("AI", StringComparison.OrdinalIgnoreCase))
+            .Reverse() // Hátulról kezdjük (legutóbbiak elöl)
+            .Take(count) // Veszünk 'count' darabot
+            .Reverse() // Visszafordítjuk az eredeti időrendi sorrendbe
+            .ToList();
+
+        // Opcionális debug log, hogy lásd, mit ad vissza
+        // if (aiEntries.Count > 0)
+        // {
+        //    Debug.Log($"[TranscriptLogger] GetLastNAiLogEntries returning {aiEntries.Count} entries. Last one: '{aiEntries.Last().Text}'");
+        // }
+        // else
+        // {
+        //    Debug.LogWarning($"[TranscriptLogger] GetLastNAiLogEntries: No AI entries found for the last {count} entries.");
+        // }
+        return aiEntries;
+    }
 }

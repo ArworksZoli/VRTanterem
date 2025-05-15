@@ -31,6 +31,10 @@ MonoBehaviour:
   - "j\xF6jj\xF6n egy ellen\u0151rz\u0151 k\xE9rd\xE9s"
   - "egy kis kv\xEDz k\xF6vetkezik"
   - "l\xE1ssuk, mennyire figyeltetek, j\xF6n egy k\xE9rd\xE9s"
+  - "most pedig egy r\xF6vid ellen\u0151rz\u0151 k\xE9rd\xE9s k\xF6vetkezik az im\xE9nt
+    elhangzottakb\xF3l"
+  - "most pedig egy r\xF6vid ellen\u0151rz\u0151 k\xE9rd\xE9s k\xF6vetkezik"
+  - "k\xF6vetkezzen egy ellen\u0151rz\u0151 k\xE9rd\xE9s"
   GeneralQuestionPrompts:
   - "van k\xE9rd\xE9sed?"
   - "van k\xE9rd\xE9s\xFCk?"
