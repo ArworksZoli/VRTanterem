@@ -41,6 +41,8 @@ MonoBehaviour:
     elhangzottakb\xF3l"
   - "most pedig egy r\xF6vid ellen\u0151rz\u0151 k\xE9rd\xE9s k\xF6vetkezik"
   - "k\xF6vetkezzen egy ellen\u0151rz\u0151 k\xE9rd\xE9s"
+  - "n\xE9zz\xFCk, mennyire figyelt, j\xF6jj\xF6n egy ellen\u0151rz\u0151 k\xE9rd\xE9s"
+  - "ideje egy gyors ellen\u0151rz\u0151 k\xE9rd\xE9snek"
   GeneralQuestionPrompts:
   - "van k\xE9rd\xE9sed?"
   - "van k\xE9rd\xE9s\xFCk?"
