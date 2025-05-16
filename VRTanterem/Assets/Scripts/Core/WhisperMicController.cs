@@ -56,22 +56,22 @@ public class WhisperMicController : MonoBehaviour
     void Awake()
     {
         
-        Debug.LogWarning($"[WhisperMicController] Awake START - Frame: {Time.frameCount}");
+        Debug.LogWarning($"[WhisperMicController_LOG] Awake START - Frame: {Time.frameCount}");
 
         audioSource = GetComponent<AudioSource>();
         if (audioSource == null) { audioSource = gameObject.AddComponent<AudioSource>(); }
         microphoneDevice = null;
 
         if (inputActions == null) { Debug.LogError("Input Actions asset not assigned!", this); enabled = false; return; }
-        Debug.Log($"[WhisperMicController] Input Action Asset OK: {inputActions.name}");
+        Debug.Log($"[WhisperMicController_LOG] Input Action Asset OK: {inputActions.name}");
 
         var actionMap = inputActions.FindActionMap(actionMapName);
         if (actionMap == null) { Debug.LogError($"Action Map '{actionMapName}' not found!", this); enabled = false; return; }
-        Debug.Log($"[WhisperMicController] Action Map OK: {actionMapName}");
+        Debug.Log($"[WhisperMicController_LOG] Action Map OK: {actionMapName}");
 
         speakAction = actionMap.FindAction(speakActionName);
         if (speakAction == null) { Debug.LogError($"Action '{speakActionName}' not found in map '{actionMapName}'!", this); enabled = false; return; }
-        Debug.Log($"[WhisperMicController] Speak Action OK: {speakActionName}");
+        Debug.Log($"[WhisperMicController_LOG] Speak Action OK: {speakActionName}");
 
         RequestMicrophonePermission();
         
@@ -80,7 +80,7 @@ public class WhisperMicController : MonoBehaviour
         UpdateStatusText(StatusDisabled);
         SetMicrophoneIconColor(iconColorDefault);
 
-        Debug.LogWarning($"[WhisperMicController] Awake END - Frame: {Time.frameCount}. speakAction is null: {speakAction == null}");
+        Debug.LogWarning($"[WhisperMicController_LOG] Awake END - Frame: {Time.frameCount}. speakAction is null: {speakAction == null}");
     }
 
     private void RequestMicrophonePermission()
@@ -99,12 +99,12 @@ public class WhisperMicController : MonoBehaviour
 
     void OnEnable()
     {
-        Debug.Log("[WhisperMicController] OnEnable called.");
+        Debug.Log("[WhisperMicController_LOG] OnEnable called.");
         if (speakAction != null)
         {
             speakAction.started += OnRecordStarted;
             speakAction.canceled += OnRecordStopped;
-            Debug.Log("[WhisperMicController] Speak action listeners attached.");
+            Debug.Log("[WhisperMicController_LOG] Speak action listeners attached.");
             
             if (isSpeakActionEnabled)
             {
@@ -123,20 +123,20 @@ public class WhisperMicController : MonoBehaviour
 
     void OnDisable()
     {
-        Debug.Log("[WhisperMicController] OnDisable called.");
+        Debug.Log("[WhisperMicController_LOG] OnDisable called.");
         if (speakAction != null)
         {
             speakAction.started -= OnRecordStarted;
             speakAction.canceled -= OnRecordStopped;
             speakAction.Disable(); // Mindig tiltsuk le
             isSpeakActionEnabled = false; // Állapot frissítése
-            Debug.Log("[WhisperMicController] Speak action listeners detached and action disabled.");
+            Debug.Log("[WhisperMicController_LOG] Speak action listeners detached and action disabled.");
         }
 
         if (isRecording)
         {
             StopRecordingInternal();
-            Debug.LogWarning("[WhisperMicController] Microphone recording stopped due to component disable.");
+            Debug.LogWarning("[WhisperMicController_LOG] Microphone recording stopped due to component disable.");
         }
         UpdateStatusText(StatusDisabled);
         SetMicrophoneIconColor(iconColorDefault); // <<< ÚJ: Ikon színének visszaállítása
@@ -146,7 +146,7 @@ public class WhisperMicController : MonoBehaviour
     {
         if (speakAction == null)
         {
-            Debug.LogError("[WhisperMicController] Cannot enable speak action: speakAction is NULL!");
+            Debug.LogError("[WhisperMicController_LOG] Cannot enable speak action: speakAction is NULL!");
             return;
         }
 
@@ -156,16 +156,16 @@ public class WhisperMicController : MonoBehaviour
             isSpeakActionEnabled = true;
             UpdateStatusText(StatusIdle);
             SetMicrophoneIconColor(iconColorReady); // <<< ÚJ: Színváltás "készenléti" állapotra
-            Debug.Log("[WhisperMicController] Speak Action ENABLED. Icon set to Ready.");
+            Debug.Log("[WhisperMicController_LOG] Speak Action ENABLED. Icon set to Ready.");
         }
-        // else { Debug.Log("[WhisperMicController] EnableSpeakButton called, but action was already enabled."); }
+        // else { Debug.Log("[WhisperMicController_LOG] EnableSpeakButton called, but action was already enabled."); }
     }
 
     public void DisableSpeakButton()
     {
         if (speakAction == null)
         {
-            // Debug.LogError("[WhisperMicController] Cannot disable speak action: speakAction is NULL!"); // Lehet, hogy nem hiba, ha nincs beállítva
+            // Debug.LogError("[WhisperMicController_LOG] Cannot disable speak action: speakAction is NULL!"); // Lehet, hogy nem hiba, ha nincs beállítva
             return;
         }
 
@@ -175,16 +175,16 @@ public class WhisperMicController : MonoBehaviour
             isSpeakActionEnabled = false;
             UpdateStatusText(StatusDisabled);
             SetMicrophoneIconColor(iconColorDefault); // <<< ÚJ: Színváltás alapértelmezettre
-            Debug.Log("[WhisperMicController] Speak Action DISABLED. Icon set to Default.");
+            Debug.Log("[WhisperMicController_LOG] Speak Action DISABLED. Icon set to Default.");
 
             if (isRecording)
             {
-                Debug.LogWarning("[WhisperMicController] Speak action disabled while recording was active. Stopping recording.");
+                Debug.LogWarning("[WhisperMicController_LOG] Speak action disabled while recording was active. Stopping recording.");
                 StopRecordingInternal();
                 // Az ikonszín már default-ra lett állítva.
             }
         }
-        // else { Debug.Log("[WhisperMicController] DisableSpeakButton called, but action was already disabled."); }
+        // else { Debug.Log("[WhisperMicController_LOG] DisableSpeakButton called, but action was already disabled."); }
     }
 
     // --- Hangrögzítés Indítása/Leállítása (Input Action Callbackek) ---
@@ -195,7 +195,7 @@ public class WhisperMicController : MonoBehaviour
         if (InteractionFlowManager.Instance != null &&
             InteractionFlowManager.Instance.CurrentState != InteractionFlowManager.InteractionState.WaitingForUserInput)
         {
-            Debug.LogWarning($"[WhisperMicController] Record button pressed, but IFM state is '{InteractionFlowManager.Instance.CurrentState}', not WaitingForUserInput. Ignoring.");
+            Debug.LogWarning($"[WhisperMicController_LOG] Record button pressed, but IFM state is '{InteractionFlowManager.Instance.CurrentState}', not WaitingForUserInput. Ignoring.");
             return;
         }
 
@@ -203,20 +203,20 @@ public class WhisperMicController : MonoBehaviour
         // (Bár az InputAction.Enable/Disable ezt már kezeli, ez egy plusz biztonsági réteg lehet)
         if (!isSpeakActionEnabled)
         {
-            Debug.LogWarning("[WhisperMicController] OnRecordStarted called, but isSpeakActionEnabled is false. Ignoring.");
+            Debug.LogWarning("[WhisperMicController_LOG] OnRecordStarted called, but isSpeakActionEnabled is false. Ignoring.");
             return;
         }
 
         if (isRecording)
         {
-            Debug.LogWarning("[WhisperMicController] OnRecordStarted called, but already recording.");
+            Debug.LogWarning("[WhisperMicController_LOG] OnRecordStarted called, but already recording.");
             return;
         }
 
 #if UNITY_ANDROID && !UNITY_EDITOR
         if (!UnityEngine.Android.Permission.HasUserAuthorizedPermission(UnityEngine.Android.Permission.Microphone))
         {
-            Debug.LogError("[WhisperMicController] Cannot start recording: Microphone permission not granted.");
+            Debug.LogError("[WhisperMicController_LOG] Cannot start recording: Microphone permission not granted.");
             RequestMicrophonePermission();
             return;
         }
@@ -224,7 +224,7 @@ public class WhisperMicController : MonoBehaviour
 
         if (pressSound != null && audioSource != null) audioSource.PlayOneShot(pressSound);
 
-        Debug.Log("[WhisperMicController] Recording Started...");
+        Debug.Log("[WhisperMicController_LOG] Recording Started...");
         UpdateStatusText(StatusRecording);
         SetMicrophoneIconColor(iconColorRecording); // <<< ÚJ: Színváltás "felvétel" állapotra
         isRecording = true;
@@ -234,7 +234,7 @@ public class WhisperMicController : MonoBehaviour
             recordedClip = Microphone.Start(microphoneDevice, false, recordingDurationSeconds, sampleRate);
             if (recordedClip == null)
             {
-                Debug.LogError("[WhisperMicController] Microphone.Start failed to return an AudioClip.");
+                Debug.LogError("[WhisperMicController_LOG] Microphone.Start failed to return an AudioClip.");
                 isRecording = false;
                 UpdateStatusText("Mic Error");
                 SetMicrophoneIconColor(isSpeakActionEnabled ? iconColorReady : iconColorDefault); // Vissza az előző állapotnak megfelelő színre
@@ -242,7 +242,7 @@ public class WhisperMicController : MonoBehaviour
         }
         catch (Exception e)
         {
-            Debug.LogError($"[WhisperMicController] Exception during Microphone.Start: {e.Message}");
+            Debug.LogError($"[WhisperMicController_LOG] Exception during Microphone.Start: {e.Message}");
             isRecording = false;
             UpdateStatusText("Mic Exception");
             SetMicrophoneIconColor(isSpeakActionEnabled ? iconColorReady : iconColorDefault);
@@ -253,13 +253,13 @@ public class WhisperMicController : MonoBehaviour
     {
         if (!isRecording)
         {
-            Debug.LogWarning("[WhisperMicController] OnRecordStopped called, but was not in 'isRecording' state.");
+            Debug.LogWarning("[WhisperMicController_LOG] OnRecordStopped called, but was not in 'isRecording' state.");
             // Ha a gomb még mindig "Ready" állapotban van (zöld), hagyjuk úgy. Ha "Default" (szürke), akkor is.
             // Ezt az Enable/DisableSpeakButton kezeli.
             return;
         }
 
-        Debug.Log("[WhisperMicController] Recording Stopped by user input.");
+        Debug.Log("[WhisperMicController_LOG] Recording Stopped by user input.");
         if (releaseSound != null && audioSource != null) audioSource.PlayOneShot(releaseSound);
 
         // A szín itt még marad piros, vagy átvált "feldolgozás" színre, ha lenne olyan.
@@ -286,7 +286,7 @@ public class WhisperMicController : MonoBehaviour
                 Destroy(recordedClip);
                 recordedClip = null;
             }
-            Debug.Log("[WhisperMicController] Stopped recording internally (no processing).");
+            Debug.Log("[WhisperMicController_LOG] Stopped recording internally (no processing).");
             // Az ikonszínt az hívó (pl. DisableSpeakButton, OnDisable) állítja be.
         }
     }
@@ -295,7 +295,7 @@ public class WhisperMicController : MonoBehaviour
     {
         if (!isRecording)
         {
-            Debug.LogWarning("[WhisperMicController] ProcessRecordedAudio called, but not in 'isRecording' state. Aborting.");
+            Debug.LogWarning("[WhisperMicController_LOG] ProcessRecordedAudio called, but not in 'isRecording' state. Aborting.");
             // Ha valamiért idejutnánk anélkül, hogy isRecording true lenne,
             // biztosítsuk, hogy a gomb és az ikon a megfelelő állapotban van.
             if (isSpeakActionEnabled) // Ha az IFM szerint lehetne beszélni
@@ -318,11 +318,11 @@ public class WhisperMicController : MonoBehaviour
         {
             lastSample = Microphone.GetPosition(microphoneDevice);
             Microphone.End(microphoneDevice);
-            Debug.Log($"[WhisperMicController] Microphone.End called. Last sample position: {lastSample}");
+            Debug.Log($"[WhisperMicController_LOG] Microphone.End called. Last sample position: {lastSample}");
         }
         else
         {
-            Debug.LogWarning("[WhisperMicController] ProcessRecordedAudio called, but Microphone.IsRecording() returned false. Potential issue or recording ended prematurely.");
+            Debug.LogWarning("[WhisperMicController_LOG] ProcessRecordedAudio called, but Microphone.IsRecording() returned false. Potential issue or recording ended prematurely.");
             // Ha a Microphone.IsRecording false, de az isRecording flagünk true volt, akkor is visszaállítjuk a flaget
             // és megpróbáljuk helyreállítani a UI-t.
             isRecording = false; // Fontos visszaállítani
@@ -345,7 +345,7 @@ public class WhisperMicController : MonoBehaviour
 
             if (trimmedClip != null)
             {
-                Debug.Log($"[WhisperMicController] Audio trimmed: {trimmedClip.length} seconds. Converting to WAV.");
+                Debug.Log($"[WhisperMicController_LOG] Audio trimmed: {trimmedClip.length} seconds. Converting to WAV.");
                 byte[] wavData = ConvertAudioClipToWav(trimmedClip);
                 Destroy(trimmedClip); // A vágott klipre sincs már szükség a konverzió után
 
@@ -357,7 +357,7 @@ public class WhisperMicController : MonoBehaviour
                 }
                 else
                 {
-                    Debug.LogError("[WhisperMicController] Failed to convert recorded audio to valid WAV format or WAV data is too short.");
+                    Debug.LogError("[WhisperMicController_LOG] Failed to convert recorded audio to valid WAV format or WAV data is too short.");
                     UpdateStatusText("Conversion Error");
                     isRecording = false; // Hiba esetén is visszaállítjuk
                     Invoke(nameof(ResetStatusAndIconToIdleOrDisabled), 2.0f); // Visszaállás késleltetve
@@ -365,7 +365,7 @@ public class WhisperMicController : MonoBehaviour
             }
             else
             {
-                Debug.LogWarning("[WhisperMicController] Processing stopped: trimmed clip was null (lastSample might have been too small or GetData failed).");
+                Debug.LogWarning("[WhisperMicController_LOG] Processing stopped: trimmed clip was null (lastSample might have been too small or GetData failed).");
                 UpdateStatusText("Processing Error"); // Vagy StatusIdle / StatusDisabled
                 isRecording = false; // Hiba esetén is visszaállítjuk
                 Invoke(nameof(ResetStatusAndIconToIdleOrDisabled), 2.0f);
@@ -373,7 +373,7 @@ public class WhisperMicController : MonoBehaviour
         }
         else
         {
-            Debug.LogWarning($"[WhisperMicController] Processing stopped: No valid audio data captured (lastSample={lastSample}, recordedClip was null or became null).");
+            Debug.LogWarning($"[WhisperMicController_LOG] Processing stopped: No valid audio data captured (lastSample={lastSample}, recordedClip was null or became null).");
             if (recordedClip != null) Destroy(recordedClip); // Takarítsuk el, ha még létezne
             recordedClip = null;
             UpdateStatusText("No Audio Data"); // Vagy StatusIdle / StatusDisabled
@@ -390,46 +390,46 @@ public class WhisperMicController : MonoBehaviour
     {
         if (originalClip == null)
         {
-            Debug.LogError("[WhisperMicController] CreateTrimmedClip: originalClip is null.");
+            Debug.LogError("[WhisperMicController_LOG] CreateTrimmedClip: originalClip is null.");
             return null;
         }
         if (lastSamplePosition <= 0)
         {
-            Debug.LogError($"[WhisperMicController] CreateTrimmedClip: lastSamplePosition ({lastSamplePosition}) is not positive.");
+            Debug.LogError($"[WhisperMicController_LOG] CreateTrimmedClip: lastSamplePosition ({lastSamplePosition}) is not positive.");
             return null;
         }
 
         // Biztonsági ellenőrzés, hogy a lastSamplePosition ne legyen nagyobb, mint a klip hossza
         if (lastSamplePosition > originalClip.samples)
         {
-            Debug.LogWarning($"[WhisperMicController] CreateTrimmedClip: lastSamplePosition ({lastSamplePosition}) was greater than originalClip.samples ({originalClip.samples}). Clamping to clip length.");
+            Debug.LogWarning($"[WhisperMicController_LOG] CreateTrimmedClip: lastSamplePosition ({lastSamplePosition}) was greater than originalClip.samples ({originalClip.samples}). Clamping to clip length.");
             lastSamplePosition = originalClip.samples;
         }
 
         // Ha a clamp után 0 vagy negatív lett (elvileg nem fordulhat elő, ha az eredeti lastSamplePosition pozitív volt)
         if (lastSamplePosition <= 0)
         {
-            Debug.LogError($"[WhisperMicController] CreateTrimmedClip: lastSamplePosition became 0 or less after clamping. Cannot create clip.");
+            Debug.LogError($"[WhisperMicController_LOG] CreateTrimmedClip: lastSamplePosition became 0 or less after clamping. Cannot create clip.");
             return null;
         }
 
         float[] data = new float[lastSamplePosition * originalClip.channels];
         if (!originalClip.GetData(data, 0))
         {
-            Debug.LogError("[WhisperMicController] CreateTrimmedClip: originalClip.GetData() failed.");
+            Debug.LogError("[WhisperMicController_LOG] CreateTrimmedClip: originalClip.GetData() failed.");
             return null;
         }
 
         AudioClip trimmed = AudioClip.Create("RecordedTrimmed", lastSamplePosition, originalClip.channels, originalClip.frequency, false);
         if (trimmed == null) // Extra ellenőrzés, bár a Create ritkán ad null-t, ha a paraméterek jók
         {
-            Debug.LogError("[WhisperMicController] CreateTrimmedClip: AudioClip.Create returned null.");
+            Debug.LogError("[WhisperMicController_LOG] CreateTrimmedClip: AudioClip.Create returned null.");
             return null;
         }
 
         if (!trimmed.SetData(data, 0))
         {
-            Debug.LogError("[WhisperMicController] CreateTrimmedClip: trimmed.SetData() failed.");
+            Debug.LogError("[WhisperMicController_LOG] CreateTrimmedClip: trimmed.SetData() failed.");
             Destroy(trimmed); // Fontos a létrehozott, de sikertelenül feltöltött klip törlése
             return null;
         }
@@ -466,13 +466,13 @@ public class WhisperMicController : MonoBehaviour
     {
         if (wavData == null || wavData.Length <= 44)
         {
-            Debug.LogError("[WhisperMicController] ProcessWavData: Invalid WAV data.");
+            Debug.LogError("[WhisperMicController_LOG] ProcessWavData: Invalid WAV data.");
             isRecording = false; // Fontos visszaállítani
             Invoke(nameof(ResetStatusAndIconToIdleOrDisabled), 1.0f); // Késleltetett visszaállítás
             return;
         }
 
-        Debug.Log($"[WhisperMicController] Sending {wavData.Length} bytes of WAV data to Whisper API...");
+        Debug.Log($"[WhisperMicController_LOG] Sending {wavData.Length} bytes of WAV data to Whisper API...");
         UpdateStatusText(StatusTranscribing);
         // Az ikonszín marad piros (vagy az utolsó beállított), amíg a feldolgozás tart.
         // Az IFM DisableSpeakButton hívása fogja majd alapértelmezettre (szürke) állítani.
@@ -483,7 +483,7 @@ public class WhisperMicController : MonoBehaviour
         }
         else
         {
-            Debug.LogError("[WhisperMicController] OpenAIWebRequest reference is not set! Cannot send audio.");
+            Debug.LogError("[WhisperMicController_LOG] OpenAIWebRequest reference is not set! Cannot send audio.");
             UpdateStatusText("Error: API unavailable");
             isRecording = false;
             Invoke(nameof(ResetStatusAndIconToIdleOrDisabled), 2.0f);
@@ -495,14 +495,14 @@ public class WhisperMicController : MonoBehaviour
     {
         if (string.IsNullOrEmpty(transcription))
         {
-            Debug.LogWarning("[WhisperMicController] Whisper API returned an empty or null transcription.");
+            Debug.LogWarning("[WhisperMicController_LOG] Whisper API returned an empty or null transcription.");
             UpdateStatusText("Transcription Failed");
             isRecording = false;
             Invoke(nameof(ResetStatusAndIconToIdleOrDisabled), 2.0f);
             return;
         }
 
-        Debug.Log($"[WhisperMicController] Whisper Transcription Successful: '{transcription}'");
+        Debug.Log($"[WhisperMicController_LOG] Whisper Transcription Successful: '{transcription}'");
 
         if (InteractionFlowManager.Instance != null)
         {
@@ -510,7 +510,7 @@ public class WhisperMicController : MonoBehaviour
         }
         else
         {
-            Debug.LogError("[WhisperMicController] InteractionFlowManager.Instance is null! Cannot forward transcription.");
+            Debug.LogError("[WhisperMicController_LOG] InteractionFlowManager.Instance is null! Cannot forward transcription.");
             UpdateStatusText("Error: Flow unavailable");
             Invoke(nameof(ResetStatusAndIconToIdleOrDisabled), 2.0f);
         }
@@ -552,7 +552,7 @@ public class WhisperMicController : MonoBehaviour
         {
             microphoneIconImage.color = newColor;
         }
-        // else { Debug.LogWarning("[WhisperMicController] Microphone Icon Image not assigned."); } // Csak ha hibakereséshez kell
+        // else { Debug.LogWarning("[WhisperMicController_LOG] Microphone Icon Image not assigned."); } // Csak ha hibakereséshez kell
     }
 
 } // <-- Osztály vége

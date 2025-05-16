@@ -22,13 +22,13 @@ public class LectureImageController : MonoBehaviour
     {
         if (imageComponent == null)
         {
-            Debug.LogError("[LectureImageController] InitializeForTopic: Display Image component is null! Cannot function.", this);
+            Debug.LogError("[LectureImageController_LOG] InitializeForTopic: Display Image component is null! Cannot function.", this);
             enabled = false; // Letiltjuk, ha nincs kép
             return;
         }
         if (topicConfig == null)
         {
-            Debug.LogError("[LectureImageController] InitializeForTopic: TopicConfig is null! Cannot load keyword images.", this);
+            Debug.LogError("[LectureImageController_LOG] InitializeForTopic: TopicConfig is null! Cannot load keyword images.", this);
             
             this.displayImage = imageComponent;
             this.defaultTopicSprite = null;
@@ -43,7 +43,7 @@ public class LectureImageController : MonoBehaviour
         this.currentKeywordImages = topicConfig.keywordImages ?? new List<KeywordImagePair>();
         this.shownKeywordsInCurrentLecture = new HashSet<string>();
 
-        Debug.Log($"[LectureImageController] Initialized for topic '{topicConfig.topicName}'. Found {currentKeywordImages.Count} keyword images. Default sprite set to '{(defaultTopicSprite != null ? defaultTopicSprite.name : "None")}'.");
+        Debug.Log($"[LectureImageController_LOG] Initialized for topic '{topicConfig.topicName}'. Found {currentKeywordImages.Count} keyword images. Default sprite set to '{(defaultTopicSprite != null ? defaultTopicSprite.name : "None")}'.");
 
         // Kezdetben az alapértelmezett témaképet mutatjuk (ha van)
         SetDisplayImage(defaultTopicSprite);
@@ -53,11 +53,11 @@ public class LectureImageController : MonoBehaviour
         {
             TranscriptLogger.Instance.OnNewAIEntryAdded -= HandleNewAIEntry;
             TranscriptLogger.Instance.OnNewAIEntryAdded += HandleNewAIEntry;
-            Debug.Log("[LectureImageController] Subscribed to TranscriptLogger.OnNewAIEntryAdded event.");
+            Debug.Log("[LectureImageController_LOG] Subscribed to TranscriptLogger.OnNewAIEntryAdded event.");
         }
         else
         {
-            Debug.LogError("[LectureImageController] TranscriptLogger.Instance is null during initialization! Cannot subscribe to AI entries.", this);
+            Debug.LogError("[LectureImageController_LOG] TranscriptLogger.Instance is null during initialization! Cannot subscribe to AI entries.", this);
         }
     }
 
@@ -98,11 +98,11 @@ public class LectureImageController : MonoBehaviour
 
             if (processedText.Contains(lowerKeyword))
             {
-                Debug.Log($"[LectureImageController] Keyword '{pair.keyword}' found in text. Setting image to '{(pair.image != null ? pair.image.name : "None")}'.");
+                Debug.Log($"[LectureImageController_LOG] Keyword '{pair.keyword}' found in text. Setting image to '{(pair.image != null ? pair.image.name : "None")}'.");
                 SetDisplayImage(pair.image);
 
                 shownKeywordsInCurrentLecture.Add(lowerKeyword);
-                Debug.Log($"[LectureImageController] Keyword '{pair.keyword}' added to shown list for this lecture.");
+                Debug.Log($"[LectureImageController_LOG] Keyword '{pair.keyword}' added to shown list for this lecture.");
                 
                 break;
             }
@@ -140,7 +140,7 @@ public class LectureImageController : MonoBehaviour
         if (TranscriptLogger.Instance != null)
         {
             TranscriptLogger.Instance.OnNewAIEntryAdded -= HandleNewAIEntry;
-            Debug.Log("[LectureImageController] Unsubscribed from TranscriptLogger event on destroy.");
+            Debug.Log("[LectureImageController_LOG] Unsubscribed from TranscriptLogger event on destroy.");
         }
     }
 }

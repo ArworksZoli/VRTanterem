@@ -47,7 +47,7 @@ public class TranscriptLogger : MonoBehaviour
         // Singleton implementáció
         if (Instance != null && Instance != this)
         {
-            Debug.LogWarning("[TranscriptLogger] Duplicate instance found. Destroying self.", gameObject);
+            Debug.LogWarning("[TranscriptLogger_LOG] Duplicate instance found. Destroying self.", gameObject);
             Destroy(gameObject);
             return;
         }
@@ -56,7 +56,7 @@ public class TranscriptLogger : MonoBehaviour
         // Opcionális: Ne semmisüljön meg jelenetváltáskor, ha a logot meg akarod őrizni
         // DontDestroyOnLoad(gameObject);
 
-        Debug.Log("[TranscriptLogger] Instance initialized.");
+        Debug.Log("[TranscriptLogger_LOG] Instance initialized.");
         // Kezdeti rendszerüzenet (opcionális)
         // AddEntry("System", "Transcript logger started.");
     }
@@ -65,19 +65,19 @@ public class TranscriptLogger : MonoBehaviour
     {
         if (string.IsNullOrEmpty(speaker) || string.IsNullOrWhiteSpace(text))
         {
-            Debug.LogWarning($"[TranscriptLogger] Attempted to add empty entry (Speaker: '{speaker}', Text: '{text}'). Entry skipped.");
+            Debug.LogWarning($"[TranscriptLogger_LOG] Attempted to add empty entry (Speaker: '{speaker}', Text: '{text}'). Entry skipped.");
             return;
         }
 
         LogEntry newEntry = new LogEntry(speaker, text.Trim()); // Trim whitespace
         Transcript.Add(newEntry);
 
-        Debug.Log($"[Transcript_LOG] {newEntry}");
+        Debug.Log($"[Transcript_LOG_LOG] {newEntry}");
 
         if (speaker.Equals("AI", StringComparison.OrdinalIgnoreCase))
         {
             OnNewAIEntryAdded?.Invoke(newEntry.Text);
-            // Debug.Log("[TranscriptLogger] OnNewAIEntryAdded event invoked."); // Opcionális logolás
+            // Debug.Log("[TranscriptLogger_LOG] OnNewAIEntryAdded event invoked."); // Opcionális logolás
         }
 
         // Opcionális: Frissítjük a UI kijelzőt
@@ -97,7 +97,7 @@ public class TranscriptLogger : MonoBehaviour
     public void ClearTranscript()
     {
         Transcript.Clear();
-        Debug.Log("[TranscriptLogger] Transcript cleared.");
+        Debug.Log("[TranscriptLogger_LOG] Transcript cleared.");
         // Opcionális: UI törlése
         // if (transcriptDisplayUI != null) transcriptDisplayUI.text = "";
         // AddEntry("System", "Transcript cleared."); // Opcionális rendszerüzenet
@@ -113,7 +113,7 @@ public class TranscriptLogger : MonoBehaviour
                 return Transcript[i].Text; // Visszaadjuk a megtalált AI üzenet szövegét
             }
         }
-        Debug.LogWarning("[TranscriptLogger] GetLastAIEntryText: No entry found with speaker 'AI'.");
+        Debug.LogWarning("[TranscriptLogger_LOG] GetLastAIEntryText: No entry found with speaker 'AI'.");
         return string.Empty;
     }
 
@@ -137,7 +137,7 @@ public class TranscriptLogger : MonoBehaviour
 
         if (aiTexts.Count == 0)
         {
-            Debug.LogWarning($"[TranscriptLogger] GetConcatenatedLastNAiEntries: No AI entries found to concatenate for the last {count} entries.");
+            Debug.LogWarning($"[TranscriptLogger_LOG] GetConcatenatedLastNAiEntries: No AI entries found to concatenate for the last {count} entries.");
             return string.Empty;
         }
 
@@ -151,7 +151,7 @@ public class TranscriptLogger : MonoBehaviour
     {
         if (Transcript == null || count <= 0)
         {
-            // Debug.LogWarning($"[TranscriptLogger] GetLastNAiLogEntries: Transcript is null or count is invalid ({count}). Returning empty list.");
+            // Debug.LogWarning($"[TranscriptLogger_LOG] GetLastNAiLogEntries: Transcript is null or count is invalid ({count}). Returning empty list.");
             return new List<LogEntry>(); // Üres lista, ha nincs mit visszaadni
         }
 
@@ -165,11 +165,11 @@ public class TranscriptLogger : MonoBehaviour
         // Opcionális debug log, hogy lásd, mit ad vissza
         // if (aiEntries.Count > 0)
         // {
-        //    Debug.Log($"[TranscriptLogger] GetLastNAiLogEntries returning {aiEntries.Count} entries. Last one: '{aiEntries.Last().Text}'");
+        //    Debug.Log($"[TranscriptLogger_LOG] GetLastNAiLogEntries returning {aiEntries.Count} entries. Last one: '{aiEntries.Last().Text}'");
         // }
         // else
         // {
-        //    Debug.LogWarning($"[TranscriptLogger] GetLastNAiLogEntries: No AI entries found for the last {count} entries.");
+        //    Debug.LogWarning($"[TranscriptLogger_LOG] GetLastNAiLogEntries: No AI entries found for the last {count} entries.");
         // }
         return aiEntries;
     }

@@ -87,13 +87,13 @@ public class TextToSpeechManager : MonoBehaviour
         // Ellenőrizzük mindkét AudioSource meglétét
         if (audioSource == null)
         {
-            Debug.LogError("[TextToSpeechManager] Main AudioSource (audioSource) is not assigned in the Inspector! TTS will not work correctly.", this);
+            Debug.LogError("[TextToSpeechManager_LOG] Main AudioSource (audioSource) is not assigned in the Inspector! TTS will not work correctly.", this);
             enabled = false;
             return;
         }
         if (promptAudioSource == null) // <<< ÚJ ELLENŐRZÉS
         {
-            Debug.LogError("[TextToSpeechManager] Prompt AudioSource (promptAudioSource) is not assigned in the Inspector! Prompts/Answers will not play.", this);
+            Debug.LogError("[TextToSpeechManager_LOG] Prompt AudioSource (promptAudioSource) is not assigned in the Inspector! Prompts/Answers will not play.", this);
             // Dönthetsz úgy, hogy itt is letiltod (enabled = false;), vagy csak figyelmeztetsz.
             // Ha a promptok kritikusak, tiltsd le.
             enabled = false;
@@ -103,7 +103,7 @@ public class TextToSpeechManager : MonoBehaviour
 
     void OnDestroy()
     {
-        Debug.Log("[TextToSpeechManager] OnDestroy called. Stopping coroutines and clearing queues.");
+        Debug.Log("[TextToSpeechManager_LOG] OnDestroy called. Stopping coroutines and clearing queues.");
         StopAllCoroutines(); // Leállítunk minden futó korutint ebben a scriptben
 
         // Töröljük a memóriából a még lejátszásra váró klipeket is
@@ -114,7 +114,7 @@ public class TextToSpeechManager : MonoBehaviour
 
     public void Initialize(string key, string voiceId)
     {
-        Debug.Log($"[TextToSpeechManager] Initialize called. Voice ID: {voiceId}");
+        Debug.Log($"[TextToSpeechManager_LOG] Initialize called. Voice ID: {voiceId}");
         // ... (A meglévő ellenőrzések és API kulcs/hang beállítás változatlan) ...
         if (string.IsNullOrEmpty(key)) { /*...*/ enabled = false; return; }
         if (string.IsNullOrEmpty(voiceId)) { /*...*/ }
@@ -122,37 +122,37 @@ public class TextToSpeechManager : MonoBehaviour
 
         this.apiKey = key;
         this.currentTtsVoice = voiceId;
-        Debug.Log($"[TextToSpeechManager] API Key stored. Current TTS Voice set to: {this.currentTtsVoice}");
+        Debug.Log($"[TextToSpeechManager_LOG] API Key stored. Current TTS Voice set to: {this.currentTtsVoice}");
 
         // Korutinok indítása (ha még nem futnak)
         if (manageTTSCoroutine == null)
         {
             manageTTSCoroutine = StartCoroutine(ManageTTSRequests());
-            Debug.Log("[TextToSpeechManager] ManageTTSRequests coroutine started.");
+            Debug.Log("[TextToSpeechManager_LOG] ManageTTSRequests coroutine started.");
         }
         if (managePlaybackCoroutine == null)
         {
             managePlaybackCoroutine = StartCoroutine(ManagePlayback());
-            Debug.Log("[TextToSpeechManager] ManagePlayback coroutine started.");
+            Debug.Log("[TextToSpeechManager_LOG] ManagePlayback coroutine started.");
         }
 
-        Debug.Log("[TextToSpeechManager] Initialization complete.");
+        Debug.Log("[TextToSpeechManager_LOG] Initialization complete.");
     }
 
     public void ResetManager()
     {
-        Debug.Log("[TextToSpeechManager] Resetting state...");
+        Debug.Log("[TextToSpeechManager_LOG] Resetting state...");
 
         // Lejátszás leállítása mindkét AudioSource-on
         if (audioSource != null && audioSource.isPlaying)
         {
             audioSource.Stop();
-            Debug.Log("[TextToSpeechManager] Stopped active audio playback on main AudioSource.");
+            Debug.Log("[TextToSpeechManager_LOG] Stopped active audio playback on main AudioSource.");
         }
         if (promptAudioSource != null && promptAudioSource.isPlaying) // <<< ÚJ BLOKK
         {
             promptAudioSource.Stop();
-            Debug.Log("[TextToSpeechManager] Stopped active audio playback on prompt AudioSource.");
+            Debug.Log("[TextToSpeechManager_LOG] Stopped active audio playback on prompt AudioSource.");
         }
 
         // Futó korutinok leállítása (különösen a monitor és prompt)
@@ -160,20 +160,20 @@ public class TextToSpeechManager : MonoBehaviour
         {
             StopCoroutine(currentPlaybackMonitor);
             currentPlaybackMonitor = null;
-            Debug.Log("[TextToSpeechManager] Stopped current playback monitor coroutine.");
+            Debug.Log("[TextToSpeechManager_LOG] Stopped current playback monitor coroutine.");
         }
         if (currentPromptCoroutine != null)
         {
             StopCoroutine(currentPromptCoroutine);
             currentPromptCoroutine = null;
-            Debug.Log("[TextToSpeechManager] Stopped current prompt coroutine.");
+            Debug.Log("[TextToSpeechManager_LOG] Stopped current prompt coroutine.");
         }
 
         if (currentAnswerPlaybackCoroutine != null) // <<< ÚJ SOR >>>
         {
             StopCoroutine(currentAnswerPlaybackCoroutine);
             currentAnswerPlaybackCoroutine = null;
-            Debug.Log("[TextToSpeechManager] Stopped current answer playback coroutine.");
+            Debug.Log("[TextToSpeechManager_LOG] Stopped current answer playback coroutine.");
         }
 
         // Állapotjelzők és várólisták törlése
@@ -187,7 +187,7 @@ public class TextToSpeechManager : MonoBehaviour
         ClearQueuesAndClips();
         ClearAnswerQueueAndClips();
 
-        Debug.Log($"[TextToSpeechManager] Reset completed.");
+        Debug.Log($"[TextToSpeechManager_LOG] Reset completed.");
     }
 
     private void ClearAnswerQueueAndClips()
@@ -204,7 +204,7 @@ public class TextToSpeechManager : MonoBehaviour
         }
         if (clearedAnswerClips > 0)
         {
-            Debug.Log($"[TextToSpeechManager] Cleared {clearedAnswerClips} clips from answer queue.");
+            Debug.Log($"[TextToSpeechManager_LOG] Cleared {clearedAnswerClips} clips from answer queue.");
         }
     }
 
@@ -430,7 +430,7 @@ public class TextToSpeechManager : MonoBehaviour
         playbackQueue.Clear();
         if (clearedPlayback > 0)
         {
-            Debug.Log($"[TextToSpeechManager] Cleared {clearedPlayback} clips from playback queue.");
+            Debug.Log($"[TextToSpeechManager_LOG] Cleared {clearedPlayback} clips from playback queue.");
         }
     }
 
@@ -629,14 +629,14 @@ public class TextToSpeechManager : MonoBehaviour
     /// </summary>
     public void PausePlayback()
     {
-        Debug.Log("[TextToSpeechManager] PausePlayback called.");
+        Debug.Log("[TextToSpeechManager_LOG] PausePlayback called.");
         isPausedForQuestion = true;
 
         // Ha éppen játszik le valamit az AudioSource, állítsuk le
         if (audioSource != null && audioSource.isPlaying)
         {
             audioSource.Stop();
-            Debug.Log("[TextToSpeechManager] Stopped currently playing audio due to pause request.");
+            Debug.Log("[TextToSpeechManager_LOG] Stopped currently playing audio due to pause request.");
         }
 
         // Ha van aktív lejátszás monitor korutin, állítsuk le,
@@ -645,7 +645,7 @@ public class TextToSpeechManager : MonoBehaviour
         {
             StopCoroutine(currentPlaybackMonitor);
             currentPlaybackMonitor = null; // Fontos nullázni!
-            Debug.Log("[TextToSpeechManager] Stopped playback monitor due to pause.");
+            Debug.Log("[TextToSpeechManager_LOG] Stopped playback monitor due to pause.");
             // A monitor által figyelt klipet nem töröljük itt, mert lehet, hogy még kell a folytatáshoz.
         }
 
@@ -658,13 +658,13 @@ public class TextToSpeechManager : MonoBehaviour
     /// <param name="startFromIndex">The index of the sentence to resume playback from.</param>
     public void ResumePlayback(int startFromIndex)
     {
-        Debug.Log($"[TextToSpeechManager] ResumePlayback called. Resuming from index: {startFromIndex}");
+        Debug.Log($"[TextToSpeechManager_LOG] ResumePlayback called. Resuming from index: {startFromIndex}");
         resumeFromSentenceIndex = startFromIndex; // Beállítjuk, honnan kell folytatni
         isPausedForQuestion = false; // Engedélyezzük a lejátszást
 
         // A ManagePlayback korutin automatikusan észreveszi, hogy isPausedForQuestion már false,
         // és a resumeFromSentenceIndex alapján fogja folytatni. Nincs szükség a korutin újraindítására.
-        Debug.Log("[TextToSpeechManager] Playback queue processing will resume.");
+        Debug.Log("[TextToSpeechManager_LOG] Playback queue processing will resume.");
     }
 
     /// <summary>
@@ -677,7 +677,7 @@ public class TextToSpeechManager : MonoBehaviour
     {
         if (!enabled || string.IsNullOrEmpty(apiKey) || audioSource == null)
         {
-            Debug.LogError("[TextToSpeechManager] Cannot SpeakSingleSentence: Component disabled, API key missing, or AudioSource missing.");
+            Debug.LogError("[TextToSpeechManager_LOG] Cannot SpeakSingleSentence: Component disabled, API key missing, or AudioSource missing.");
             // Ha hiba van, lehet, hogy mégis engedélyezni kell a gombot, hogy a user tudjon reagálni?
             InteractionFlowManager.Instance?.EnableSpeakButton(); // Próbáljuk meg engedélyezni
             return;
@@ -686,7 +686,7 @@ public class TextToSpeechManager : MonoBehaviour
         // Ha már fut egy prompt korutin, állítsuk le az előzőt
         if (currentPromptCoroutine != null)
         {
-            Debug.LogWarning("[TextToSpeechManager] SpeakSingleSentence called while another prompt was potentially processing. Stopping previous prompt coroutine.");
+            Debug.LogWarning("[TextToSpeechManager_LOG] SpeakSingleSentence called while another prompt was potentially processing. Stopping previous prompt coroutine.");
             StopCoroutine(currentPromptCoroutine);
         }
 
@@ -696,7 +696,7 @@ public class TextToSpeechManager : MonoBehaviour
 
     private IEnumerator SpeakSingleSentenceCoroutine(string text)
     {
-        Debug.Log($"[TextToSpeechManager] SpeakSingleSentenceCoroutine started for: '{text}'");
+        Debug.Log($"[TextToSpeechManager_LOG] SpeakSingleSentenceCoroutine started for: '{text}'");
 
         // Ellenőrizzük a promptAudioSource meglétét a biztonság kedvéért
         if (promptAudioSource == null)
@@ -732,7 +732,7 @@ public class TextToSpeechManager : MonoBehaviour
         string jsonPayload = JsonUtility.ToJson(payload);
         byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonPayload);
 
-        Debug.Log("[SpeakSingleSentenceCoroutine] Sending TTS request for prompt...");
+        Debug.Log("[SpeakSingleSentenceCoroutine_LOG] Sending TTS request for prompt...");
         using (UnityWebRequest request = new UnityWebRequest(ttsApiUrl, "POST"))
         {
             request.uploadHandler = new UploadHandlerRaw(bodyRaw);
@@ -751,14 +751,14 @@ public class TextToSpeechManager : MonoBehaviour
                 // Ellenőrizzük, hogy a klip érvényes és betöltődött-e
                 if (promptClip != null && promptClip.loadState == AudioDataLoadState.Loaded && promptClip.length > 0)
                 {
-                    Debug.Log($"[SpeakSingleSentenceCoroutine] Prompt AudioClip generated successfully (Length: {promptClip.length}s).");
+                    Debug.Log($"[SpeakSingleSentenceCoroutine_LOG] Prompt AudioClip generated successfully (Length: {promptClip.length}s).");
                 }
                 else
                 {
                     string errorReason = promptClip == null ? "Clip is null" :
                                          promptClip.loadState != AudioDataLoadState.Loaded ? $"LoadState is {promptClip.loadState}" :
                                          "Clip length is 0";
-                    Debug.LogError($"[SpeakSingleSentenceCoroutine] Failed to get valid AudioClip for prompt. Reason: {errorReason}. Error: {request.error}");
+                    Debug.LogError($"[SpeakSingleSentenceCoroutine_LOG] Failed to get valid AudioClip for prompt. Reason: {errorReason}. Error: {request.error}");
                     generationError = true;
                     if (promptClip != null) Destroy(promptClip); // Takarítás
                     promptClip = null;
@@ -767,7 +767,7 @@ public class TextToSpeechManager : MonoBehaviour
             else
             {
                 string errorDetails = request.downloadHandler?.text ?? "No response body";
-                Debug.LogError($"[SpeakSingleSentenceCoroutine] TTS API Error for prompt: {request.error} - Code: {request.responseCode}\nResponse: {errorDetails}");
+                Debug.LogError($"[SpeakSingleSentenceCoroutine_LOG] TTS API Error for prompt: {request.error} - Code: {request.responseCode}\nResponse: {errorDetails}");
                 generationError = true;
             }
         }
@@ -778,7 +778,7 @@ public class TextToSpeechManager : MonoBehaviour
             // Itt logoljuk az eredeti 'text' paramétert, amit a metódus kapott
             TranscriptLogger.Instance?.AddEntry("AI", text);
 
-            Debug.Log("[SpeakSingleSentenceCoroutine] Playing prompt clip on promptAudioSource...");
+            Debug.Log("[SpeakSingleSentenceCoroutine_LOG] Playing prompt clip on promptAudioSource...");
             promptAudioSource.clip = promptClip;
             promptAudioSource.Play(); 
 
@@ -790,40 +790,40 @@ public class TextToSpeechManager : MonoBehaviour
                 // Biztonsági timeout, ha valamiért beragadna
                 if (Time.time - startTime > promptClip.length + 5.0f) // 5 mp ráhagyás
                 {
-                    Debug.LogError("[SpeakSingleSentenceCoroutine] Playback timeout reached for prompt! Stopping playback on promptAudioSource.");
+                    Debug.LogError("[SpeakSingleSentenceCoroutine_LOG] Playback timeout reached for prompt! Stopping playback on promptAudioSource.");
                     promptAudioSource.Stop(); // <<< MÓDOSÍTVA: promptAudioSource
                     break;
                 }
                 yield return null;
             }
-            Debug.Log("[SpeakSingleSentenceCoroutine] Prompt playback finished or was interrupted on promptAudioSource.");
+            Debug.Log("[SpeakSingleSentenceCoroutine_LOG] Prompt playback finished or was interrupted on promptAudioSource.");
         }
         else
         {
-            Debug.LogError("[SpeakSingleSentenceCoroutine] Skipping prompt playback due to generation error.");
+            Debug.LogError("[SpeakSingleSentenceCoroutine_LOG] Skipping prompt playback due to generation error.");
         }
 
         // 5. Hívjuk meg az InteractionFlowManager-t a beszéd gomb engedélyezéséhez
         if (InteractionFlowManager.Instance != null)
         {
-            Debug.Log("[SpeakSingleSentenceCoroutine] Enabling Speak Button via InteractionFlowManager.");
+            Debug.Log("[SpeakSingleSentenceCoroutine_LOG] Enabling Speak Button via InteractionFlowManager.");
             InteractionFlowManager.Instance.EnableSpeakButton();
         }
         else
         {
-            Debug.LogError("[SpeakSingleSentenceCoroutine] Cannot enable speak button: InteractionFlowManager.Instance is null!");
+            Debug.LogError("[SpeakSingleSentenceCoroutine_LOG] Cannot enable speak button: InteractionFlowManager.Instance is null!");
         }
 
         // 6. Takarítás: Töröljük a prompt klipet, amit ehhez a korutinhoz generáltunk
         if (promptClip != null)
         {
             Destroy(promptClip);
-            // Debug.Log("[SpeakSingleSentenceCoroutine] Destroyed prompt clip.");
+            // Debug.Log("[SpeakSingleSentenceCoroutine_LOG] Destroyed prompt clip.");
         }
 
         // 7. Nullázzuk a korutin referenciát, jelezve, hogy befejeződött
         currentPromptCoroutine = null;
-        Debug.Log("[SpeakSingleSentenceCoroutine] Finished.");
+        Debug.Log("[SpeakSingleSentenceCoroutine_LOG] Finished.");
     }
 
 
@@ -843,7 +843,7 @@ public class TextToSpeechManager : MonoBehaviour
             if (resumeFromSentenceIndex != -1 && dataToPlay.Index < resumeFromSentenceIndex)
             {
                 playbackQueue.Dequeue(); // Kivesszük a sorból
-                Debug.Log($"[TTS Playback] Skipping sentence {dataToPlay.Index} (Resuming from {resumeFromSentenceIndex}).");
+                Debug.Log($"[TTS Playback_LOG] Skipping sentence {dataToPlay.Index} (Resuming from {resumeFromSentenceIndex}).");
                 if (dataToPlay.Clip != null) Destroy(dataToPlay.Clip); // Töröljük a felesleges klipet
                 continue;
             }
@@ -855,7 +855,7 @@ public class TextToSpeechManager : MonoBehaviour
             {
                 TranscriptLogger.Instance?.AddEntry("AI", dataToPlay.Text);
 
-                // Debug.Log($"[TTS Playback] Playing sentence {dataToPlay.Index}. Length: {dataToPlay.Clip.length}s. Remaining in queue: {playbackQueue.Count}");
+                // Debug.Log($"[TTS Playback_LOG] Playing sentence {dataToPlay.Index}. Length: {dataToPlay.Clip.length}s. Remaining in queue: {playbackQueue.Count}");
 
                 // Esemény kiváltása a lejátszás kezdetéről
                 try { OnTTSPlaybackStart?.Invoke(dataToPlay.Index); }
@@ -870,7 +870,7 @@ public class TextToSpeechManager : MonoBehaviour
             }
             else
             {
-                Debug.LogWarning($"[TTS Playback] Dequeued data for sentence {dataToPlay.Index} with a null AudioClip. Skipping playback.");
+                Debug.LogWarning($"[TTS Playback_LOG] Dequeued data for sentence {dataToPlay.Index} with a null AudioClip. Skipping playback.");
 
                 try { OnTTSPlaybackEnd?.Invoke(dataToPlay.Index); }
                 catch (Exception ex) { Debug.LogError($"Error invoking OnTTSPlaybackEnd for skipped null clip {dataToPlay.Index}: {ex.Message}"); }
@@ -905,13 +905,13 @@ public class TextToSpeechManager : MonoBehaviour
         if (clipIsCorrect && stoppedPlayingNaturally) // Csak akkor, ha természetesen fejeződött be
         {
             // Természetes befejezés
-            Debug.Log($"[TTS Playback Monitor] Playback finished naturally for sentence {playedData.Index}. Firing End event."); // <<< MÓDOSÍTOTT LOG
+            Debug.Log($"[TTS Playback Monitor_LOG] Playback finished naturally for sentence {playedData.Index}. Firing End event."); // <<< MÓDOSÍTOTT LOG
             try
             {
                 // Először jelezzük az EGY mondat végét
                 OnTTSPlaybackEnd?.Invoke(playedData.Index);
             }
-            catch (Exception ex) { Debug.LogError($"[TTS Playback] Error invoking OnTTSPlaybackEnd event handler for index {playedData.Index}: {ex.Message}\n{ex.StackTrace}"); }
+            catch (Exception ex) { Debug.LogError($"[TTS Playback_LOG] Error invoking OnTTSPlaybackEnd event handler for index {playedData.Index}: {ex.Message}\n{ex.StackTrace}"); }
 
             // --- ÚJ RÉSZ: Ellenőrizzük, hogy a lejátszási sor kiürült-e ---
             // Ezt azután ellenőrizzük, hogy az OnTTSPlaybackEnd lefutott,
@@ -920,12 +920,12 @@ public class TextToSpeechManager : MonoBehaviour
             // a pendingSentencesQueue-ba, az egy új "ciklust" fog indítani.
             if (playbackQueue.Count == 0)
             {
-                Debug.LogWarning($"[TTS Playback Monitor] Playback queue is now empty after sentence {playedData.Index}. Firing OnPlaybackQueueCompleted event.");
+                Debug.LogWarning($"[TTS Playback Monitor_LOG] Playback queue is now empty after sentence {playedData.Index}. Firing OnPlaybackQueueCompleted event.");
                 try
                 {
                     OnPlaybackQueueCompleted?.Invoke(); // Kiváltjuk az új eseményt
                 }
-                catch (Exception ex) { Debug.LogError($"[TTS Playback] Error invoking OnPlaybackQueueCompleted event handler: {ex.Message}\n{ex.StackTrace}"); }
+                catch (Exception ex) { Debug.LogError($"[TTS Playback_LOG] Error invoking OnPlaybackQueueCompleted event handler: {ex.Message}\n{ex.StackTrace}"); }
             }
             // --- ÚJ RÉSZ VÉGE ---
 
