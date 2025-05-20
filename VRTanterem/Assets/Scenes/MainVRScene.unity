@@ -9665,6 +9665,11 @@ PrefabInstance:
       propertyPath: m_Name
       value: Convai NPC Steve
       objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 5a8be47b076634a45a11401533144389,
+        type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 1001626796426535868, guid: 5a8be47b076634a45a11401533144389,
         type: 3}
       propertyPath: m_Materials.Array.data[0]
@@ -10101,9 +10106,9 @@ Animator:
   m_Enabled: 1
   m_Avatar: {fileID: 9000000, guid: 5a8be47b076634a45a11401533144389, type: 3}
   m_Controller: {fileID: 9100000, guid: 326ea145513da54439b61dc5f5a887d2, type: 2}
-  m_CullingMode: 0
+  m_CullingMode: 1
   m_UpdateMode: 0
-  m_ApplyRootMotion: 1
+  m_ApplyRootMotion: 0
   m_LinearVelocityBlending: 0
   m_StabilizeFeet: 0
   m_WarningMessage: 
