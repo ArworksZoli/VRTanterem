@@ -31,15 +31,21 @@ MonoBehaviour:
     image: {fileID: 21300000, guid: fe132bd598f93cd42a331dd3953f55d9, type: 3}
   - keyword: "gener\xE1tort"
     image: {fileID: 21300000, guid: d6a856921f858474fb1f43a4fb966b6d, type: 3}
+  - keyword: "Niagara-v\xEDzes\xE9sn\xE9l"
+    image: {fileID: 21300000, guid: 92a1079b9dd1cab418fbf3c973aff1cb, type: 3}
+  - keyword: "Niagara-v\xEDzes\xE9s"
+    image: {fileID: 21300000, guid: 92a1079b9dd1cab418fbf3c973aff1cb, type: 3}
   - keyword: szigeti
     image: {fileID: 21300000, guid: 7cb81030b76bd6f4b8ae8713f173f796, type: 3}
   - keyword: colorado
     image: {fileID: 21300000, guid: 2d8553d1f6966404388187a5340e0d10, type: 3}
-  - keyword: zuhatag
-    image: {fileID: 21300000, guid: 92a1079b9dd1cab418fbf3c973aff1cb, type: 3}
   - keyword: "haj\xF3t"
     image: {fileID: 21300000, guid: 61775fee496395b47b5ad862ab9a3379, type: 3}
   - keyword: "oszcill\xE1tort"
     image: {fileID: 21300000, guid: 9acf9303319776a42a4307f7aae12f7e, type: 3}
+  - keyword: "oszcill\xE1l\xF3"
+    image: {fileID: 21300000, guid: 9acf9303319776a42a4307f7aae12f7e, type: 3}
   - keyword: wardenclyffe-torony
     image: {fileID: 21300000, guid: 9d6a92041dc47e040a2e868d25c0b45e, type: 3}
+  - keyword: westinghouse
+    image: {fileID: 21300000, guid: 11ba2bd1dac8cc54da3becf7b3c99dfb, type: 3}
