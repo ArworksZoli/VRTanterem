@@ -20,11 +20,9 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 23e0c859dcf8e8340bb27e18e0503a60, type: 2}
   AskQuestionPrompt: What is your question?
   ResumeLecturePrompt: Let's get back to where we left off.
-  AIInstructionOnInterruptionResponse: 'Answer the user''s question or comment briefly
-    and directly. After your answer, DO NOT continue the lecture. Instead, IMMEDIATELY
-    and EXPLICITLY ask the user if they have any further questions. For example:
-    ''Do you have any other questions?'' or ''Is there anything else I can help you
-    with regarding this?'' or ''Are you curious about anything else on this topic?'''
+  AIInstructionOnInterruptionResponse: "Instrukci\xF3 az AI sz\xE1m\xE1ra, hogyan
+    viselkedjen, miut\xE1n v\xE1laszolt egy k\xF6zbevetett felhaszn\xE1l\xF3i k\xE9rd\xE9sre/megjegyz\xE9sre.
+    Ezt az 'additional_instructions' mez\u0151ben haszn\xE1ljuk az OpenAI API h\xEDv\xE1sakor."
   ExplicitQuizIntroducers:
   - now for a quiz question
   - here's a test question

@@ -296,8 +296,8 @@ public class InteractionFlowManager : MonoBehaviour
 
             // Általános, nyelvfüggetlen(ebb) kulcsszavak a folytatáshoz/megerősítéshez
             string[] generalContinueKeywords = {
-                "oké", "értem", "rendben", "mehet", "tovább", "folytas", "igen", "persze",
-                "okay", "ok", "i understand", "got it", "go on", "proceed", "continue", "yes", "sure"
+                "oké", "értem", "rendben", "mehet", "tovább", "folytas", "igen", "persze", "köszönöm", "köszi",
+                "okay", "ok", "i understand", "got it", "go on", "proceed", "continue", "yes", "sure", "thank you", "thanks",
             };
 
             // Nyelvspecifikus "nincs kérdésem" / "nem" típusú válaszok, amelyek szintén folytatást jelentenek
@@ -392,6 +392,7 @@ public class InteractionFlowManager : MonoBehaviour
                 {
                     string instructionForAIafterInterruption = AppStateManager.Instance?.CurrentLanguage?.AIInstructionOnInterruptionResponse ??
                                                                "Answer the user's question or comment directly and briefly, then seamlessly continue the lecture.";
+                    Debug.LogError($"[IFM_DEBUG_LOG] Using AIInstructionOnInterruptionResponse: '{instructionForAIafterInterruption}'");
                     // Itt is fontos a prompt!
 
                     Debug.LogWarning($"[IFM_LOG] Calling OAIWR.SendUserQuestionDuringLecture('{transcription}', '{instructionForAIafterInterruption}')...");

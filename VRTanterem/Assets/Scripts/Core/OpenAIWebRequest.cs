@@ -785,7 +785,7 @@ public class OpenAIWebRequest : MonoBehaviour
         }
 
         string runJson = runBody.ToString();
-        // Debug.Log("Run creation JSON: " + runJson); // Csak szükség esetén logoljuk
+        Debug.LogWarning($"[OAIWR_LOG] Creating Run with Body: {runJson}");
 
         // --- Streaming Változók Inicializálása ---
         bool streamEndedSuccessfully = false;             // Jelzi, hogy a stream a "[DONE]" üzenettel fejeződött-e be

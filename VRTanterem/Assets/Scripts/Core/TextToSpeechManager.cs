@@ -278,58 +278,125 @@ public class TextToSpeechManager : MonoBehaviour
     /// </summary>
     private IEnumerator GenerateAndEnqueueAnswerAudio(string sentence)
     {
-        // Hasonló a GenerateSpeechCoroutine-hoz, de az answerAudioQueue-ba tesz
         Debug.Log($"[TTS LOG Answer] GenerateAndEnqueueAnswerAudio START: '{sentence.Substring(0, Math.Min(sentence.Length, 50))}...'");
 
-        // TTS API hívás (ugyanaz a logika, mint GenerateSpeechCoroutine-ban)
+        // 1. Logoljuk az AI válaszát a TranscriptLogger-be, hogy a LectureImageController feldolgozhassa.
+        // Ez a lépés kritikus ahhoz, hogy a kulcsszó alapú képek megjelenjenek a válaszok alatt is.
+        if (TranscriptLogger.Instance != null)
+        {
+            // Az "AI" címkét használjuk, hogy a LectureImageController.OnNewAIEntryAdded eseménye elsüljön
+            // a válasz szövegére is, ugyanúgy, ahogy az előadás szövegére.
+            TranscriptLogger.Instance.AddEntry("AI", sentence);
+            Debug.Log($"[TextToSpeechManager_LOG] Logged AI answer sentence to TranscriptLogger: '{sentence.Substring(0, Math.Min(sentence.Length, 50))}...'");
+        }
+        else
+        {
+            Debug.LogWarning("[TextToSpeechManager_LOG] TranscriptLogger.Instance is null. Cannot log AI answer sentence for image processing.");
+        }
+
+        // 2. TTS API kérés payloadjának összeállítása.
+        // Ezeket az értékeket az osztály mezőiből (ttsModel, currentTtsVoice, stb.) vesszük,
+        // amelyeket az Initialize metódusban vagy az Inspectorban állítunk be.
         TTSRequestPayload payload = new TTSRequestPayload
-        { /* ... kitöltés ... */
+        {
             model = this.ttsModel,
             input = sentence,
             voice = this.currentTtsVoice,
             response_format = this.ttsResponseFormat,
             speed = this.ttsSpeed
         };
-        string jsonPayload = JsonUtility.ToJson(payload);
-        byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonPayload);
-        AudioClip generatedClip = null;
+        string jsonPayload = JsonUtility.ToJson(payload); // JSON stringgé alakítás
+        byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonPayload); // Byte tömbbé alakítás a requesthez
+        AudioClip generatedClip = null; // Ebben tároljuk a sikeresen generált AudioClip-et
 
-        using (UnityWebRequest request = new UnityWebRequest(ttsApiUrl, "POST"))
+        // 3. UnityWebRequest létrehozása és konfigurálása az OpenAI TTS API hívásához.
+        using (UnityWebRequest request = new UnityWebRequest(ttsApiUrl, "POST")) // POST kérés a megadott API URL-re
         {
-            // ... (request setup, SendWebRequest) ...
+            // Upload handler beállítása a JSON payload küldéséhez
             request.uploadHandler = new UploadHandlerRaw(bodyRaw);
-            AudioType audioType = GetAudioTypeFromFormat(ttsResponseFormat);
+            request.uploadHandler.contentType = "application/json"; // Fontos a tartalomtípus megadása
+
+            // Download handler beállítása az AudioClip fogadásához
+            // A GetAudioTypeFromFormat segédfüggvény konvertálja a string formátumot (pl. "mp3") Unity AudioType-ra.
+            AudioType audioType = GetAudioTypeFromFormat(this.ttsResponseFormat);
+            // Az URI itt a DownloadHandlerAudioClip konstruktorához szükséges.
+            // Bár a request.url a fő URL, a DownloadHandlernek is kell egy alap URI.
             request.downloadHandler = new DownloadHandlerAudioClip(new Uri(ttsApiUrl), audioType);
-            request.SetRequestHeader("Authorization", $"Bearer {apiKey}");
-            request.SetRequestHeader("Content-Type", "application/json");
+
+            // Request headerek beállítása (Authorization az API kulccsal, Content-Type)
+            request.SetRequestHeader("Authorization", $"Bearer {this.apiKey}");
+            request.SetRequestHeader("Content-Type", "application/json"); // Duplán biztos, bár az uploadHandler is beállíthatja
+
+            // Timeout beállítása a kéréshez (másodpercben)
             request.timeout = 60;
+
+            // Kérés elküldése és várakozás a válaszra
+            Debug.Log($"[TTS LOG Answer] Sending TTS API request for sentence: '{sentence.Substring(0, Math.Min(sentence.Length, 30))}...'");
             yield return request.SendWebRequest();
 
+            // 4. Válasz feldolgozása a kérés befejeződése után.
             if (request.result == UnityWebRequest.Result.Success)
             {
+                // Sikeres kérés esetén megpróbáljuk kinyerni az AudioClip-et.
                 AudioClip receivedClip = DownloadHandlerAudioClip.GetContent(request);
+
+                // Ellenőrizzük, hogy a kapott klip érvényes-e.
                 if (receivedClip != null && receivedClip.loadState == AudioDataLoadState.Loaded && receivedClip.length > 0)
                 {
-                    generatedClip = receivedClip;
-                    Debug.LogWarning($"[TTS LOG Answer] Generate SUCCESS. Clip Length: {generatedClip.length}s.");
+                    generatedClip = receivedClip; // Tároljuk a sikeres klipet
+                    Debug.LogWarning($"[TTS LOG Answer] Generate SUCCESS. Clip Length: {generatedClip.length}s. API Response Code: {request.responseCode}");
                 }
-                else { /* Hibakezelés, logolás */ Debug.LogError("[TTS LOG Answer] Generate FAILED (Invalid Clip)."); }
-            }
-            else { /* Hibakezelés, logolás */ Debug.LogError($"[TTS LOG Answer] Generate FAILED (API Error): {request.error}"); }
-        }
+                else
+                {
+                    // Ha a klip nem érvényes, logoljuk a hibát.
+                    string errorReason = "Unknown reason for invalid clip.";
+                    if (receivedClip == null)
+                    {
+                        errorReason = "Received clip is null.";
+                    }
+                    else if (receivedClip.loadState != AudioDataLoadState.Loaded)
+                    {
+                        errorReason = $"Clip LoadState is {receivedClip.loadState}.";
+                    }
+                    else if (receivedClip.length <= 0)
+                    {
+                        errorReason = "Clip length is 0 or less.";
+                    }
+                    Debug.LogError($"[TTS LOG Answer] Generate FAILED (Invalid Clip). Reason: {errorReason}. API Response Code: {request.responseCode}. Error from request: {request.error}");
 
+                    // Ha a klip létrejött, de valamiért nem jó, próbáljuk meg törölni, hogy ne szivárogjon a memória.
+                    if (receivedClip != null)
+                    {
+                        Destroy(receivedClip);
+                    }
+                }
+            }
+            else
+            {
+                // Sikertelen kérés esetén logoljuk a hibát, beleértve a szerver válaszát is, ha van.
+                string responseBody = request.downloadHandler?.text ?? "No response body from server.";
+                Debug.LogError($"[TTS LOG Answer] Generate FAILED (API Error). Code: {request.responseCode} - Error: {request.error}\nServer Response: {responseBody}");
+            }
+        } // A 'using' blokk itt véget ér, a 'request' objektum erőforrásai felszabadulnak.
+
+        // 5. Sikeresen generált AudioClip hozzáadása a lejátszási sorhoz.
         if (generatedClip != null)
         {
             answerAudioQueue.Enqueue(generatedClip);
             Debug.Log($"[TTS LOG Answer] Enqueued answer audio. Answer Queue Size: {answerAudioQueue.Count}");
 
-            // Indítsuk el a lejátszási korutint, ha még nem fut
+            // Ha a válaszlejátszó korutin éppen nem fut, elindítjuk.
             if (currentAnswerPlaybackCoroutine == null)
             {
                 currentAnswerPlaybackCoroutine = StartCoroutine(PlayAnswerAudioCoroutine());
             }
         }
-        Debug.Log($"[TTS LOG Answer] GenerateAndEnqueueAnswerAudio END");
+        else
+        {
+            Debug.LogWarning("[TTS LOG Answer] No valid AudioClip generated, not enqueuing anything.");
+        }
+
+        Debug.Log($"[TTS LOG Answer] GenerateAndEnqueueAnswerAudio END for sentence: '{sentence.Substring(0, Math.Min(sentence.Length, 50))}...'");
     }
 
     /// <summary>
