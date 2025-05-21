@@ -271,23 +271,23 @@ public class SelectionManager : MonoBehaviour
         Dictionary<string, string> voiceDisplayNames = new Dictionary<string, string>();
         if (selectedLanguage != null && selectedLanguage.languageCode == "hu")
         {
-            voiceDisplayNames.Add("alloy", "Férfi 1"); // Példa nevek
-            voiceDisplayNames.Add("echo", "Férfi 2");
+            voiceDisplayNames.Add("onyx", "Férfi 1"); // Példa nevek
+            voiceDisplayNames.Add("ash", "Férfi 2");
             voiceDisplayNames.Add("nova", "Női 1");
             voiceDisplayNames.Add("shimmer", "Női 2");
             // ... stb. a 4 férfi/női hanghoz
         }
         else
         { // Default to English or other languages
-            voiceDisplayNames.Add("alloy", "Male 1");
-            voiceDisplayNames.Add("echo", "Male 2");
+            voiceDisplayNames.Add("onyx", "Male 1");
+            voiceDisplayNames.Add("ash", "Male 2");
             voiceDisplayNames.Add("nova", "Female 1");
             voiceDisplayNames.Add("shimmer", "Female 2");
             // ... etc.
         }
         // Add other standard voices if needed
         if (!voiceDisplayNames.ContainsKey("fable")) voiceDisplayNames.Add("fable", "Fable");
-        if (!voiceDisplayNames.ContainsKey("onyx")) voiceDisplayNames.Add("onyx", "Onyx");
+        if (!voiceDisplayNames.ContainsKey("echo")) voiceDisplayNames.Add("echo", "Echo");
 
 
         for (int i = 0; i < buttonCount; i++)

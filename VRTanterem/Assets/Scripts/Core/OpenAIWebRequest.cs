@@ -45,6 +45,8 @@ public class OpenAIWebRequest : MonoBehaviour
     private const string WhisperApiUrl = "https://api.openai.com/v1/audio/transcriptions";
     private const string ModelName = "whisper-1";
 
+    private const float FILE_PROCESSING_DELAY_SECONDS = 6.0f;
+
     public enum AssistantRunType
     {
         InitialGreeting,
@@ -789,7 +791,7 @@ public class OpenAIWebRequest : MonoBehaviour
 
         // --- Streaming Változók Inicializálása ---
         bool streamEndedSuccessfully = false;             // Jelzi, hogy a stream a "[DONE]" üzenettel fejeződött-e be
-        StringBuilder fullResponseForLogging = new StringBuilder(); // Összegyűjti a teljes AI választ logolási/debug célokra
+        StringBuilder fullResponseForLoggingLocal = new StringBuilder(); // Összegyűjti a teljes AI választ logolási/debug célokra
         fullResponseForLogging.Clear();
         int lastProcessedIndex = 0;                       // A letöltött adatokból meddig dolgoztuk fel legutóbb
         buffer.Clear();                                   // Az osztályszintű 'buffer' ürítése, ami a bejövő adatdarabokat gyűjti ideiglenesen
@@ -802,6 +804,14 @@ public class OpenAIWebRequest : MonoBehaviour
             webRequest.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(runJson)); // A JSON payload feltöltése
             webRequest.downloadHandler = new DownloadHandlerBuffer(); // Alap buffer a stream fogadásához
             SetCommonHeaders(webRequest); // Közös HTTP fejlécek beállítása (API kulcs, Content-Type, OpenAI-Beta)
+
+            // <<< Kezdő késleltetés >>>
+            if (runType == AssistantRunType.MainLecture || runType == AssistantRunType.InitialGreeting)
+            {
+                Debug.LogWarning($"[OAIWR_LOG] RunType is {runType}. Waiting for {FILE_PROCESSING_DELAY_SECONDS} seconds to allow for file/vector store processing before sending run request...");
+                yield return new WaitForSeconds(FILE_PROCESSING_DELAY_SECONDS);
+                Debug.LogWarning($"[OAIWR_LOG] Delay complete for {runType}. Proceeding to send run request.");
+            }
 
             // Aszinkron művelet indítása
             UnityWebRequestAsyncOperation asyncOp = webRequest.SendWebRequest();
@@ -932,6 +942,9 @@ public class OpenAIWebRequest : MonoBehaviour
             // if (fullResponseForLogging.Length > 0) {
             //     Debug.Log($"[OAIWR DEBUG] Full AI response for this run (RunType: {runType}): {fullResponseForLogging.ToString()}");
             // }
+
+            this.fullResponseForLogging.Clear();
+            this.fullResponseForLogging.Append(fullResponseForLoggingLocal.ToString());
 
             bool runConsideredEffectivelyComplete = streamEndedSuccessfully ||
                                               (webRequest.result == UnityWebRequest.Result.Success && !streamEndedSuccessfully && fullResponseForLogging.Length > 0);
