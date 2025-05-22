@@ -16,6 +16,8 @@ public class SelectionManager : MonoBehaviour
     [SerializeField] private GameObject subjectPanel;
     [SerializeField] private GameObject topicPanel;
     [SerializeField] private GameObject voicePanel;
+    private GameObject currentActivePanel;
+    private Stack<GameObject> panelHistory = new Stack<GameObject>();
 
     [Header("UI Buttons (Assign in Inspector)")]
     [Tooltip("Húzd ide a LanguagePanel gombjait a megfelelő sorrendben.")]
@@ -49,11 +51,14 @@ public class SelectionManager : MonoBehaviour
         topicPanel.SetActive(false);
         voicePanel.SetActive(false);
 
+        panelHistory.Clear();
+
         if (availableLanguages == null || availableLanguages.Count == 0) { /*...*/ return; }
         if (languagePanel == null || languageButtons == null || languageButtons.Count == 0) { /*...*/ return; }
 
         PopulateLanguagePanel();
         languagePanel.SetActive(true);
+        currentActivePanel = languagePanel;
     }
 
     // --- VISSZAHOZVA: Helper function to set button text ---
@@ -112,13 +117,29 @@ public class SelectionManager : MonoBehaviour
         // ... (Logika ugyanaz) ...
         Debug.Log($"Language selected: {language.displayName}");
         selectedLanguage = language;
+
+        if (currentActivePanel != null)
+        {
+            panelHistory.Push(currentActivePanel);
+        }
+
         languagePanel.SetActive(false);
 
-        if (selectedLanguage.availableSubjects == null || selectedLanguage.availableSubjects.Count == 0) { /*...*/ return; }
-        if (subjectButtons == null || subjectButtons.Count == 0) { /*...*/ return; }
+        if (selectedLanguage.availableSubjects == null || selectedLanguage.availableSubjects.Count == 0)
+        {
+            Debug.LogError($"Nincsenek tantárgyak a '{language.displayName}' nyelvhez!");
+            // Hiba esetén ideális esetben visszaléphetnénk vagy hibaüzenetet jeleníthetnénk meg.
+            // A GoBack() funkció ilyenkor is működni fog, ha van előzmény.
+            // Ha itt return-ölünk, akkor nem lesz aktív panel, ami nem ideális.
+            // Fontold meg a GoBack() automatikus hívását, vagy a languagePanel újraaktiválását.
+            // Pl: GoBack(); vagy languagePanel.SetActive(true); panelHistory.Pop(); return;
+            return;
+        }
+        if (subjectButtons == null || subjectButtons.Count == 0) { Debug.LogError("Tantárgy gombok nincsenek beállítva!"); return; }
 
         PopulateSubjectPanel();
         subjectPanel.SetActive(true);
+        currentActivePanel = subjectPanel;
     }
 
     void PopulateSubjectPanel() // IKONOS - Nincs SetButtonText
@@ -148,16 +169,22 @@ public class SelectionManager : MonoBehaviour
 
     public void SelectSubject(SubjectConfig subject)
     {
-        // ... (Logika ugyanaz) ...
         Debug.Log($"Subject selected: {subject.subjectName}");
         selectedSubject = subject;
+
+        if (currentActivePanel != null)
+        {
+            panelHistory.Push(currentActivePanel);
+        }
+
         subjectPanel.SetActive(false);
 
-        if (selectedSubject.availableTopics == null || selectedSubject.availableTopics.Count == 0) { /*...*/ return; }
-        if (topicButtons == null || topicButtons.Count == 0) { /*...*/ return; }
+        if (selectedSubject.availableTopics == null || selectedSubject.availableTopics.Count == 0) { /*...*/ Debug.LogError("Nincsenek témák ehhez a tantárgyhoz!"); return; }
+        if (topicButtons == null || topicButtons.Count == 0) { Debug.LogError("Téma gombok nincsenek beállítva!"); return; }
 
         PopulateTopicPanel();
         topicPanel.SetActive(true);
+        currentActivePanel = topicPanel;
     }
 
     void PopulateTopicPanel()
@@ -233,29 +260,36 @@ public class SelectionManager : MonoBehaviour
     {
         Debug.Log($"===== SelectTopic CALLED for: {topic.topicName} =====");
         selectedTopic = topic;
-        topicPanel.SetActive(false);
 
-        Debug.Log("Checking availableVoiceIds..."); // <-- ÚJ LOG
-        if (selectedTopic.availableVoiceIds == null || selectedTopic.availableVoiceIds.Count == 0)
+        if (currentActivePanel != null)
         {
-            Debug.LogWarning($"No voices configured for {topic.topicName}. Aborting voice panel display."); // <-- ÚJ LOG
-                                                                                                            // Itt lehetne kezelni a hibát, pl. visszaugrani
-                                                                                                            // Vagy ha itt FinalizeSelectionAndStart() van, az is megmagyarázhatja
-            FinalizeSelectionAndStart(); // Vagy return; attól függ, mi a kívánt viselkedés
-            return; // Fontos, hogy itt legyen return, ha nem akarjuk folytatni
+            panelHistory.Push(currentActivePanel);
         }
 
-        Debug.Log("Checking voiceButtons list..."); // <-- ÚJ LOG
-        if (voiceButtons == null || voiceButtons.Count == 0)
+        topicPanel.SetActive(false);
+
+        Debug.Log("Checking availableVoiceIds...");
+        if (selectedTopic.availableVoiceIds == null || selectedTopic.availableVoiceIds.Count == 0)
         {
-            Debug.LogError("SelectionManager: VoicePanel buttons are not assigned! Aborting."); // <-- ÚJ LOG
+            Debug.LogWarning($"No voices configured for {topic.topicName}. Proceeding to Finalize/Skipping voice panel.");
+            // Ha itt nincs hangválasztás, és egyből finalizálunk, akkor a topicPanel volt az utolsó "menü" panel
+            // A currentActivePanel itt a topicPanel marad (ami most false). A GoBack() visszahozná.
+            FinalizeSelectionAndStart();
             return;
         }
 
-        Debug.Log("Checks passed, calling PopulateVoicePanel..."); // <-- ÚJ LOG
+        Debug.Log("Checking voiceButtons list...");
+        if (voiceButtons == null || voiceButtons.Count == 0)
+        {
+            Debug.LogError("SelectionManager: VoicePanel buttons are not assigned! Aborting.");
+            return;
+        }
+
+        Debug.Log("Checks passed, calling PopulateVoicePanel...");
         PopulateVoicePanel();
-        Debug.Log("Activating voicePanel..."); // <-- ÚJ LOG
+        Debug.Log("Activating voicePanel...");
         voicePanel.SetActive(true);
+        currentActivePanel = voicePanel;
     }
 
 
@@ -312,10 +346,11 @@ public class SelectionManager : MonoBehaviour
 
     public void SelectVoice(string voiceId)
     {
-        // ... (Logika ugyanaz) ...
         Debug.Log($"Voice selected: {voiceId}");
         selectedVoiceId = voiceId;
+
         voicePanel.SetActive(false);
+        
         FinalizeSelectionAndStart();
     }
 
@@ -374,6 +409,57 @@ public class SelectionManager : MonoBehaviour
             // Ha nincs AppStateManager.Instance, az nagy hiba.
             Debug.LogError("[SelectionManager] CRITICAL ERROR: AppStateManager.Instance is null! Cannot start the main application logic.");
             // Itt lehetne valamilyen fallback vagy hibaállapot.
+        }
+    }
+
+    public void GoBack()
+    {
+        if (panelHistory.Count > 0)
+        {
+            GameObject previousPanel = panelHistory.Pop();
+
+            // Jelenlegi aktív panel deaktiválása (ha van)
+            if (currentActivePanel != null)
+            {
+                currentActivePanel.SetActive(false);
+            }
+
+            // Előző panel aktiválása
+            previousPanel.SetActive(true);
+            currentActivePanel = previousPanel; // Frissítjük az aktuális aktív panelt
+
+            // "Megszakítjuk" a kiválasztást, ami az előző panelről a következőre vezetett.
+            // Ez biztosítja, hogy ha a felhasználó visszalép, majd másikat választ, ne maradjanak "beragadt" értékek.
+            if (currentActivePanel == languagePanel)
+            {
+                selectedSubject = null; // Visszatértünk a Nyelv panelre, töröljük a kiválasztott tantárgyat
+                selectedTopic = null;   // és témát, hangot is
+                selectedVoiceId = null;
+                // A selectedLanguage megmarad, hiszen ezen a panelen vagyunk.
+            }
+            else if (currentActivePanel == subjectPanel)
+            {
+                selectedTopic = null;   // Visszatértünk a Tantárgy panelre, töröljük a kiválasztott témát
+                selectedVoiceId = null; // és hangot is
+                // A selectedLanguage és selectedSubject megmarad.
+            }
+            else if (currentActivePanel == topicPanel)
+            {
+                selectedVoiceId = null; // Visszatértünk a Téma panelre, töröljük a kiválasztott hangot
+                // selectedLanguage, selectedSubject, selectedTopic megmarad.
+            }
+            // Ha a voicePanel-ről léptünk vissza a topicPanel-re, a selectedVoiceId már törölve lett.
+            // A voicePanel maga nem kerül a history-ba, ha onnan egyből a FinalizeSelectionAndStart() következik.
+            // De ha a SelectTopic után nincs hangválasztás, akkor a topicPanel-ről a FinalizeSelectionAndStart() jön,
+            // ilyenkor a GoBack() a subjectPanel-re visz.
+
+            Debug.Log($"Navigated back to: {currentActivePanel.name}");
+        }
+        else
+        {
+            Debug.LogWarning("No panel in history to go back to. Already at the first panel or history is empty.");
+            // Itt dönthetsz úgy, hogy pl. bezárod az egész menüt, vagy a visszalépő gomb inaktívvá válik,
+            // ha az első panelen van, és nincs hova visszalépni.
         }
     }
 }
