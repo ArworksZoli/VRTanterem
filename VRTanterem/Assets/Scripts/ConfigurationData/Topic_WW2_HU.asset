@@ -41,8 +41,6 @@ MonoBehaviour:
     image: {fileID: 21300000, guid: 6ff2dbc3b59e100429e7b7ae64638ed9, type: 3}
   - keyword: pearl harbor
     image: {fileID: 21300000, guid: 978531a094d16de469024c09443a991c, type: 3}
-  - keyword: atombomba
-    image: {fileID: 21300000, guid: 0d5505a5bf4ab4449be3a0ee4f403d54, type: 3}
   - keyword: maginot-vonal
     image: {fileID: 21300000, guid: 8f73958cd8aeb874f97806d8279e86c9, type: 3}
   - keyword: luftwaffe
@@ -51,3 +49,9 @@ MonoBehaviour:
     image: {fileID: 21300000, guid: 978531a094d16de469024c09443a991c, type: 3}
   - keyword: midway
     image: {fileID: 21300000, guid: c3474145eaf557c4f955832b953c0811, type: 3}
+  - keyword: atombomba
+    image: {fileID: 21300000, guid: 0d5505a5bf4ab4449be3a0ee4f403d54, type: 3}
+  - keyword: "atomt\xE1mad\xE1s"
+    image: {fileID: 21300000, guid: 0d5505a5bf4ab4449be3a0ee4f403d54, type: 3}
+  - keyword: atom
+    image: {fileID: 21300000, guid: 0d5505a5bf4ab4449be3a0ee4f403d54, type: 3}

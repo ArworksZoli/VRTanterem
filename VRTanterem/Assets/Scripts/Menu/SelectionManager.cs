@@ -305,18 +305,18 @@ public class SelectionManager : MonoBehaviour
         Dictionary<string, string> voiceDisplayNames = new Dictionary<string, string>();
         if (selectedLanguage != null && selectedLanguage.languageCode == "hu")
         {
-            voiceDisplayNames.Add("onyx", "Férfi 1"); // Példa nevek
-            voiceDisplayNames.Add("ash", "Férfi 2");
-            voiceDisplayNames.Add("nova", "Női 1");
-            voiceDisplayNames.Add("shimmer", "Női 2");
+            voiceDisplayNames.Add("onyx", "István"); // Példa nevek
+            voiceDisplayNames.Add("ash", "Jenő");
+            voiceDisplayNames.Add("nova", "Éva");
+            voiceDisplayNames.Add("shimmer", "Krisztina");
             // ... stb. a 4 férfi/női hanghoz
         }
         else
         { // Default to English or other languages
-            voiceDisplayNames.Add("onyx", "Male 1");
-            voiceDisplayNames.Add("ash", "Male 2");
-            voiceDisplayNames.Add("nova", "Female 1");
-            voiceDisplayNames.Add("shimmer", "Female 2");
+            voiceDisplayNames.Add("onyx", "Stephen");
+            voiceDisplayNames.Add("ash", "Eugene");
+            voiceDisplayNames.Add("nova", "Eve");
+            voiceDisplayNames.Add("shimmer", "Christine");
             // ... etc.
         }
         // Add other standard voices if needed

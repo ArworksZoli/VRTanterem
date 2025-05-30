@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 public class AppStateManager : MonoBehaviour
 {
@@ -14,6 +15,10 @@ public class AppStateManager : MonoBehaviour
     [Header("Modules")]
     [Tooltip("Assign the parent GameObject containing OpenAIWebRequest, TTSManager, etc.")]
     [SerializeField] private GameObject interactionModuleObject; // Ezt aktiváljuk/deaktiváljuk
+
+    [Header("Version")]
+    [Tooltip("App Version Number")]
+    [SerializeField] private GameObject versionNumber;
 
     [Header("Scene References")]
     [Tooltip("A UI Image komponens a táblán, ami a téma képét mutatja.")]
@@ -184,6 +189,7 @@ public class AppStateManager : MonoBehaviour
         {
             Debug.Log("[AppStateManager_LOG] Activating Interaction Module...");
             interactionModuleObject.SetActive(true);
+            versionNumber.SetActive(false);
 
             // OpenAIWebRequest inicializálása
             OpenAIWebRequest openAIComp = interactionModuleObject.GetComponentInChildren<OpenAIWebRequest>(true);

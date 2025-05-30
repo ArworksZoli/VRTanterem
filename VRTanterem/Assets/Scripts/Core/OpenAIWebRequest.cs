@@ -45,7 +45,7 @@ public class OpenAIWebRequest : MonoBehaviour
     private const string WhisperApiUrl = "https://api.openai.com/v1/audio/transcriptions";
     private const string ModelName = "whisper-1";
 
-    private const float FILE_PROCESSING_DELAY_SECONDS = 6.0f;
+    private const float FILE_PROCESSING_DELAY_SECONDS = 0.5f;
 
     public enum AssistantRunType
     {
