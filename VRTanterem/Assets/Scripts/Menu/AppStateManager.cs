@@ -266,8 +266,13 @@ public class AppStateManager : MonoBehaviour
             }
             else { Debug.LogWarning("  -> TextToSpeechManager nem található a modulban."); }
 
-            // OpenAIWebRequest oaiCtrl = interactionModuleObject.GetComponentInChildren<OpenAIWebRequest>(true);
-            // if (oaiCtrl != null) { /* oaiCtrl.CancelAllOngoingRequestsAndResetState(); */ Debug.Log("  -> OpenAIWebRequest.CancelAllOngoingRequestsAndResetState() hívása itt lesz."); }
+            OpenAIWebRequest oaiCtrl = interactionModuleObject.GetComponentInChildren<OpenAIWebRequest>(true);
+            if (oaiCtrl != null)
+            {
+                Debug.Log("  -> OpenAIWebRequest.CancelAllOngoingRequestsAndResetState() hívása...");
+                oaiCtrl.CancelAllOngoingRequestsAndResetState(); // <--- EZ AZ ÚJ HÍVÁS
+            }
+            else { Debug.LogWarning("  -> OpenAIWebRequest nem található a modulban."); }
 
             // InteractionFlowManager ifmCtrl = InteractionFlowManager.Instance; // Vagy GetComponentInChildren
             // if (ifmCtrl != null) { /* ifmCtrl.HardResetToIdle(); */ Debug.Log("  -> InteractionFlowManager.HardResetToIdle() hívása itt lesz."); }

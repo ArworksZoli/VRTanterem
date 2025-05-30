@@ -195,6 +195,30 @@ public class OpenAIWebRequest : MonoBehaviour
         Debug.Log("[OpenAIWebRequest] Initialization and startup complete.");
     }
 
+    public void CancelAllOngoingRequestsAndResetState()
+    {
+        Debug.LogWarning($"[OpenAIWebRequest] CancelAllOngoingRequestsAndResetState ELINDÍTVA. Idő: {Time.time}");
+
+        // 1. Minden, ezen MonoBehaviour által indított korutin leállítása.
+        Debug.Log("[OpenAIWebRequest] Minden futó korutin leállítása...");
+        StopAllCoroutines();
+
+        // 2. Kritikus állapotváltozók resetelése
+        Debug.Log("[OpenAIWebRequest] Belső állapotváltozók resetelése...");
+
+        assistantThreadId = null;
+        currentRunId = null;
+
+        // StringBuilderek törlése
+        if (messageBuilder != null) messageBuilder.Clear();
+        if (buffer != null) buffer.Clear(); // A streaminghez használt buffer
+        if (fullResponseForLogging != null) fullResponseForLogging.Clear();
+
+        assistantID = null;
+
+        Debug.LogWarning($"[OpenAIWebRequest] CancelAllOngoingRequestsAndResetState BEFEJEZŐDÖTT. assistantThreadId: {assistantThreadId}, currentRunId: {currentRunId}. Idő: {Time.time}");
+    }
+
 
     // OpenAIWebRequest.cs-ben hozzáadandó metódus
     public void ProcessVoiceInput(string recognizedText)
