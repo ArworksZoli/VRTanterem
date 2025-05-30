@@ -521,6 +521,46 @@ public class WhisperMicController : MonoBehaviour
         // Jellemzően DisableSpeakButton() hívódik, ami az ikont default-ra állítja.
     }
 
+    public void StopRecordingAndReset()
+    {
+        Debug.LogWarning($"[WhisperMicController_LOG] StopRecordingAndReset elindítva. Idő: {Time.time}");
+
+        // 1. Leállítunk minden, a MonoBehaviour által indított korutint és Invoke hívást.
+        // Ez fontos, hogy a ResetStatusAndIconToIdleOrDisabled ne fusson le később váratlanul.
+        StopAllCoroutines();
+        Debug.Log("[WhisperMicController_LOG] Minden korutin (és Invoke hívás) leállítva.");
+
+        // 2. A DisableSpeakButton() metódus már sok mindent kezel:
+        //    - Leállítja a felvételt, ha éppen fut (a StopRecordingInternal() hívásán keresztül).
+        //    - Letiltja a speakAction-t.
+        //    - Beállítja az isSpeakActionEnabled flag-et false-ra.
+        //    - Frissíti a statusText-et StatusDisabled-re.
+        //    - Visszaállítja az ikon színét iconColorDefault-ra.
+        DisableSpeakButton();
+        // A DisableSpeakButton már logol, így itt külön nem szükséges ugyanazokat logolni.
+
+        // 3. Extra ellenőrzés és takarítás, ha a DisableSpeakButton nem fedne le mindent
+        //    (bár a jelenlegi DisableSpeakButton és StopRecordingInternal elég alaposnak tűnik).
+        if (isRecording) // Ha valamiért a DisableSpeakButton után mégis isRecording maradt volna
+        {
+            Debug.LogWarning("[WhisperMicController_LOG] isRecording még mindig true a DisableSpeakButton után. Explicit StopRecordingInternal hívása.");
+            StopRecordingInternal(); // Ez gondoskodik a Microphone.End-ről és a recordedClip törléséről.
+        }
+
+        // Biztosítjuk, hogy a recordedClip tényleg null legyen.
+        if (recordedClip != null)
+        {
+            Debug.LogWarning("[WhisperMicController_LOG] recordedClip még mindig létezett a reset végén. Explicit törlés.");
+            Destroy(recordedClip);
+            recordedClip = null;
+        }
+
+        // Alaphelyzetbe állítjuk a mikrofon eszköz nevét is, ha ez releváns lehet
+        // microphoneDevice = null; // Ezt az Awake-ben már null-ra állítod, így itt lehet, hogy nem szükséges.
+
+        Debug.LogWarning($"[WhisperMicController_LOG] StopRecordingAndReset befejeződött. isRecording: {isRecording}, isSpeakActionEnabled: {isSpeakActionEnabled}. Idő: {Time.time}");
+    }
+
     // --- Segédfüggvények ---
 
     private void ResetStatusAndIconToIdleOrDisabled()

@@ -69,7 +69,6 @@ public class TextToSpeechManager : MonoBehaviour
 
     // --- ÚJ VÁLTOZÓK A VÁLASZ KEZELÉSÉHEZ ---
     private StringBuilder answerSentenceBuffer = new StringBuilder();
-    private Coroutine currentAnswerPlaybackCoroutine = null;
 
     // Szekvenciális audió generálás
     private Coroutine currentAnswerSentenceProcessingCoroutine = null;
@@ -143,52 +142,59 @@ public class TextToSpeechManager : MonoBehaviour
 
     public void ResetManager()
     {
-        Debug.Log("[TextToSpeechManager_LOG] Resetting state...");
+        Debug.LogWarning("[TextToSpeechManager_LOG] Resetting state called...");
 
-        // Lejátszás leállítása mindkét AudioSource-on
+        // 1. Lejátszás leállítása mindkét AudioSource-on
         if (audioSource != null && audioSource.isPlaying)
         {
             audioSource.Stop();
-            Debug.Log("[TextToSpeechManager_LOG] Stopped active audio playback on main AudioSource.");
+            Debug.Log("[TextToSpeechManager_LOG] Stopped active audio playback on main AudioSource (lecture).");
         }
-        if (promptAudioSource != null && promptAudioSource.isPlaying) // <<< ÚJ BLOKK
+        if (promptAudioSource != null && promptAudioSource.isPlaying)
         {
             promptAudioSource.Stop();
-            Debug.Log("[TextToSpeechManager_LOG] Stopped active audio playback on prompt AudioSource.");
+            Debug.LogWarning("[TextToSpeechManager_LOG] Stopped active audio playback on promptAudioSource (AI answer/prompt)."); // Fontos log!
         }
 
-        // Futó korutinok leállítása (különösen a monitor és prompt)
+        // 2. Futó korutinok leállítása
+        // Fő előadás (lecture) korutinjai
         if (currentPlaybackMonitor != null)
         {
             StopCoroutine(currentPlaybackMonitor);
             currentPlaybackMonitor = null;
-            Debug.Log("[TextToSpeechManager_LOG] Stopped current playback monitor coroutine.");
+            Debug.Log("[TextToSpeechManager_LOG] Stopped current playback monitor coroutine (lecture).");
         }
+        // Egyszeri promptok korutinja (SpeakSingleSentence)
         if (currentPromptCoroutine != null)
         {
             StopCoroutine(currentPromptCoroutine);
             currentPromptCoroutine = null;
-            Debug.Log("[TextToSpeechManager_LOG] Stopped current prompt coroutine.");
+            Debug.Log("[TextToSpeechManager_LOG] Stopped current prompt coroutine (SpeakSingleSentence).");
         }
-
-        if (currentAnswerPlaybackCoroutine != null) // <<< ÚJ SOR >>>
+        // AI válaszok szekvenciális feldolgozását végző korutin
+        if (currentAnswerSentenceProcessingCoroutine != null)
         {
-            StopCoroutine(currentAnswerPlaybackCoroutine);
-            currentAnswerPlaybackCoroutine = null;
-            Debug.Log("[TextToSpeechManager_LOG] Stopped current answer playback coroutine.");
+            StopCoroutine(currentAnswerSentenceProcessingCoroutine);
+            currentAnswerSentenceProcessingCoroutine = null;
+            Debug.LogWarning("[TextToSpeechManager_LOG] Stopped current answer sentence processing coroutine."); // Fontos log!
         }
 
-        // Állapotjelzők és várólisták törlése
+        // 3. Állapotjelzők és pufferek/várakozási sorok törlése
+        // Fő előadás (lecture) állapotai
         isTTSRequestInProgress = false;
         isPausedForQuestion = false;
         resumeFromSentenceIndex = -1;
         sentenceBuffer.Clear();
         sentenceCounter = 0;
+
+        // AI válasz szövegpufferének törlése
         answerSentenceBuffer.Clear();
+        Debug.Log("[TextToSpeechManager_LOG] Cleared answerSentenceBuffer.");
 
-        ClearQueuesAndClips();
+        // Fő előadás (lecture) várakozási sorainak törlése
+        ClearQueuesAndClips(); // Ez a pendingSentencesQueue és playbackQueue-t törli
 
-        Debug.Log($"[TextToSpeechManager_LOG] Reset completed.");
+        Debug.LogWarning($"[TextToSpeechManager_LOG] Reset completed.");
     }
 
     /// <summary>

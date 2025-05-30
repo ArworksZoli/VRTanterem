@@ -28,6 +28,9 @@ public class AppStateManager : MonoBehaviour
     [Tooltip("Húzd ide a LectureImageController komponenst tartalmazó GameObjectet, vagy magát a komponenst.")]
     [SerializeField] private LectureImageController lectureImageController;
 
+    [Header("Menu System")]
+    [SerializeField] private SelectionManager selectionManagerInstance;
+
     // --- Tárolt Konfiguráció ---
     public LanguageConfig CurrentLanguage { get; private set; }
     public SubjectConfig CurrentSubject { get; private set; }
@@ -50,6 +53,20 @@ public class AppStateManager : MonoBehaviour
         }
         Instance = this;
         // DontDestroyOnLoad(gameObject);
+
+        if (selectionManagerInstance == null)
+        {
+            selectionManagerInstance = FindObjectOfType<SelectionManager>(true); // true: inaktív objektumot is megtalál
+            if (selectionManagerInstance == null)
+            {
+                Debug.LogError("[AppStateManager_LOG] KRITIKUS HIBA: SelectionManager instance NEM TALÁLHATÓ! A menübe visszalépés nem fog működni.", this);
+                // Fontold meg az 'enabled = false;' itt, ha a menü kritikus
+            }
+            else
+            {
+                Debug.Log("[AppStateManager_LOG] SelectionManager instance sikeresen megtalálva (FindObjectOfType).");
+            }
+        }
 
         // --- Kritikus referenciák ellenőrzése ---
         bool setupOk = true;
@@ -172,15 +189,15 @@ public class AppStateManager : MonoBehaviour
         }
 
         // --- 4. Menü Elrejtése ---
-        SelectionManager selectionManager = FindObjectOfType<SelectionManager>();
-        if (selectionManager != null)
+        // SelectionManager selectionManager = FindObjectOfType<SelectionManager>(); // Régi sor kommentelve vagy törölve
+        if (selectionManagerInstance != null)
         {
-            selectionManager.gameObject.SetActive(false);
-            Debug.Log("[AppStateManager_LOG] SelectionManager GameObject deactivated.");
+            selectionManagerInstance.gameObject.SetActive(false);
+            Debug.Log("[AppStateManager_LOG] SelectionManager GameObject deactivated via instance reference.");
         }
         else
         {
-            Debug.LogWarning("[AppStateManager_LOG] Could not find SelectionManager GameObject to deactivate.");
+            Debug.LogWarning("[AppStateManager_LOG] Could not find SelectionManager instance to deactivate menu.");
         }
 
 
@@ -220,6 +237,86 @@ public class AppStateManager : MonoBehaviour
             Debug.LogError("[AppStateManager:LOG] Cannot activate Interaction Module - reference is missing!");
         }
         Debug.LogWarning($"[AppStateManager_LOG] StartInteraction FINISHED - Frame: {Time.frameCount}");
+    }
+
+    public void ResetToMainMenu()
+    {
+        Debug.LogWarning($"[AppStateManager_LOG] ResetToMainMenu ELINDÍTVA. Idő: {Time.time}");
+
+        // 1. Interakciós Modul Komponenseinek (JÖVŐBELI) Leállítása és Resetelése
+        // Egyelőre csak logoljuk, hogy mit tervezünk itt csinálni.
+        // A tényleges reset hívásokat később implementáljuk a megfelelő menedzserekben.
+        if (interactionModuleObject != null)
+        {
+            Debug.Log("[AppStateManager_LOG] Interaction Module resetelése és kikapcsolása előkészítve...");
+
+            WhisperMicController whisperCtrl = interactionModuleObject.GetComponentInChildren<WhisperMicController>(true);
+            if (whisperCtrl != null)
+            {
+                Debug.Log("  -> WhisperMicController.StopRecordingAndReset() hívása...");
+                whisperCtrl.StopRecordingAndReset();
+            }
+            else { Debug.LogWarning("  -> WhisperMicController nem található a modulban."); }
+
+            TextToSpeechManager ttsCtrl = interactionModuleObject.GetComponentInChildren<TextToSpeechManager>(true);
+            if (ttsCtrl != null)
+            {
+                Debug.Log("  -> TextToSpeechManager.ResetManager() hívása...");
+                ttsCtrl.ResetManager(); // <--- EZ A HÍVÁS MOST MÁR A FRISSÍTETT ResetManager-t HÍVJA
+            }
+            else { Debug.LogWarning("  -> TextToSpeechManager nem található a modulban."); }
+
+            // OpenAIWebRequest oaiCtrl = interactionModuleObject.GetComponentInChildren<OpenAIWebRequest>(true);
+            // if (oaiCtrl != null) { /* oaiCtrl.CancelAllOngoingRequestsAndResetState(); */ Debug.Log("  -> OpenAIWebRequest.CancelAllOngoingRequestsAndResetState() hívása itt lesz."); }
+
+            // InteractionFlowManager ifmCtrl = InteractionFlowManager.Instance; // Vagy GetComponentInChildren
+            // if (ifmCtrl != null) { /* ifmCtrl.HardResetToIdle(); */ Debug.Log("  -> InteractionFlowManager.HardResetToIdle() hívása itt lesz."); }
+            // --- Eddig a placeholder rész ---
+
+            interactionModuleObject.SetActive(false); // A modul kikapcsolása
+            Debug.Log("[AppStateManager_LOG] Interaction Module Object kikapcsolva.");
+        }
+        else
+        {
+            Debug.LogWarning("[AppStateManager_LOG] Interaction Module Object nincs beállítva vagy már inaktív.");
+        }
+
+        // Előadás-specifikus UI és állapotok resetelése
+        ResetDisplay(); // Meglévő metódusod a kép törlésére
+
+        if (lectureImageController != null)
+        {
+            // lectureImageController.ResetController(); // Ezt később implementáljuk
+            Debug.Log("[AppStateManager_LOG] LectureImageController.ResetController() hívása itt lesz.");
+        }
+
+        // AppStateManager belső állapotának törlése (kiválasztott téma stb.)
+        CurrentLanguage = null;
+        CurrentSubject = null;
+        CurrentTopic = null;
+        CurrentVoiceId = null;
+        CurrentAssistantId = null;
+        Debug.Log("[AppStateManager_LOG] AppStateManager belső kiválasztási állapot törölve.");
+
+        // 2. Menü Aktiválása és Inicializálása
+        if (selectionManagerInstance != null)
+        {
+            Debug.Log("[AppStateManager_LOG] SelectionManager (Menü) aktiválása és inicializálása...");
+            selectionManagerInstance.gameObject.SetActive(true); // Menü UI megjelenítése
+            selectionManagerInstance.InitializeMenu();        // Menü kezdőállapotba állítása
+
+            if (versionNumber != null) // A verziószám GameObject, amit a StartInteraction elrejtett
+            {
+                versionNumber.SetActive(true); // Verziószám újra láthatóvá tétele
+                Debug.Log("[AppStateManager_LOG] Verziószám UI újra aktiválva.");
+            }
+        }
+        else
+        {
+            Debug.LogError("[AppStateManager_LOG] SelectionManager instance nem található! Nem lehet visszatérni a menübe.");
+        }
+
+        Debug.LogWarning($"[AppStateManager_LOG] ResetToMainMenu BEFEJEZŐDÖTT. Idő: {Time.time}");
     }
 
     public void ResetDisplay()

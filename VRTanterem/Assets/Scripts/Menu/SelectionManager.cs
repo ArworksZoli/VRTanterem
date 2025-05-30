@@ -43,7 +43,7 @@ public class SelectionManager : MonoBehaviour
         InitializeMenu();
     }
 
-    void InitializeMenu()
+    public void InitializeMenu()
     {
         // ... (Ugyanaz, mint előbb: panelek elrejtése, ellenőrzések) ...
         languagePanel.SetActive(false);
