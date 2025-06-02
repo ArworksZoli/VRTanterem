@@ -179,6 +179,19 @@ public class TextToSpeechManager : MonoBehaviour
             Debug.LogWarning("[TextToSpeechManager_LOG] Stopped current answer sentence processing coroutine."); // Fontos log!
         }
 
+        if (manageTTSCoroutine != null)
+        {
+            StopCoroutine(manageTTSCoroutine);
+            manageTTSCoroutine = null;
+            Debug.Log("[TextToSpeechManager_LOG] Stopped and nulled manageTTSCoroutine (lecture sentence generation).");
+        }
+        if (managePlaybackCoroutine != null)
+        {
+            StopCoroutine(managePlaybackCoroutine);
+            managePlaybackCoroutine = null;
+            Debug.Log("[TextToSpeechManager_LOG] Stopped and nulled managePlaybackCoroutine (lecture playback).");
+        }
+
         // 3. Állapotjelzők és pufferek/várakozási sorok törlése
         // Fő előadás (lecture) állapotai
         isTTSRequestInProgress = false;

@@ -243,9 +243,6 @@ public class AppStateManager : MonoBehaviour
     {
         Debug.LogWarning($"[AppStateManager_LOG] ResetToMainMenu ELINDÍTVA. Idő: {Time.time}");
 
-        // 1. Interakciós Modul Komponenseinek (JÖVŐBELI) Leállítása és Resetelése
-        // Egyelőre csak logoljuk, hogy mit tervezünk itt csinálni.
-        // A tényleges reset hívásokat később implementáljuk a megfelelő menedzserekben.
         if (interactionModuleObject != null)
         {
             Debug.Log("[AppStateManager_LOG] Interaction Module resetelése és kikapcsolása előkészítve...");
@@ -274,9 +271,13 @@ public class AppStateManager : MonoBehaviour
             }
             else { Debug.LogWarning("  -> OpenAIWebRequest nem található a modulban."); }
 
-            // InteractionFlowManager ifmCtrl = InteractionFlowManager.Instance; // Vagy GetComponentInChildren
-            // if (ifmCtrl != null) { /* ifmCtrl.HardResetToIdle(); */ Debug.Log("  -> InteractionFlowManager.HardResetToIdle() hívása itt lesz."); }
-            // --- Eddig a placeholder rész ---
+            InteractionFlowManager ifmCtrl = InteractionFlowManager.Instance; // Vagy GetComponentInChildren
+            if (ifmCtrl != null)
+            {
+                Debug.Log("  -> InteractionFlowManager.HardResetToIdle() hívása...");
+                ifmCtrl.HardResetToIdle(); // <--- EZ AZ ÚJ HÍVÁS
+            }
+            else { Debug.LogWarning("  -> InteractionFlowManager nem található."); }
 
             interactionModuleObject.SetActive(false); // A modul kikapcsolása
             Debug.Log("[AppStateManager_LOG] Interaction Module Object kikapcsolva.");

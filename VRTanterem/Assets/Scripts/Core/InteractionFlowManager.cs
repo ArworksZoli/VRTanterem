@@ -820,6 +820,54 @@ public class InteractionFlowManager : MonoBehaviour
         Debug.LogWarning($"[IFM_LOG] <<< HandleAnswerPlaybackCompleted EXIT.");
     }
 
+    public void HardResetToIdle()
+    {
+        Debug.LogWarning($"[IFM_LOG] HardResetToIdle ELINDÍTVA. Jelenlegi állapot: {currentState}. Idő: {Time.time}");
+
+        // 1. Minden, ezen MonoBehaviour (IFM) által indított korutin leállítása.
+        StopAllCoroutines();
+        Debug.Log("[IFM_LOG] Minden IFM specifikus korutin leállítva.");
+
+        // 2. Eseményekről való leiratkozás.
+        if (textToSpeechManager != null)
+        {
+            textToSpeechManager.OnTTSPlaybackEnd -= HandleTTSPlaybackEnd;
+            textToSpeechManager.OnPlaybackQueueCompleted -= HandlePlaybackQueueCompleted;
+            Debug.Log("[IFM_LOG] Leiratkozva a TextToSpeechManager eseményeiről (TTSPlaybackEnd, PlaybackQueueCompleted).");
+        }
+        if (openAIWebRequest != null)
+        {
+            openAIWebRequest.OnRunCompleted -= HandleRunCompleted;
+            Debug.Log("[IFM_LOG] Leiratkozva az OpenAIWebRequest.OnRunCompleted eseményről.");
+        }
+
+        // 3. Belső állapotváltozók alaphelyzetbe állítása
+        userHasRequestedQuestion = false;
+        lastPlayedLectureSentenceIndex = -1;
+        waitingForLectureStartConfirmation = false;
+        isOaiRunComplete = true;
+        expectingQuizAnswer = false;
+        currentQuizQuestionText = string.Empty;
+        Debug.Log("[IFM_LOG] Belső állapotváltozók (userHasRequestedQuestion, lastPlayedLectureSentenceIndex, isOaiRunComplete, stb.) resetelve az alapértelmezett értékekre.");
+
+        // 4. UI elemek alaphelyzetbe állítása, amelyeket az IFM közvetlenül kezel
+        if (questionIndicatorUI != null)
+        {
+            questionIndicatorUI.SetActive(false);
+            Debug.Log("[IFM_LOG] QuestionIndicatorUI elrejtve.");
+        }
+        if (TMPUserText != null)
+        {
+            TMPUserText.text = "";
+            Debug.Log("[IFM_LOG] TMPUserText törölve.");
+        }
+
+        // 5. Végleges állapot beállítása 'Idle'-re.
+        SetState(InteractionState.Idle);
+
+        Debug.LogWarning($"[IFM_LOG] HardResetToIdle BEFEJEZŐDÖTT. Új állapot: {currentState}. Idő: {Time.time}");
+    }
+
 
     private IEnumerator EnableSpeakButtonAfterDelay(float delaySeconds)
     {
