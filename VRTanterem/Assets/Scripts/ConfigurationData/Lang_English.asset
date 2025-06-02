@@ -46,3 +46,5 @@ MonoBehaviour:
   - do you have any questions about what we've covered so far
   - any questions on that
   - are there any questions before we move on
+  PromptForGeneralInquiry: Do you have any questions about what we've covered so
+    far?

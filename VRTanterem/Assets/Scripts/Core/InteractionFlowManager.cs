@@ -33,10 +33,10 @@ public class InteractionFlowManager : MonoBehaviour
 
     private const float DEFAULT_SPEAK_BUTTON_ENABLE_DELAY = 0.3f;
 
-    private bool userHasRequestedQuestion = false;
     private int lastPlayedLectureSentenceIndex = -1;
     private bool waitingForLectureStartConfirmation = false;
     private bool isOaiRunComplete = true;
+    private bool userWantsToAskAtNextNaturalPause = false;
 
     // Kvíz változók
     private bool expectingQuizAnswer = false;
@@ -142,7 +142,6 @@ public class InteractionFlowManager : MonoBehaviour
         currentQuizQuestionText = string.Empty;
 
         SetState(InteractionState.Lecturing);
-        userHasRequestedQuestion = false;
         lastPlayedLectureSentenceIndex = -1;
         waitingForLectureStartConfirmation = false;
         if (questionIndicatorUI != null) questionIndicatorUI.SetActive(false);
@@ -181,18 +180,25 @@ public class InteractionFlowManager : MonoBehaviour
     }
 
     // Ezt hívja az Input Listener (pl. UI gomb, kézfelemelés trigger, vagy az OnRaiseHandStarted)
-    public void UserRequestsToAskQuestion()
+    public void UserRequestsToAskQuestion() // Ezt hívja a RaiseHandButton
     {
-        Debug.Log($"[IFM_LOG] UserRequestsToAskQuestion called. Current state: {currentState}");
-        if (currentState == InteractionState.Lecturing && !userHasRequestedQuestion)
+        Debug.LogWarning($"[IFM_LOG] UserRequestsToAskQuestion (Raise Hand) hívva. Jelenlegi állapot: {currentState}, userWantsToAskAtNextNaturalPause: {userWantsToAskAtNextNaturalPause}. Idő: {Time.time}");
+
+        // Csak akkor fogadjuk a jelentkezést, ha éppen előadás megy, és nincs már egy függőben lévő jelentkezés
+        if (currentState == InteractionState.Lecturing && !userWantsToAskAtNextNaturalPause)
         {
-            userHasRequestedQuestion = true;
-            if (questionIndicatorUI != null) questionIndicatorUI.SetActive(true);
-            SetState(InteractionState.QuestionPending);
-            // A jelentkezés gombot itt le lehet tiltani, hogy ne lehessen spamelni
-            // raiseHandAction?.Disable();
+            userWantsToAskAtNextNaturalPause = true;
+            if (questionIndicatorUI != null)
+            {
+                questionIndicatorUI.SetActive(true); // Jelző UI aktiválása (opcionális)
+            }
+            DisableRaiseHandButtonUI(); // Jelentkezés gomb átmeneti tiltása, hogy ne lehessen spamelni
+            Debug.Log("[IFM_LOG] Felhasználó jelentkezett a következő természetes szünetnél történő kérdésre. userWantsToAskAtNextNaturalPause = true.");
         }
-        else { /* Logolás, hogy miért ignoráljuk */ }
+        else
+        {
+            Debug.LogWarning($"[IFM_LOG] UserRequestsToAskQuestion hívás figyelmen kívül hagyva. Állapot: {currentState} vagy már jelentkezett: {userWantsToAskAtNextNaturalPause}.");
+        }
     }
 
     // Ezt hívja a WhisperMicController
@@ -296,7 +302,7 @@ public class InteractionFlowManager : MonoBehaviour
 
             // Általános, nyelvfüggetlen(ebb) kulcsszavak a folytatáshoz/megerősítéshez
             string[] generalContinueKeywords = {
-                "oké", "értem", "rendben", "mehet", "tovább", "folytas", "igen", "persze", "köszönöm", "köszi",
+                "oké", "értem", "rendben", "mehet", "tovább", "folytasd", "igen", "persze", "köszönöm", "köszi", "folytathatod", "nincs",
                 "okay", "ok", "i understand", "got it", "go on", "proceed", "continue", "yes", "sure", "thank you", "thanks",
             };
 
@@ -304,11 +310,11 @@ public class InteractionFlowManager : MonoBehaviour
             string[] noQuestionKeywords;
             if (langCode == "hu")
             {
-                noQuestionKeywords = new string[] { "nincs kérdés", "nincs semmi", "nem kérdezek", "nem szeretnék", "nincs több" };
+                noQuestionKeywords = new string[] { "nincs kérdés", "nincs semmi", "nem kérdezek", "nem szeretnék", "nincs több", "kezdheted", "kezdhetjük", "nincsen", "folytasd", "folytathatod", "nincs" };
             }
             else // Alapértelmezés (angol és egyéb)
             {
-                noQuestionKeywords = new string[] { "no questions", "nothing else", "i don't have any", "no more questions" };
+                noQuestionKeywords = new string[] { "no questions", "nothing else", "i don't have any", "no more questions", "let's start", "start", "no", "continue", "no" };
             }
 
             // 1. Ellenőrizzük, hogy a felhasználó expliciten folytatást/megerősítést kért-e
@@ -504,7 +510,6 @@ public class InteractionFlowManager : MonoBehaviour
 
             case InteractionState.QuestionPending:
                 lastPlayedLectureSentenceIndex = finishedSentenceIndex;
-                userHasRequestedQuestion = false;
                 if (questionIndicatorUI != null) questionIndicatorUI.SetActive(false);
 
                 SetState(InteractionState.WaitingForUserInput);
@@ -575,16 +580,48 @@ public class InteractionFlowManager : MonoBehaviour
 
     private void HandlePlaybackQueueCompleted()
     {
-        Debug.LogWarning($"[IFM_LOG] >>> HandlePlaybackQueueCompleted ENTER. Current state: {currentState}, LastPlayedIndex: {lastPlayedLectureSentenceIndex}, isOaiRunComplete: {isOaiRunComplete}");
+        Debug.LogWarning($"[IFM_LOG] >>> HandlePlaybackQueueCompleted ENTER. Állapot: {currentState}, Felh. kérdezne: {userWantsToAskAtNextNaturalPause}, OAI Run Kész: {isOaiRunComplete}. Idő: {Time.time}");
 
         if (!isOaiRunComplete)
         {
-            Debug.LogWarning("[IFM_LOG] Playback queue empty, but AI run is NOT YET marked as complete. Waiting for OnRunCompleted event before analyzing AI utterance.");
-            Debug.LogWarning($"[IFM_LOG] <<< HandlePlaybackQueueCompleted EXIT (Waiting for OAI Run to complete).");
+            Debug.LogWarning("[IFM_LOG] HandlePlaybackQueueCompleted: Lejátszási sor üres, de az OpenAI run még NEM teljes. Várakozás az OnRunCompleted eseményre.");
             return;
         }
 
-        Debug.LogWarning("[IFM_LOG] OAI Run is complete. Proceeding to analyze AI's last utterance(s).");
+        Debug.LogWarning("[IFM_LOG] HandlePlaybackQueueCompleted: OpenAI Run teljes. AI szünetpontjának kezelése indul...");
+
+        if (userWantsToAskAtNextNaturalPause)
+        {
+            userWantsToAskAtNextNaturalPause = false; // Reseteljük a flag-et, mert most kezeljük
+            if (questionIndicatorUI != null) questionIndicatorUI.SetActive(false); // Jelző UI kikapcsolása
+
+            Debug.LogWarning("[IFM_LOG] HandlePlaybackQueueCompleted: Felhasználói jelentkezés ('Raise Hand') kezelése a természetes szünetnél.");
+
+            // Prompt szöveg előkészítése - "Mi a kérdése?"
+            string customUserPrompt = "Mi a kérdése?"; // Alapértelmezett
+            LanguageConfig currentLang = AppStateManager.Instance?.CurrentLanguage;
+            if (currentLang != null)
+            {
+                // Használhatunk egy specifikus promptot a LanguageConfig-ból, ha van ilyen definiálva
+                // pl. currentLang.PromptForRaisedHandQuestion;
+                // Vagy újrahasznosíthatjuk a már meglévő általános kérdés promptot:
+                if (!string.IsNullOrEmpty(currentLang.AskQuestionPrompt))
+                {
+                    customUserPrompt = currentLang.AskQuestionPrompt;
+                }
+            }
+
+            textToSpeechManager?.SpeakSingleSentence(customUserPrompt); // TTS elmondja: "Mi a kérdése?"
+            SetState(InteractionState.WaitingForUserInput);
+            // A SpeakSingleSentence korutinja a TTSManagerben gondoskodik az EnableSpeakButton hívásáról az IFM-en keresztül.
+            // A RaiseHandButton-t a SetState(WaitingForUserInput) már letiltotta, 
+            // de a SetState(Lecturing) majd újra engedélyezi, amikor folytatódik az előadás.
+
+            Debug.LogWarning($"[IFM_LOG] <<< HandlePlaybackQueueCompleted KILÉPÉS (Raise Hand ág). Várakozás a felhasználó kérdésére. Új állapot: {currentState}.");
+            return; // Fontos: Ebben az esetben nem elemezzük az AI utolsó mondatát (kvíz/standard kérdés)
+        }
+
+        Debug.LogWarning("[IFM_LOG] HandlePlaybackQueueCompleted: Nincs aktív 'Raise Hand'. Normál AI szünetpont elemzése indul...");
 
         // --- VÁLTOZTATÁS: Adatgyűjtés a TranscriptLoggerből ---
         string lastAiUtterance = string.Empty;
@@ -594,24 +631,15 @@ public class InteractionFlowManager : MonoBehaviour
 
         if (TranscriptLogger.Instance != null)
         {
-            List<LogEntry> lastLogEntries = TranscriptLogger.Instance.GetLastNAiLogEntries(2); // Feltételezve, hogy ez a metódus létezik és LogEntry listát ad vissza
+            List<LogEntry> lastLogEntries = TranscriptLogger.Instance.GetLastNAiLogEntries(2);
             if (lastLogEntries != null)
             {
-                if (lastLogEntries.Count >= 1)
-                {
-                    lastAiUtterance = lastLogEntries[lastLogEntries.Count - 1].Text; // Az utolsó elem a listában a legutóbbi
-                }
-                if (lastLogEntries.Count >= 2)
-                {
-                    penultimateAiUtterance = lastLogEntries[lastLogEntries.Count - 2].Text; // Az utolsó előtti
-                    combinedLastTwoAiUtterances = $"{penultimateAiUtterance} {lastAiUtterance}";
-                    actualCombinedCount = 2;
-                }
-                else if (lastLogEntries.Count == 1)
-                {
-                    combinedLastTwoAiUtterances = lastAiUtterance; // Ha csak egy van, az a "kombinált" is
-                    actualCombinedCount = 1;
-                }
+                if (lastLogEntries.Count >= 1) lastAiUtterance = lastLogEntries[lastLogEntries.Count - 1].Text;
+                if (lastLogEntries.Count >= 2) penultimateAiUtterance = lastLogEntries[lastLogEntries.Count - 2].Text;
+
+                if (actualCombinedCount == 2) combinedLastTwoAiUtterances = $"{penultimateAiUtterance} {lastAiUtterance}";
+                else if (actualCombinedCount == 1) combinedLastTwoAiUtterances = lastAiUtterance;
+                actualCombinedCount = lastLogEntries.Count;
             }
         }
 
@@ -757,9 +785,17 @@ public class InteractionFlowManager : MonoBehaviour
             // 5. Ha egyik sem -> Normál előadás vége, vagy egyéb AI megnyilvánulás
             if (!processedAsQuiz) // Ha semmilyen kérdés/kvíz típust nem ismertünk fel
             {
+                string generalInquiryPrompt = "Van esetleg az eddigiekkel kapcsolatban kérdése?"; // Alapértelmezett fallback
+
+                if (currentLang != null && !string.IsNullOrEmpty(currentLang.PromptForGeneralInquiry)) // Új property használata
+                {
+                    generalInquiryPrompt = currentLang.PromptForGeneralInquiry;
+                }
+
                 Debug.LogWarning($"[IFM_LOG] AI finished speaking (NOT a recognized question/quiz type). Combined text was: '{combinedLastTwoAiUtterances}'. Moving to WaitingForUserInput.");
                 expectingQuizAnswer = false;
                 currentQuizQuestionText = string.Empty;
+                textToSpeechManager?.SpeakSingleSentence(generalInquiryPrompt);
                 SetState(InteractionState.WaitingForUserInput);
                 StartCoroutine(EnableSpeakButtonAfterDelay(0.3f));
             }
@@ -842,7 +878,6 @@ public class InteractionFlowManager : MonoBehaviour
         }
 
         // 3. Belső állapotváltozók alaphelyzetbe állítása
-        userHasRequestedQuestion = false;
         lastPlayedLectureSentenceIndex = -1;
         waitingForLectureStartConfirmation = false;
         isOaiRunComplete = true;

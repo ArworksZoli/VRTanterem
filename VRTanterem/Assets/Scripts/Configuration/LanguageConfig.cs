@@ -29,4 +29,7 @@ public class LanguageConfig : ScriptableObject
 
     [Tooltip("Általános kérdésfeltevő promptok, amelyek NEM kvízkérdések, még ha kérdőjellel is végződnek. Kisbetűvel, írásjelek nélkül.")]
     public List<string> GeneralQuestionPrompts = new List<string>();
+
+    [Tooltip("Természetes AI megállás kérdése")]
+    public string PromptForGeneralInquiry;
 }
