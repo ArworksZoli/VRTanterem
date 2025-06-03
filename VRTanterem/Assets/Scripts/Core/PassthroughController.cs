@@ -25,6 +25,14 @@ public class PassthroughController : MonoBehaviour
     [SerializeField] private OVRScreenFade ovrScreenFade;
     [SerializeField] private float fadeDuration = 0.25f;
 
+    [Header("UI Element Positioning")]
+    [SerializeField] private GameObject uiElementToMove;
+    [SerializeField] private Transform uiTargetInPassthrough;
+
+    private Vector3 uiOriginalPosition;
+    private Quaternion uiOriginalRotation;
+    private bool uiOriginalTransformWasStored = false;
+
     // Átmenet állapotát követő változó
     private bool isTransitioning = false;
 
@@ -101,8 +109,18 @@ public class PassthroughController : MonoBehaviour
         }
         Debug.Log("    Awake: Teleportation and Fade component references seem OK.");
 
+        // --- Referenciák Ellenőrzése a UI Mozgatásához ---
+        if (uiElementToMove == null)
+        {
+            Debug.LogWarning("  Awake: UI Element to Move (uiElementToMove) is NULL. UI positioning will be skipped.", this);
+        }
+        if (uiTargetInPassthrough == null && uiElementToMove != null)
+        {
+            Debug.LogWarning("  Awake: UI Target In Passthrough (uiTargetInPassthrough) is NULL. UI cannot be positioned for passthrough.", this);
+        }
+        Debug.Log("    Awake: Teleportation, Fade, and UI component references checked.");
+
         // --- Eredeti Kamera Beállítások Mentése ---
-        // Mentsük el az indulási állapotot, MIELŐTT esetleg módosítanánk rajta
         originalClearFlags = mainCamera.clearFlags;
         originalBackgroundColor = mainCamera.backgroundColor;
         Debug.Log($"   Awake: Original camera settings saved: ClearFlags={originalClearFlags}, BackgroundColor={originalBackgroundColor}");
@@ -293,6 +311,56 @@ public class PassthroughController : MonoBehaviour
                 Debug.Log($"    Player ('{ovrPlayerObject.name}') teleported to Player (VR) Target: '{playerPositionTarget.name}' (Pos: {playerPositionTarget.position}, Rot: {playerPositionTarget.eulerAngles})");
             }
             else Debug.LogError("  Transition ERROR: playerPositionTarget is NULL!");
+        }
+
+        Debug.Log("  Transition: Performing UI element positioning...");
+        if (uiElementToMove != null)
+        {
+            if (enablePassthrough) // Passthrough-ba lépés
+            {
+                if (uiTargetInPassthrough != null)
+                {
+                    // Eredeti UI transzformáció elmentése, ha még nem történt meg,
+                    // vagy ha minden alkalommal az aktuális VR pozíciót akarjuk menteni.
+                    // Most úgy implementálom, hogy az első VR állapotot menti.
+                    // Ha azt szeretnéd, hogy mindig az aktuális "passthrough előtti" állapotot mentse,
+                    // akkor a uiOriginalTransformWasStored ellenőrzés nélkül mindig mentsd el.
+                    if (!uiOriginalTransformWasStored)
+                    {
+                        uiOriginalPosition = uiElementToMove.transform.position;
+                        uiOriginalRotation = uiElementToMove.transform.rotation;
+                        uiOriginalTransformWasStored = true;
+                        Debug.Log($"    Stored original transform for UI element '{uiElementToMove.name}'.");
+                    }
+
+                    uiElementToMove.transform.position = uiTargetInPassthrough.position;
+                    uiElementToMove.transform.rotation = uiTargetInPassthrough.rotation;
+                    Debug.Log($"    UI Element ('{uiElementToMove.name}') moved to Passthrough Target: '{uiTargetInPassthrough.name}'.");
+                }
+                else
+                {
+                    Debug.LogWarning("  Transition: uiTargetInPassthrough is NULL. Cannot position UI element for passthrough mode.");
+                }
+            }
+            else // Passthrough-ból kilépés (vissza VR-be)
+            {
+                if (uiOriginalTransformWasStored)
+                {
+                    uiElementToMove.transform.position = uiOriginalPosition;
+                    uiElementToMove.transform.rotation = uiOriginalRotation;
+                    Debug.Log($"    UI Element ('{uiElementToMove.name}') restored to its original VR position.");
+                    // Opcionális: ha azt akarod, hogy a következő passthroughba lépéskor újra elmentse az akkor aktuális pozíciót:
+                    // uiOriginalTransformWasStored = false;
+                }
+                else
+                {
+                    Debug.LogWarning("  Transition: Original UI transform was not stored. Cannot restore UI element position.");
+                }
+            }
+        }
+        else
+        {
+            Debug.Log("  Transition: uiElementToMove is NULL. Skipping UI element positioning.");
         }
 
         // 3. Vizuális Passthrough Állapot Váltása
