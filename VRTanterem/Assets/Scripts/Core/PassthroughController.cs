@@ -4,17 +4,29 @@ using UnityEngine.InputSystem;
 public class PassthroughController : MonoBehaviour
 {
     [Header("Oculus Components")]
-    [SerializeField] private OVRManager ovrManager; // Ezt valójában nem használjuk a kódban, de jó, ha itt van referenciaként
-    [SerializeField] private OVRPassthroughLayer passthroughLayer; // Ezt kapcsolgatjuk
-    [SerializeField] private Camera mainCamera; // Ennek a hátterét módosítjuk
+    [SerializeField] private OVRManager ovrManager;
+    [SerializeField] private OVRPassthroughLayer passthroughLayer;
+    [SerializeField] private Camera mainCamera;
 
     [Header("Scene Objects")]
-    [SerializeField] private GameObject virtualEnvironmentRoot; // Ezt kapcsolgatjuk
+    [SerializeField] private GameObject virtualEnvironmentRoot;
 
     [Header("Input Actions")]
-    [SerializeField] private InputActionAsset inputActions; // Az asset, ami tartalmazza az action-t
-    [SerializeField] private string actionMapName = "SystemControls"; // Az Action Map neve az assetben
-    [SerializeField] private string toggleActionName = "TogglePassthrough"; // Az Action neve az Action Map-en belül
+    [SerializeField] private InputActionAsset inputActions;
+    [SerializeField] private string actionMapName = "SystemControls";
+    [SerializeField] private string toggleActionName = "TogglePassthrough";
+
+    [Header("Teleportation Settings")]
+    [SerializeField] private GameObject ovrPlayerObject;
+    [SerializeField] private Transform playerPositionTarget;
+    [SerializeField] private Transform passthroughPositionTarget;
+
+    [Header("Fade Effect")]
+    [SerializeField] private OVRScreenFade ovrScreenFade;
+    [SerializeField] private float fadeDuration = 0.25f;
+
+    // Átmenet állapotát követő változó
+    private bool isTransitioning = false;
 
     // Input Action referencia
     private InputAction togglePassthroughAction;
@@ -54,6 +66,40 @@ public class PassthroughController : MonoBehaviour
             return;
         }
         Debug.Log("   Awake: Visual component references seem OK.");
+
+        // --- Ellenőrzése a Teleportációhoz és Fade-hez ---
+        if (ovrPlayerObject == null)
+        {
+            Debug.LogError("!!! AWAKE ERROR: OVR Player Object reference (ovrPlayerObject) is NULL! Assign it in the Inspector.", this);
+            enabled = false;
+            return;
+        }
+        if (playerPositionTarget == null)
+        {
+            Debug.LogError("!!! AWAKE ERROR: Player Position Target reference (playerPositionTarget) is NULL! Assign it in the Inspector.", this);
+            enabled = false;
+            return;
+        }
+        if (passthroughPositionTarget == null)
+        {
+            Debug.LogError("!!! AWAKE ERROR: Passthrough Position Target reference (passthroughPositionTarget) is NULL! Assign it in the Inspector.", this);
+            enabled = false;
+            return;
+        }
+        if (ovrScreenFade == null)
+        {
+            if (fadeDuration > 0)
+            {
+                Debug.LogError("!!! AWAKE ERROR: OVRScreenFade reference (ovrScreenFade) is NULL, but fadeDuration > 0! Assign it in the Inspector or set fadeDuration to 0.", this);
+                enabled = false;
+                return;
+            }
+            else
+            {
+                Debug.LogWarning("  Awake: OVRScreenFade reference is NULL. Fade effect will be skipped.");
+            }
+        }
+        Debug.Log("    Awake: Teleportation and Fade component references seem OK.");
 
         // --- Eredeti Kamera Beállítások Mentése ---
         // Mentsük el az indulási állapotot, MIELŐTT esetleg módosítanánk rajta
@@ -175,53 +221,119 @@ public class PassthroughController : MonoBehaviour
     // Ezt a metódust hívja az OnTogglePassthroughPerformed és a Start
     public void SetPassthroughState(bool enablePassthrough)
     {
-        // Logoljuk a hívást és az állapotokat
         Debug.Log($"===== SetPassthroughState called: Requesting enablePassthrough = {enablePassthrough}, Current state (isPassthroughActive) = {isPassthroughActive} =====");
 
-        // Ellenőrizzük, hogy tényleg kell-e váltani
-        if (enablePassthrough == isPassthroughActive)
+        if (isTransitioning)
         {
-            Debug.LogWarning("   SetPassthroughState: Requested state is the same as current state. No change needed.");
-            return; // Nincs változás
-        }
-
-        // --- Referenciák Ellenőrzése (Biztonsági okokból itt is) ---
-        // Bár Awake-ben ellenőriztük, egy extra check itt nem árt.
-        if (passthroughLayer == null || mainCamera == null || virtualEnvironmentRoot == null)
-        {
-            Debug.LogError("!!! SetPassthroughState CRITICAL ERROR: One or more required component references are NULL! Cannot perform visual switch. Check Inspector and Awake logs!");
-            // Nem állítjuk át az isPassthroughActive-ot, mert a váltás nem tudott megtörténni!
+            Debug.LogWarning("  SetPassthroughState: Transition already in progress. Ignoring request.");
             return;
         }
 
-        // Átállítjuk a belső állapotváltozót
-        isPassthroughActive = enablePassthrough;
-        Debug.Log($"   Internal state (isPassthroughActive) updated to: {isPassthroughActive}");
-
-        // 1. OVRPassthroughLayer komponens engedélyezése/letiltása
-        passthroughLayer.enabled = enablePassthrough;
-        Debug.Log($"   OVRPassthroughLayer component '.enabled' set to: {passthroughLayer.enabled}");
-
-        // 2. Kamera hátterének beállítása (URP kompatibilis módon)
-        if (enablePassthrough)
+        if (enablePassthrough == isPassthroughActive)
         {
-            // Passthrough Mód: Solid Color, átlátszó háttérrel
-            mainCamera.clearFlags = CameraClearFlags.SolidColor;
-            mainCamera.backgroundColor = Color.clear; // RGBA(0,0,0,0)
-            Debug.Log($"   Camera background set for Passthrough: ClearFlags={mainCamera.clearFlags}, BackgroundColor={mainCamera.backgroundColor}");
+            Debug.LogWarning("  SetPassthroughState: Requested state is the same as current state. No change needed.");
+            return;
+        }
+
+        // Kritikus referenciák ellenőrzése (beleértve az újakat is)
+        if (passthroughLayer == null || mainCamera == null || virtualEnvironmentRoot == null ||
+            ovrPlayerObject == null || playerPositionTarget == null || passthroughPositionTarget == null)
+        {
+            Debug.LogError("!!! SetPassthroughState CRITICAL ERROR: One or more required component references for passthrough/teleport are NULL! Cannot perform transition. Check Inspector and Awake logs!");
+            return;
+        }
+        if (ovrScreenFade == null && fadeDuration > 0)
+        {
+            Debug.LogError("!!! SetPassthroughState CRITICAL ERROR: OVRScreenFade is NULL but fadeDuration > 0. Cannot perform fade. Assign OVRScreenFade or set fadeDuration to 0.");
+            // Dönthetsz úgy, hogy fade nélkül folytatod, vagy itt megállsz. Most megállunk.
+            return;
+        }
+
+
+        StartCoroutine(PerformTransition(enablePassthrough));
+    }
+
+    private System.Collections.IEnumerator PerformTransition(bool enablePassthrough)
+    {
+        isTransitioning = true;
+        Debug.Log($"--- Starting Transition. Target Passthrough State: {enablePassthrough} --- Time: {Time.time}");
+
+        // 1. Fade Out
+        if (ovrScreenFade != null && fadeDuration > 0)
+        {
+            Debug.Log("  Transition: Fading out...");
+            ovrScreenFade.fadeTime = fadeDuration;
+            ovrScreenFade.FadeOut();
+            yield return new WaitForSeconds(fadeDuration);
+            Debug.Log("  Transition: Fade out complete.");
         }
         else
         {
-            // Virtuális Mód: Eredeti beállítások visszaállítása
-            mainCamera.clearFlags = originalClearFlags; // Visszaállítás az Awake-ben mentett értékre
-            mainCamera.backgroundColor = originalBackgroundColor; // Visszaállítás az Awake-ben mentett értékre
-            Debug.Log($"   Camera background restored for VR: ClearFlags={mainCamera.clearFlags}, BackgroundColor={mainCamera.backgroundColor}");
+            Debug.LogWarning("  Transition: OVRScreenFade not assigned or fadeDuration is 0. Skipping fade out.");
         }
 
-        // 3. Virtuális környezet GameObject aktiválása/deaktiválása
-        virtualEnvironmentRoot.SetActive(!enablePassthrough); // Ha passthrough aktív, a környezet inaktív, és fordítva.
-        Debug.Log($"   VirtualEnvironmentRoot GameObject '.SetActive()' called with: {!enablePassthrough}");
+        // 2. Teleportálás
+        Debug.Log("  Transition: Performing teleportation...");
+        if (enablePassthrough)
+        {
+            if (passthroughPositionTarget != null)
+            {
+                ovrPlayerObject.transform.position = passthroughPositionTarget.position;
+                ovrPlayerObject.transform.rotation = passthroughPositionTarget.rotation;
+                Debug.Log($"    Player ('{ovrPlayerObject.name}') teleported to Passthrough Target: '{passthroughPositionTarget.name}' (Pos: {passthroughPositionTarget.position}, Rot: {passthroughPositionTarget.eulerAngles})");
+            }
+            else Debug.LogError("  Transition ERROR: passthroughPositionTarget is NULL!");
+        }
+        else
+        {
+            if (playerPositionTarget != null)
+            {
+                ovrPlayerObject.transform.position = playerPositionTarget.position;
+                ovrPlayerObject.transform.rotation = playerPositionTarget.rotation;
+                Debug.Log($"    Player ('{ovrPlayerObject.name}') teleported to Player (VR) Target: '{playerPositionTarget.name}' (Pos: {playerPositionTarget.position}, Rot: {playerPositionTarget.eulerAngles})");
+            }
+            else Debug.LogError("  Transition ERROR: playerPositionTarget is NULL!");
+        }
 
-        Debug.Log($"===== SetPassthroughState finished successfully for state: {enablePassthrough} =====");
+        // 3. Vizuális Passthrough Állapot Váltása
+        isPassthroughActive = enablePassthrough;
+        Debug.Log($"  Transition: Internal state (isPassthroughActive) updated to: {isPassthroughActive}");
+
+        passthroughLayer.enabled = isPassthroughActive;
+        Debug.Log($"    OVRPassthroughLayer component '.enabled' set to: {passthroughLayer.enabled}");
+
+        if (isPassthroughActive)
+        {
+            mainCamera.clearFlags = CameraClearFlags.SolidColor;
+            mainCamera.backgroundColor = Color.clear;
+            Debug.Log($"    Camera background set for Passthrough: ClearFlags={mainCamera.clearFlags}, BackgroundColor={mainCamera.backgroundColor}");
+        }
+        else
+        {
+            mainCamera.clearFlags = originalClearFlags;
+            mainCamera.backgroundColor = originalBackgroundColor;
+            Debug.Log($"    Camera background restored for VR: ClearFlags={mainCamera.clearFlags}, BackgroundColor={mainCamera.backgroundColor}");
+        }
+
+        virtualEnvironmentRoot.SetActive(!isPassthroughActive);
+        Debug.Log($"    VirtualEnvironmentRoot GameObject '.SetActive()' called with: {!isPassthroughActive}");
+
+        // 4. Fade In
+        if (ovrScreenFade != null && fadeDuration > 0)
+        {
+            Debug.Log("  Transition: Fading in...");
+            ovrScreenFade.fadeTime = fadeDuration;
+            ovrScreenFade.FadeIn();
+            yield return new WaitForSeconds(fadeDuration);
+            Debug.Log("  Transition: Fade in complete.");
+        }
+        else
+        {
+            Debug.LogWarning("  Transition: OVRScreenFade not assigned or fadeDuration is 0. Skipping fade in.");
+        }
+
+        isTransitioning = false;
+        Debug.Log($"--- Transition Finished. Passthrough State: {isPassthroughActive} --- Time: {Time.time}");
+        Debug.Log($"===== SetPassthroughState (via coroutine) finished successfully for state: {isPassthroughActive} =====");
     }
 }
