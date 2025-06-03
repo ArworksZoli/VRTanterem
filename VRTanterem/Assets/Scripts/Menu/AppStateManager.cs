@@ -39,6 +39,7 @@ public class AppStateManager : MonoBehaviour
     public SubjectConfig CurrentSubject { get; private set; }
     public TopicConfig CurrentTopic { get; private set; }
     public string CurrentVoiceId { get; private set; }
+    public string CurrentFantasyVoiceName { get; private set; }
     public string CurrentAssistantId { get; private set; }
 
     // --- Életciklus Metódusok ---
@@ -136,7 +137,7 @@ public class AppStateManager : MonoBehaviour
 
     // --- Fő Vezérlő Metódus ---
 
-    public void StartInteraction(LanguageConfig lang, SubjectConfig subj, TopicConfig topic, string voiceId)
+    public void StartInteraction(LanguageConfig lang, SubjectConfig subj, TopicConfig topic, string voiceId, string fantasyVoiceName)
     {
         Debug.LogWarning($"[AppStateManager_LOG] StartInteraction CALLED - Frame: {Time.frameCount}");
         // 1. Bemeneti adatok logolása és ellenőrzése
@@ -145,12 +146,12 @@ public class AppStateManager : MonoBehaviour
             Debug.LogError("[AppStateManager_LOG] StartInteraction RECEIVED a NULL Topic object!");
             return;
         }
-        Debug.Log($"[AppStateManager_LOG] StartInteraction RECEIVED. Topic Name: '{topic.topicName}', Assistant ID: '{topic.assistantId}', Voice ID: '{voiceId}'");
+        Debug.Log($"[AppStateManager_LOG] StartInteraction RECEIVED. Topic Name: '{topic.topicName}', Assistant ID: '{topic.assistantId}', Voice ID: '{voiceId}', Fantasy Voice Name: '{fantasyVoiceName}'");
 
         // 2. Konfiguráció validálása és mentése
-        if (lang == null || subj == null || string.IsNullOrEmpty(voiceId) || string.IsNullOrEmpty(topic.assistantId))
+        if (lang == null || subj == null || string.IsNullOrEmpty(voiceId) || string.IsNullOrEmpty(topic.assistantId) || string.IsNullOrEmpty(fantasyVoiceName))
         {
-            Debug.LogError("[AppStateManager_LOG] Critical Error: Received incomplete configuration! Cannot proceed.");
+            Debug.LogError("[AppStateManager_LOG] Critical Error: Received incomplete configuration (lang, subj, voiceId, assistantId, or fantasyVoiceName is missing)! Cannot proceed.");
             return;
         }
 
@@ -158,9 +159,10 @@ public class AppStateManager : MonoBehaviour
         CurrentSubject = subj;
         CurrentTopic = topic;
         CurrentVoiceId = voiceId;
+        CurrentFantasyVoiceName = fantasyVoiceName;
         CurrentAssistantId = topic.assistantId;
 
-        Debug.Log($"[AppStateManager_LOG] Configuration saved. Assistant ID: {CurrentAssistantId}, Voice ID: {CurrentVoiceId}");
+        Debug.Log($"[AppStateManager_LOG] Configuration saved. Assistant ID: {CurrentAssistantId}, Voice ID: {CurrentVoiceId}, Fantasy Voice Name: {CurrentFantasyVoiceName}");
 
         // --- 3. LectureImageController Inicializálása ---
 
@@ -231,8 +233,8 @@ public class AppStateManager : MonoBehaviour
             OpenAIWebRequest openAIComp = interactionModuleObject.GetComponentInChildren<OpenAIWebRequest>(true);
             if (openAIComp != null)
             {
-                Debug.Log($"[AppStateManager_LOG] Found OpenAIWebRequest. Calling InitializeAndStartInteraction with Assistant ID: '{CurrentAssistantId}', Voice ID: '{CurrentVoiceId}'");
-                openAIComp.InitializeAndStartInteraction(CurrentAssistantId, CurrentVoiceId);
+                Debug.Log($"[AppStateManager_LOG] Found OpenAIWebRequest. Calling InitializeAndStartInteraction with Assistant ID: '{CurrentAssistantId}', Voice ID: '{CurrentVoiceId}', Fantasy Name: '{CurrentFantasyVoiceName}'");
+                openAIComp.InitializeAndStartInteraction(CurrentAssistantId, CurrentVoiceId, CurrentFantasyVoiceName);
             }
             else { Debug.LogError("[AppStateManager_LOG] OpenAIWebRequest component not found!"); }
 
@@ -336,6 +338,7 @@ public class AppStateManager : MonoBehaviour
         CurrentSubject = null;
         CurrentTopic = null;
         CurrentVoiceId = null;
+        CurrentFantasyVoiceName = null;
         CurrentAssistantId = null;
         Debug.Log("[AppStateManager_LOG] AppStateManager belső kiválasztási állapot törölve.");
 

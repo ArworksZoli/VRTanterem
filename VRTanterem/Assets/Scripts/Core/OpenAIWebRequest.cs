@@ -17,6 +17,7 @@ public class OpenAIWebRequest : MonoBehaviour
 
     [Tooltip("The ID of the OpenAI Assistant to use")]
     private string assistantID;
+    private string aiTeacherFantasyName;
 
     private string apiUrl = "https://api.openai.com/v1";
 
@@ -118,10 +119,10 @@ public class OpenAIWebRequest : MonoBehaviour
         Debug.Log("[OpenAIWebRequest] Start() finished (Automatic thread/run creation DISABLED for menu integration).");
     }
 
-    
-    public void InitializeAndStartInteraction(string selectedAssistantId, string selectedVoiceId)
+
+    public void InitializeAndStartInteraction(string selectedAssistantId, string selectedVoiceId, string fantasyName)
     {
-        Debug.Log($"[OpenAIWebRequest] InitializeAndStartInteraction called. AssistantID: {selectedAssistantId}, VoiceID: {selectedVoiceId}");
+        Debug.Log($"[OpenAIWebRequest] InitializeAndStartInteraction called. AssistantID: {selectedAssistantId}, VoiceID: {selectedVoiceId}, FantasyName: {fantasyName}");
 
         // --- 1. Konfiguráció Mentése ÉS ELLENŐRZÉSE ---
         // Először szerezzük meg az API kulcsot (feltételezve, hogy az AppStateManager tárolja)
@@ -146,7 +147,8 @@ public class OpenAIWebRequest : MonoBehaviour
             return;
         }
 
-        this.assistantID = selectedAssistantId; // Elmentjük a kapott ID-t
+        this.assistantID = selectedAssistantId;
+        this.aiTeacherFantasyName = fantasyName;
 
         // --- ÁTHELYEZETT ELLENŐRZÉSEK ---
         bool configurationValid = true;
@@ -748,6 +750,19 @@ public class OpenAIWebRequest : MonoBehaviour
         // --- PROMPT ENGINEERING: Speciális instrukciók hozzáadása, ha kérdésre válaszolunk ---
         switch (runType)
         {
+            case AssistantRunType.InitialGreeting:
+                if (!string.IsNullOrEmpty(this.aiTeacherFantasyName))
+                {
+                    string greetingInstructions = $"Your name for this interaction is '{this.aiTeacherFantasyName}'. Please introduce yourself using this name and then proceed with the standard interaction flow. For example, start your very first message with: 'Jó napot kívánok! Én {this.aiTeacherFantasyName} vagyok...'. Use language: {language}.";
+                    runBody["additional_instructions"] = greetingInstructions;
+                    Debug.LogWarning($"[OpenAIWebRequest] Added INITIAL GREETING instructions with Fantasy Name: '{this.aiTeacherFantasyName}' in language: {language}");
+                }
+                else
+                {
+                    Debug.LogWarning("[OpenAIWebRequest] Fantasy name is missing for InitialGreeting. Using default greeting behavior.");
+                }
+                break;
+
             case AssistantRunType.InterruptionAnswer:
                 if (!string.IsNullOrEmpty(customInstructions))
                 {
@@ -790,16 +805,6 @@ public class OpenAIWebRequest : MonoBehaviour
                     $"Use language: {language}.";
                 runBody["additional_instructions"] = quizInstructions;
                 Debug.LogWarning($"[OpenAIWebRequest] Added QUIZ ANSWER evaluation and LECTURE CONTINUATION instructions in language: {language}");
-                break;
-
-            case AssistantRunType.InitialGreeting:
-                // For the initial greeting, we might want to ensure it follows the prompt's start flow.
-                // Often, the main system prompt is enough. If specific behavior is needed for the *very first* run,
-                // you could add instructions here. For example:
-                // string greetingInstructions = $"Ensure you start by greeting the user, stating the lecture topic, and asking if they have any preliminary questions, as outlined in the main system prompt's 'INTERACTION START AND FLOW' section. Use language: {language}.";
-                // runBody["additional_instructions"] = greetingInstructions;
-                // For now, let's assume the main system prompt (provided when creating the Assistant or Thread) handles this.
-                Debug.Log($"[OpenAIWebRequest] RunType is InitialGreeting. Relying on main system prompt for initial interaction flow.");
                 break;
 
             case AssistantRunType.MainLecture:

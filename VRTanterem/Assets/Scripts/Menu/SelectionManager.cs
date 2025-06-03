@@ -36,6 +36,7 @@ public class SelectionManager : MonoBehaviour
     private SubjectConfig selectedSubject;
     private TopicConfig selectedTopic;
     private string selectedVoiceId;
+    private string selectedFantasyVoiceName;
 
 
     void Start()
@@ -292,6 +293,43 @@ public class SelectionManager : MonoBehaviour
         currentActivePanel = voicePanel;
     }
 
+    private string GetFantasyNameForVoiceId(string voiceId)
+    {
+        if (selectedLanguage == null || string.IsNullOrEmpty(voiceId))
+        {
+            return voiceId; // Visszaadjuk a technikai ID-t, ha nincs elég info
+        }
+
+        // Ez a logika megegyezik a PopulateVoicePanel-ben lévővel.
+        // Fontos, hogy a kulcsok (pl. "onyx") egyezzenek azokkal az ID-kkal,
+        // amiket a TopicConfig-ban az availableVoiceIds listában megadsz.
+        Dictionary<string, string> voiceDisplayNames = new Dictionary<string, string>();
+        if (selectedLanguage.languageCode == "hu")
+        {
+            voiceDisplayNames.Add("onyx", "István");
+            voiceDisplayNames.Add("ash", "Jenő"); // Feltételezve, hogy az "ash" helyett "alloy"-t használsz az OpenAI standard hangok miatt. Ha "ash" egyedi, akkor az maradjon.
+            voiceDisplayNames.Add("nova", "Éva");
+            voiceDisplayNames.Add("shimmer", "Krisztina");
+        }
+        else // Alapértelmezett angol vagy más nyelv
+        {
+            voiceDisplayNames.Add("onyx", "Stephen");
+            voiceDisplayNames.Add("ash", "Eugene");
+            voiceDisplayNames.Add("nova", "Eve");
+            voiceDisplayNames.Add("shimmer", "Christine");
+        }
+        // További általános hangok, ha kellenek és nincsenek a nyelvspecifikus listában
+        if (!voiceDisplayNames.ContainsKey("fable")) voiceDisplayNames.Add("fable", "Fable");
+        if (!voiceDisplayNames.ContainsKey("echo")) voiceDisplayNames.Add("echo", "Echo");
+
+
+        if (voiceDisplayNames.TryGetValue(voiceId, out string fantasyName))
+        {
+            return fantasyName;
+        }
+        return voiceId; // Ha nincs a listában, visszaadjuk a technikai ID-t
+    }
+
 
     void PopulateVoicePanel() // SZÖVEGES (feltételezve) - Van SetButtonText
     {
@@ -348,6 +386,9 @@ public class SelectionManager : MonoBehaviour
     {
         Debug.Log($"Voice selected: {voiceId}");
         selectedVoiceId = voiceId;
+        selectedFantasyVoiceName = GetFantasyNameForVoiceId(voiceId);
+
+        Debug.Log($"Selected Fantasy Voice Name: {selectedFantasyVoiceName}");
 
         voicePanel.SetActive(false);
         
@@ -394,14 +435,15 @@ public class SelectionManager : MonoBehaviour
                   $"\n - Language: {selectedLanguage.displayName}" +
                   $"\n - Subject: {selectedSubject.subjectName}" +
                   $"\n - Topic: {selectedTopic.topicName}" +
-                  $"\n - Voice: {selectedVoiceId}" +
+                  $"\n - Voice ID (Technical): {selectedVoiceId}" +
+                  $"\n - Voice Name (Fantasy): {selectedFantasyVoiceName}" +
                   $"\n - Assistant ID: {selectedTopic.assistantId}");
 
         // --- 4. Átadjuk az irányítást az AppStateManager-nek (CSAK EGYSZER!) ---
         if (AppStateManager.Instance != null)
         {
             Debug.Log($"[SelectionManager] Calling AppStateManager.StartInteraction via Instance...");
-            AppStateManager.Instance.StartInteraction(selectedLanguage, selectedSubject, selectedTopic, selectedVoiceId);
+            AppStateManager.Instance.StartInteraction(selectedLanguage, selectedSubject, selectedTopic, selectedVoiceId, selectedFantasyVoiceName);
             Debug.Log("[SelectionManager] Handover to AppStateManager successful.");
         }
         else
@@ -432,34 +474,28 @@ public class SelectionManager : MonoBehaviour
             // Ez biztosítja, hogy ha a felhasználó visszalép, majd másikat választ, ne maradjanak "beragadt" értékek.
             if (currentActivePanel == languagePanel)
             {
-                selectedSubject = null; // Visszatértünk a Nyelv panelre, töröljük a kiválasztott tantárgyat
-                selectedTopic = null;   // és témát, hangot is
+                selectedSubject = null;
+                selectedTopic = null;
                 selectedVoiceId = null;
-                // A selectedLanguage megmarad, hiszen ezen a panelen vagyunk.
+                selectedFantasyVoiceName = null;
             }
             else if (currentActivePanel == subjectPanel)
             {
-                selectedTopic = null;   // Visszatértünk a Tantárgy panelre, töröljük a kiválasztott témát
-                selectedVoiceId = null; // és hangot is
-                // A selectedLanguage és selectedSubject megmarad.
+                selectedTopic = null;
+                selectedVoiceId = null;
+                selectedFantasyVoiceName = null;
             }
             else if (currentActivePanel == topicPanel)
             {
-                selectedVoiceId = null; // Visszatértünk a Téma panelre, töröljük a kiválasztott hangot
-                // selectedLanguage, selectedSubject, selectedTopic megmarad.
+                selectedVoiceId = null;
+                selectedFantasyVoiceName = null;
             }
-            // Ha a voicePanel-ről léptünk vissza a topicPanel-re, a selectedVoiceId már törölve lett.
-            // A voicePanel maga nem kerül a history-ba, ha onnan egyből a FinalizeSelectionAndStart() következik.
-            // De ha a SelectTopic után nincs hangválasztás, akkor a topicPanel-ről a FinalizeSelectionAndStart() jön,
-            // ilyenkor a GoBack() a subjectPanel-re visz.
 
             Debug.Log($"Navigated back to: {currentActivePanel.name}");
         }
         else
         {
             Debug.LogWarning("No panel in history to go back to. Already at the first panel or history is empty.");
-            // Itt dönthetsz úgy, hogy pl. bezárod az egész menüt, vagy a visszalépő gomb inaktívvá válik,
-            // ha az első panelen van, és nincs hova visszalépni.
         }
     }
 }
