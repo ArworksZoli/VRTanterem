@@ -16,6 +16,10 @@ public class PassthroughController : MonoBehaviour
     [SerializeField] private string actionMapName = "SystemControls";
     [SerializeField] private string toggleActionName = "TogglePassthrough";
 
+    [Header("Functionality Control")]
+    [Tooltip("Meghatározza, hogy a passthrough váltás engedélyezve van-e. Akkor állítsd true-ra, amikor az előadás elindul.")]
+    public bool allowPassthroughToggle = false;
+
     [Header("Teleportation Settings")]
     [SerializeField] private GameObject ovrPlayerObject;
     [SerializeField] private Transform playerPositionTarget;
@@ -46,7 +50,10 @@ public class PassthroughController : MonoBehaviour
     // Aktuális állapot követése
     private bool isPassthroughActive = false;
 
-    // --- Életciklus Metódusok ---
+    public bool IsPassthroughCurrentlyActive()
+    {
+        return isPassthroughActive;
+    }
 
     void Awake()
     {
@@ -214,24 +221,30 @@ public class PassthroughController : MonoBehaviour
 
     public void TogglePassthrough()
     {
-        // Logoljuk, hogy ez a specifikus metódus lett meghívva, és mi az aktuális állapot
+        if (!allowPassthroughToggle)
+        {
+            Debug.Log("Passthrough UI gomb megnyomva, de a váltás még nincs engedélyezve.");
+            return;
+        }
+
         Debug.Log($"--- TogglePassthrough() method called (e.g., from UI Button). Current isPassthroughActive: {isPassthroughActive} ---");
 
-        // Ugyanazt a logikát használjuk, mint az InputAction eseménykezelő:
-        // megfordítjuk az aktuális állapotot.
         SetPassthroughState(!isPassthroughActive);
     }
 
     // --- Input Esemény Kezelő ---
-
     private void OnTogglePassthroughPerformed(InputAction.CallbackContext context)
     {
-        // Ez az a log, amit már láttál működni!
+        if (!allowPassthroughToggle)
+        {
+            Debug.Log("Passthrough váltás megkísérelve, de még nincs engedélyezve (az előadás valószínűleg nem indult el).");
+            return;
+        }
+
         Debug.Log("!!!!!!!!!! TOGGLE PASSTHROUGH ACTION PERFORMED !!!!!!!!!!");
 
-        // Itt hívjuk meg a váltást végző logikát
         Debug.Log($"   Action '{toggleActionName}' performed. Calling SetPassthroughState to toggle.");
-        SetPassthroughState(!isPassthroughActive); // Megfordítjuk az aktuális állapotot
+        SetPassthroughState(!isPassthroughActive);
     }
 
     // --- Vizuális Váltás Logikája ---

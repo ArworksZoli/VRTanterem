@@ -1286,6 +1286,7 @@ MonoBehaviour:
   versionNumber: {fileID: 192417654}
   topicDisplayImage: {fileID: 1826826921}
   lectureImageController: {fileID: 173263440}
+  passthroughController: {fileID: 838853962}
   selectionManagerInstance: {fileID: 1529255465}
 --- !u!114 &173263439
 MonoBehaviour:
@@ -6514,6 +6515,7 @@ MonoBehaviour:
     type: 3}
   actionMapName: SystemControls
   toggleActionName: TogglePassthrough
+  allowPassthroughToggle: 0
   ovrPlayerObject: {fileID: 1339716292}
   playerPositionTarget: {fileID: 1510039906}
   passthroughPositionTarget: {fileID: 1408508256}

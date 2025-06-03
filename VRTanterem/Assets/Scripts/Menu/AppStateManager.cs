@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using TMPro;
 
@@ -27,6 +28,8 @@ public class AppStateManager : MonoBehaviour
     [Header("Feature Controllers")]
     [Tooltip("Húzd ide a LectureImageController komponenst tartalmazó GameObjectet, vagy magát a komponenst.")]
     [SerializeField] private LectureImageController lectureImageController;
+    [Tooltip("Húzd ide a PassthroughController komponenst a jelenetből.")]
+    [SerializeField] private PassthroughController passthroughController;
 
     [Header("Menu System")]
     [SerializeField] private SelectionManager selectionManagerInstance;
@@ -36,7 +39,7 @@ public class AppStateManager : MonoBehaviour
     public SubjectConfig CurrentSubject { get; private set; }
     public TopicConfig CurrentTopic { get; private set; }
     public string CurrentVoiceId { get; private set; }
-    public string CurrentAssistantId { get; private set; } // Ezt a TopicConfig-ból nyerjük ki
+    public string CurrentAssistantId { get; private set; }
 
     // --- Életciklus Metódusok ---
 
@@ -92,6 +95,11 @@ public class AppStateManager : MonoBehaviour
             // Lehet, hogy nem hiba, ha ez a funkció opcionális, de most szükségesnek tekintjük.
             Debug.LogError("[AppStateManager_LOG] Awake Error: Lecture Image Controller is not assigned! Keyword image feature will be disabled.", this);
             setupOk = false;
+        }
+
+        if (passthroughController == null)
+        {
+            Debug.LogWarning("[AppStateManager_LOG] Awake Warning: PassthroughController referencia nincs beállítva! Az AppStateManager nem fogja tudni vezérelni a passthrough engedélyezését/letiltását.", this);
         }
         // --- Ellenőrzés Vége ---
 
@@ -200,6 +208,17 @@ public class AppStateManager : MonoBehaviour
             Debug.LogWarning("[AppStateManager_LOG] Could not find SelectionManager instance to deactivate menu.");
         }
 
+        // Passthrough tiltva az elején
+        if (passthroughController != null)
+        {
+            passthroughController.allowPassthroughToggle = true;
+            Debug.Log("[AppStateManager_LOG] Passthrough váltás MOSTANTÓL ENGEDÉLYEZVE.");
+        }
+        else
+        {
+            Debug.LogWarning("[AppStateManager_LOG] PassthroughController referencia nincs beállítva, a passthrough váltás nem lesz engedélyezve.");
+        }
+
 
         // --- 5. Fő Interakciós Modul Aktiválása és Inicializálása ---
         if (interactionModuleObject != null)
@@ -243,6 +262,22 @@ public class AppStateManager : MonoBehaviour
     {
         Debug.LogWarning($"[AppStateManager_LOG] ResetToMainMenu ELINDÍTVA. Idő: {Time.time}");
 
+        if (passthroughController != null)
+        {
+            // Ha a passthrough éppen aktív, kapcsoljuk ki (állítsuk vissza VR módba)
+            if (passthroughController.IsPassthroughCurrentlyActive()) // Feltételezve, hogy van ilyen metódusod
+            {
+                Debug.Log("[AppStateManager_LOG] Passthrough aktív, megkíséreljük kikapcsolni a menübe való visszatérés előtt.");
+                passthroughController.SetPassthroughState(false);
+            }
+            passthroughController.allowPassthroughToggle = false;
+            Debug.Log("[AppStateManager_LOG] Passthrough váltás MOSTANTÓL LETILTVA.");
+        }
+        else
+        {
+            Debug.LogWarning("[AppStateManager_LOG] PassthroughController referencia nincs beállítva, a passthrough váltás nem lesz letiltva.");
+        }
+
         if (interactionModuleObject != null)
         {
             Debug.Log("[AppStateManager_LOG] Interaction Module resetelése és kikapcsolása előkészítve...");
@@ -259,7 +294,7 @@ public class AppStateManager : MonoBehaviour
             if (ttsCtrl != null)
             {
                 Debug.Log("  -> TextToSpeechManager.ResetManager() hívása...");
-                ttsCtrl.ResetManager(); // <--- EZ A HÍVÁS MOST MÁR A FRISSÍTETT ResetManager-t HÍVJA
+                ttsCtrl.ResetManager();
             }
             else { Debug.LogWarning("  -> TextToSpeechManager nem található a modulban."); }
 
@@ -267,7 +302,7 @@ public class AppStateManager : MonoBehaviour
             if (oaiCtrl != null)
             {
                 Debug.Log("  -> OpenAIWebRequest.CancelAllOngoingRequestsAndResetState() hívása...");
-                oaiCtrl.CancelAllOngoingRequestsAndResetState(); // <--- EZ AZ ÚJ HÍVÁS
+                oaiCtrl.CancelAllOngoingRequestsAndResetState();
             }
             else { Debug.LogWarning("  -> OpenAIWebRequest nem található a modulban."); }
 
@@ -275,7 +310,7 @@ public class AppStateManager : MonoBehaviour
             if (ifmCtrl != null)
             {
                 Debug.Log("  -> InteractionFlowManager.HardResetToIdle() hívása...");
-                ifmCtrl.HardResetToIdle(); // <--- EZ AZ ÚJ HÍVÁS
+                ifmCtrl.HardResetToIdle();
             }
             else { Debug.LogWarning("  -> InteractionFlowManager nem található."); }
 
