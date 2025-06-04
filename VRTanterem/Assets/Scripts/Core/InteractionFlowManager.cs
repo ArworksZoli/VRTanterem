@@ -21,9 +21,7 @@ public class InteractionFlowManager : MonoBehaviour
         Lecturing,
         QuestionPending,
         WaitingForUserInput, // Prompt elhangzása után, Beszéd gomb aktív
-        ProcessingUserInput, // Beszéd gomb lenyomva/felengedve, Whisper dolgozik
-        AnsweringQuestion,   // AI válasza érkezik/TTS olvassa
-        ResumingLecture
+        ProcessingUserInput // Beszéd gomb lenyomva/felengedve, Whisper dolgozik
     }
 
     [Header("State (Read Only)")]
@@ -416,47 +414,22 @@ public class InteractionFlowManager : MonoBehaviour
         Debug.LogWarning($"[IFM_LOG] <<< HandleUserQuestionReceived EXIT. ExpectingQuiz: {expectingQuizAnswer}, WaitingLectureStart: {waitingForLectureStartConfirmation}");
     }
 
-    // Ezt hívja az OpenAIWebRequest, amikor a VÁLASZ streamje elkezdődik
-    public void HandleAIAnswerStreamStart()
-    {
-        Debug.LogWarning($"[IFM_LOG] >>> HandleAIAnswerStreamStart ENTER. State: {currentState}");
-        Debug.LogWarning($"[IFM_LOG] HandleAIAnswerStreamStart called. Current state: {currentState}");
-
-        // Csak akkor váltunk, ha épp a feldolgozásra vártunk
-        if (currentState == InteractionState.ProcessingUserInput)
-        {
-            SetState(InteractionState.AnsweringQuestion);
-
-            // Nem kell külön kezelni a SentenceHighlighter-t, 
-            // mert az OpenAIWebRequest már továbbítja a delta-kat
-        }
-        else
-        {
-            Debug.LogWarning($"[IFM_LOG] HandleAIAnswerStreamStart called in unexpected state: {currentState}. Ignoring state change.");
-        }
-        Debug.LogWarning($"[IFM_LOG] <<< HandleAIAnswerStreamStart EXIT.");
-    }
-
     public void HandleLectureStreamStart()
     {
-        Debug.LogWarning($"[IFM_LOG] >>> HandleLectureStreamStart ENTER. State: {currentState}");
-        Debug.LogWarning($"[IFM_LOG] HandleLectureStreamStart called. Current state: {currentState}");
+        Debug.LogWarning($"[IFM_LOG] >>> HandleLectureStreamStart (vagy HandleAIResponseStreamStart) ENTER. Current state: {currentState}");
 
-        // Akkor váltunk Lecturing-re, ha épp a feldolgozásra vártunk
-        // (miután a user megerősítette, hogy kezdődhet az előadás a HandleUserQuestionReceived-ben)
-        if (currentState == InteractionState.ProcessingUserInput)
+        if (currentState == InteractionState.ProcessingUserInput ||
+            currentState == InteractionState.Idle ||
+            currentState == InteractionState.WaitingForUserInput)
         {
-            Debug.Log("[IFM_LOG] Lecture stream started. Setting state to Lecturing.");
-            // Átváltunk Lecturing állapotba.
-            // A SetState metódus gondoskodik a megfelelő gombok (RaiseHand: on, Mic: off) beállításáról.
+            Debug.Log("[IFM_LOG] AI response stream started. Setting state to Lecturing.");
             SetState(InteractionState.Lecturing);
         }
         else
         {
-            // Ha valamiért más állapotban hívódik meg, azt logoljuk, de nem váltunk állapotot.
-            Debug.LogWarning($"[IFM_LOG] HandleLectureStreamStart called in unexpected state: {currentState}. Ignoring state change.");
+            Debug.LogWarning($"[IFM_LOG] HandleLectureStreamStart (vagy HandleAIResponseStreamStart) called in unexpected state: {currentState}. State not changed.");
         }
-        Debug.LogWarning($"[IFM_LOG] <<< HandleLectureStreamStart EXIT.");
+        Debug.LogWarning($"[IFM_LOG] <<< HandleLectureStreamStart (vagy HandleAIResponseStreamStart) EXIT.");
     }
 
     public void HandleInitialPromptCompleted()
@@ -550,26 +523,7 @@ public class InteractionFlowManager : MonoBehaviour
                 break;
 
             case InteractionState.WaitingForUserInput:
-                // Ez akkor fut le, ha a "Mi a kérdésed?" prompt lejátszása befejeződött.
-                // A SpeakSingleSentence korutinja már meghívta az EnableSpeakButton-t,
-                // így itt nincs teendőnk, csak logolhatunk.
                 Debug.Log("[IFM_LOG] Prompt playback finished (handled by SpeakSingleSentenceCoroutine). Speak button should be enabled.");
-                break;
-
-            case InteractionState.AnsweringQuestion:
-                // Az AI válaszának lejátszása fejeződött be.
-                Debug.Log("[IFM_LOG] AI answer playback finished. Resuming lecture.");
-                SetState(InteractionState.ResumingLecture);
-
-                if (textToSpeechManager != null)
-                {
-                    textToSpeechManager.ResumePlayback(lastPlayedLectureSentenceIndex + 1);
-                    // Miután elindult a folytatás, visszaválthatunk Lecturing-re
-                    // és újra engedélyezhetjük a jelentkezést.
-                    SetState(InteractionState.Lecturing);
-                    // raiseHandAction?.Enable(); // Jelentkezés gomb újra aktív
-                }
-                else { /* Hibakezelés */ SetState(InteractionState.Idle); }
                 break;
 
             default:
@@ -665,7 +619,7 @@ public class InteractionFlowManager : MonoBehaviour
         Debug.LogWarning($"[IFM_LOG] Utterances for analysis: Penultimate='{penultimateAiUtterance}', Last='{lastAiUtterance}', Combined({actualCombinedCount})='{combinedLastTwoAiUtterances}'");
 
 
-        if ((currentState == InteractionState.Lecturing || currentState == InteractionState.AnsweringQuestion) && actualCombinedCount > 0) // Csak akkor elemzünk, ha van mit
+        if (currentState == InteractionState.Lecturing && actualCombinedCount > 0) // Csak akkor elemzünk, ha van mit
         {
             LanguageConfig currentLang = AppStateManager.Instance?.CurrentLanguage;
             List<string> explicitQuizIntroducersList = new List<string>();
@@ -800,7 +754,7 @@ public class InteractionFlowManager : MonoBehaviour
                 StartCoroutine(EnableSpeakButtonAfterDelay(0.3f));
             }
         }
-        else if (actualCombinedCount == 0 && (currentState == InteractionState.Lecturing || currentState == InteractionState.AnsweringQuestion))
+        else if (actualCombinedCount == 0 && currentState == InteractionState.Lecturing)
         {
             Debug.LogWarning("[IFM_LOG] Playback queue empty, OAI run complete, but NO AI utterance was retrieved. Moving to WaitingForUserInput as a fallback.");
             expectingQuizAnswer = false;
@@ -831,7 +785,9 @@ public class InteractionFlowManager : MonoBehaviour
     /// </summary>
     public void HandleAnswerPlaybackCompleted() // Ezt a TextToSpeechManager hívja, amikor az "answerQueue" kiürül
     {
-        Debug.LogWarning($"[IFM_LOG] >>> HandleAnswerPlaybackCompleted ENTER. Current state: {currentState}, isOaiRunComplete: {isOaiRunComplete}");
+        Debug.LogWarning("[IFM_LOG] MEGHÍVÓDIK a HandleAnswerPlaybackCompleted!");
+        
+        /*Debug.LogWarning($"[IFM_LOG] >>> HandleAnswerPlaybackCompleted ENTER. Current state: {currentState}, isOaiRunComplete: {isOaiRunComplete}");
 
         if (currentState == InteractionState.AnsweringQuestion)
         {
@@ -853,7 +809,7 @@ public class InteractionFlowManager : MonoBehaviour
         {
             Debug.LogWarning($"[IFM_LOG] HandleAnswerPlaybackCompleted called in unexpected state: {currentState}. Ignoring.");
         }
-        Debug.LogWarning($"[IFM_LOG] <<< HandleAnswerPlaybackCompleted EXIT.");
+        Debug.LogWarning($"[IFM_LOG] <<< HandleAnswerPlaybackCompleted EXIT.");*/
     }
 
     public void HardResetToIdle()
@@ -983,16 +939,6 @@ public class InteractionFlowManager : MonoBehaviour
             case InteractionState.ProcessingUserInput:
                 DisableSpeakButton(); // Mikrofon tiltva a feldolgozás alatt
                 DisableRaiseHandButtonUI(); // Jelentkezés tiltva
-                break;
-
-            case InteractionState.AnsweringQuestion:
-                DisableSpeakButton(); // Mikrofon tiltva a válasz alatt
-                DisableRaiseHandButtonUI(); // <<< JELENTKEZÉS TILTVA A VÁLASZ ALATT >>>
-                break;
-
-            case InteractionState.ResumingLecture:
-                DisableSpeakButton(); // Mikrofon tiltva a folytatás alatt
-                DisableRaiseHandButtonUI(); // Jelentkezés tiltva az átmenet alatt
                 break;
 
             default: // Ismeretlen állapot esetén mindent letiltunk

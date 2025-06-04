@@ -902,16 +902,17 @@ public class OpenAIWebRequest : MonoBehaviour
                                             string objectType = dataObject["object"]?.ToString();
                                             if (objectType == "thread.message.delta")
                                             {
-                                                JToken contentValueToken = dataObject.SelectToken("delta.content[0].text.value");
-                                                if (contentValueToken != null && !string.IsNullOrEmpty(contentValueToken.ToString()))
+                                                if (!streamStartNotifiedToIFM)
                                                 {
-                                                    if (!streamStartNotifiedToIFM)
-                                                    {
-                                                        if (runType == AssistantRunType.InterruptionAnswer) InteractionFlowManager.Instance?.HandleAIAnswerStreamStart();
-                                                        else InteractionFlowManager.Instance?.HandleLectureStreamStart();
-                                                        streamStartNotifiedToIFM = true;
-                                                        Debug.LogWarning($"[OAIWR Stream] Notified IFM about stream start (RunType: {runType}).");
-                                                    }
+                                                    // JToken contentValueToken = dataObject.SelectToken("delta.content[0].text.value"); // Ellenőrizd, hogy ez a feltétel szükséges-e még, vagy elég, ha az első adatcsomag megérkezik
+                                                    // if (contentValueToken != null && !string.IsNullOrEmpty(contentValueToken.ToString())) // A te kódodban ez a rész lehet, hogy máshogy van, a lényeg az IFM hívás egységesítése
+                                                    // {
+                                                    // Mindig az IFM egységesített stream start handlerjét hívjuk.
+                                                    // Cseréld le 'HandleLectureStreamStart'-ot 'HandleAIResponseStreamStart'-ra, ha átnevezted az IFM-ben.
+                                                    InteractionFlowManager.Instance?.HandleLectureStreamStart(); // VAGY HandleAIResponseStreamStart();
+                                                    streamStartNotifiedToIFM = true;
+                                                    Debug.LogWarning($"[OAIWR Stream] Notified IFM about unified AI response stream start (RunType: {runType}).");
+                                                    // }
                                                 }
                                                 JArray contentDeltas = dataObject["delta"]?["content"] as JArray;
                                                 if (contentDeltas != null)
@@ -926,10 +927,22 @@ public class OpenAIWebRequest : MonoBehaviour
                                                                 fullResponseForLogging.Append(textDelta);
                                                                 if (textToSpeechManager != null)
                                                                 {
-                                                                    if (runType == AssistantRunType.InterruptionAnswer) textToSpeechManager.AppendAnswerText(textDelta);
-                                                                    else textToSpeechManager.AppendText(textDelta);
+                                                                    // MINDEN olyan runType, ami előadás jellegű és a HandlePlaybackQueueCompleted-del kell végződjön az IFM-ben,
+                                                                    // az AppendText-et használja.
+                                                                    if (runType == AssistantRunType.InterruptionAnswer ||
+                                                                        runType == AssistantRunType.MainLecture ||
+                                                                        runType == AssistantRunType.InitialGreeting ||
+                                                                        runType == AssistantRunType.QuizAnswerAndContinue)
+                                                                    {
+                                                                        textToSpeechManager.AppendText(textDelta);
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        // Kezeletlen runType, vagy ha mégis megkülönböztetnénk
+                                                                        Debug.LogWarning($"[OAIWR TTS Route] TTS routing for RunType '{runType}' potentially not handled by main AppendText. Check logic if this RunType should use AppendAnswerText.");
+                                                                        // textToSpeechManager.AppendAnswerText(textDelta); // Csak ha tényleg ez a cél
+                                                                    }
                                                                 }
-                                                                else Debug.LogError("[OAIWR ERROR] !!! textToSpeechManager reference is NULL when trying to append delta!");
                                                             }
                                                         }
                                                     }
@@ -986,14 +999,12 @@ public class OpenAIWebRequest : MonoBehaviour
                 {
                     if (textToSpeechManager != null)
                     {
-                        // A runType alapján döntjük el, melyik TTS puffert kell üríteni
-                        if (runType == AssistantRunType.InterruptionAnswer)
+                        if (runType == AssistantRunType.InterruptionAnswer || // Most már ez is a fő puffert használja
+                            runType == AssistantRunType.MainLecture ||
+                            runType == AssistantRunType.InitialGreeting ||
+                            runType == AssistantRunType.QuizAnswerAndContinue)
                         {
-                            textToSpeechManager.FlushAnswerBuffer(); // A prompt/válasz csatorna pufferét
-                        }
-                        else // MainLecture, InitialGreeting, QuizAnswerAndContinue
-                        {
-                            textToSpeechManager.FlushBuffer(); // A fő előadás csatorna pufferét
+                            textToSpeechManager.FlushBuffer(); // A fő előadás csatorna pufferét ürítjük
                         }
                     }
                 }
