@@ -16,6 +16,9 @@ public class LanguageConfig : ScriptableObject
     [Tooltip("A prompt, ami a felhasználó kérdését kéri (pl. 'Mi a kérdésed?')")]
     public string AskQuestionPrompt;
 
+    [Tooltip("A 'Kérem várjon...' üzenet, ami egy készenléti panelen jelenik meg.")]
+    public string PleaseWaitPrompt;
+
     [Tooltip("Mielőtt visszatérne az előadásra, az applikáció által beszélt promptnyelv.")]
     public string ResumeLecturePrompt;
 

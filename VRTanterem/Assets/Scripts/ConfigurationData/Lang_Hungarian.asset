@@ -21,6 +21,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 8c45b774415d56247ae046e99de80879, type: 2}
   - {fileID: 11400000, guid: 96ab13bbc74e0e248860eee18c31651a, type: 2}
   AskQuestionPrompt: "Mi a k\xE9rd\xE9sed?"
+  PleaseWaitPrompt: "K\xE9rem v\xE1rjon, hamarosan felteheti a k\xE9rd\xE9st!"
   ResumeLecturePrompt: "T\xE9rj\xFCnk akkor vissza oda, ahol abbahagytuk."
   AIInstructionOnInterruptionResponse: "FIGYELEM: Kor\xE1bban te (az AI) \xE1llt\xE1l
     meg az el\u0151ad\xE1sban, \xE9s megk\xE9rdezted a felhaszn\xE1l\xF3t\xF3l, hogy

@@ -1,7 +1,7 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
-using TMPro; // Szükséges a szöveges gombokhoz
+using TMPro;
 using System.Linq;
 
 public class SelectionManager : MonoBehaviour
@@ -29,8 +29,9 @@ public class SelectionManager : MonoBehaviour
     [Tooltip("Húzd ide a VoicePanel gombjait a megfelelő sorrendben.")]
     [SerializeField] private List<Button> voiceButtons;
 
-    // Referencia az AppStateManager-re (később)
-    // [SerializeField] private AppStateManager appStateManager;
+    [Header("Dynamic Texts")]
+    [Tooltip("Az a TextMeshPro komponens, ami a 'Kérem várjon...' üzenetet írja ki.")]
+    [SerializeField] private TextMeshProUGUI pleaseWaitText;
 
     private LanguageConfig selectedLanguage;
     private SubjectConfig selectedSubject;
@@ -118,6 +119,12 @@ public class SelectionManager : MonoBehaviour
         // ... (Logika ugyanaz) ...
         Debug.Log($"Language selected: {language.displayName}");
         selectedLanguage = language;
+
+        if (pleaseWaitText != null)
+        {
+            pleaseWaitText.text = language.PleaseWaitPrompt;
+            Debug.Log($"PleaseWaitText frissítve a következőre: '{language.PleaseWaitPrompt}'");
+        }
 
         if (currentActivePanel != null)
         {

@@ -19,6 +19,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: b5e3836dd081f254cbb8ac5f50caf98d, type: 2}
   - {fileID: 11400000, guid: 23e0c859dcf8e8340bb27e18e0503a60, type: 2}
   AskQuestionPrompt: What is your question?
+  PleaseWaitPrompt: Please wait, you will be able to ask your question shortly!
   ResumeLecturePrompt: Let's get back to where we left off.
   AIInstructionOnInterruptionResponse: "Instrukci\xF3 az AI sz\xE1m\xE1ra, hogyan
     viselkedjen, miut\xE1n v\xE1laszolt egy k\xF6zbevetett felhaszn\xE1l\xF3i k\xE9rd\xE9sre/megjegyz\xE9sre.
