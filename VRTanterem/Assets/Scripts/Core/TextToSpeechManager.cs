@@ -650,8 +650,15 @@ public class TextToSpeechManager : MonoBehaviour
             }
             else
             {
-                string errorDetails = request.downloadHandler?.text ?? "No response body";
-                Debug.LogError($"[TTS API Error] Sentence {data.Index} - Code: {request.responseCode} - Error: {request.error}\nResponse: {errorDetails}");
+                string errorLog = $"[TTS API Error] Sentence {data.Index} - Code: {request.responseCode} - Error: {request.error}";
+
+                if (request.downloadHandler?.data != null)
+                {
+                    string serverResponse = System.Text.Encoding.UTF8.GetString(request.downloadHandler.data);
+                    errorLog += $"\nServer Response Body: {serverResponse}";
+                }
+
+                Debug.LogError(errorLog);
                 OnTTSError?.Invoke($"TTS API Error for sentence {data.Index}: {request.error}");
             }
         }
