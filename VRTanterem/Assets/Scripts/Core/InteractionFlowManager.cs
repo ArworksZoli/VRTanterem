@@ -89,17 +89,10 @@ public class InteractionFlowManager : MonoBehaviour
 
     void OnEnable()
     {
-        Debug.LogWarning($"[IFM OnEnable] Checking openAIWebRequest reference before subscribing. Is null? {openAIWebRequest == null}");
-        if (openAIWebRequest != null)
-        {
-            openAIWebRequest.OnRunCompleted -= HandleRunCompleted; // Először leiratkozás (biztonsági)
-            openAIWebRequest.OnRunCompleted += HandleRunCompleted;
-            Debug.Log("[IFM_LOG] Subscribed to OpenAIWebRequest.OnRunCompleted event.");
-        }
-        else
-        {
-            Debug.LogError("[IFM_LOG] Cannot subscribe to OnRunCompleted: openAIWebRequest reference is null!");
-        }
+        // Ezt a metódust mostantól nem használjuk az OAIWR feliratkozásra,
+        // mert tudjuk, hogy csak egyszer fut le az app indulásakor.
+        // A feladatát átveszi az InitializeInteraction().
+        Debug.Log("[IFM_LOG] OnEnable called.");
     }
 
     void OnDisable()
@@ -138,8 +131,6 @@ public class InteractionFlowManager : MonoBehaviour
         isOaiRunComplete = true;
         expectingQuizAnswer = false;
         currentQuizQuestionText = string.Empty;
-
-        SetState(InteractionState.Lecturing);
         lastPlayedLectureSentenceIndex = -1;
         waitingForLectureStartConfirmation = false;
         if (questionIndicatorUI != null) questionIndicatorUI.SetActive(false);
@@ -149,19 +140,26 @@ public class InteractionFlowManager : MonoBehaviour
         {
             textToSpeechManager.OnTTSPlaybackEnd -= HandleTTSPlaybackEnd;
             textToSpeechManager.OnTTSPlaybackEnd += HandleTTSPlaybackEnd;
-
             textToSpeechManager.OnPlaybackQueueCompleted -= HandlePlaybackQueueCompleted;
             textToSpeechManager.OnPlaybackQueueCompleted += HandlePlaybackQueueCompleted;
-
-            Debug.Log("[IFM_LOG] Subscribed to TextToSpeechManager events (End, QueueCompleted).");
+            Debug.Log("[IFM_LOG] Subscribed to TextToSpeechManager events.");
         }
 
-        // Biztosítjuk, hogy a beszéd gomb le van tiltva az elején
-        whisperMicController?.DisableSpeakButton();
-        // A jelentkezés gombot engedélyezzük (ha itt kezelnénk)
-        // raiseHandAction?.Enable();
+        // OpenAIWebRequest eseménye (ezt helyezzük ide az OnEnable-ből)
+        if (openAIWebRequest != null)
+        {
+            openAIWebRequest.OnRunCompleted -= HandleRunCompleted; // Biztonsági leiratkozás
+            openAIWebRequest.OnRunCompleted += HandleRunCompleted;
+            Debug.Log("[IFM_LOG] Subscribed to OpenAIWebRequest.OnRunCompleted event.");
+        }
+        else
+        {
+            Debug.LogError("[IFM_LOG] Cannot subscribe to OnRunCompleted: openAIWebRequest reference is null!");
+        }
 
+        whisperMicController?.DisableSpeakButton();
         Debug.Log("[IFM_LOG] Initialization complete. Current state: Lecturing.");
+        SetState(InteractionState.Lecturing);
     }
 
     public void HandleInitializationFailed(string errorMessage)
