@@ -1541,9 +1541,9 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'Version: 0.85
+  m_text: 'Version: 0.89
 
-    Build Date. 2025-06-04'
+    Build Date. 2025-06-17'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -4468,7 +4468,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3e66e97a842eaa54e96453b2b6740209, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  tooltipMessage: "Ezzel a gombbal tudsz jelentkezni \xE9s feltenni egy k\xE9rd\xE9st."
+  tooltipMessage: "Ezzel a gombbal tud jelentkezni \xE9s feltenni egy k\xE9rd\xE9st."
 --- !u!1 &648404668
 GameObject:
   m_ObjectHideFlags: 0
@@ -13586,7 +13586,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: -187.5, y: 81.4}
-  m_SizeDelta: {x: 340, y: 100}
+  m_SizeDelta: {x: 375, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1762416802
 MonoBehaviour:

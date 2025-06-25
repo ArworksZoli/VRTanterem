@@ -978,6 +978,88 @@ public class OpenAIWebRequest : MonoBehaviour
                 yield return null;
             } // while (!asyncOp.isDone && !streamEndedSuccessfully) vége
 
+            Debug.LogWarning("[OAIWR DEBUG] Main stream loop finished. Performing final data processing pass...");
+            if (webRequest.downloadHandler.data != null)
+            {
+                if (webRequest.downloadHandler.data.Length > lastProcessedIndex)
+                {
+                    string newTextChunk = Encoding.UTF8.GetString(webRequest.downloadHandler.data, lastProcessedIndex, webRequest.downloadHandler.data.Length - lastProcessedIndex);
+                    lastProcessedIndex = webRequest.downloadHandler.data.Length;
+                    buffer.Append(newTextChunk);
+                    Debug.LogWarning($"[OAIWR DEBUG] Final pass processing new chunk: \"{newTextChunk}\"");
+
+                    while (true) // Belső ciklus a bufferben lévő összes teljes esemény feldolgozására
+                    {
+                        string currentBufferContentForSearch = buffer.ToString();
+                        eventSeparatorIndex = currentBufferContentForSearch.IndexOf("\n\n");
+
+                        if (eventSeparatorIndex != -1) // Találtunk egy teljes eseményt
+                        {
+                            int eventLengthWithSeparator = eventSeparatorIndex + 2;
+                            string eventBlock = currentBufferContentForSearch.Substring(0, eventSeparatorIndex);
+
+                            string[] lines = eventBlock.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                            foreach (string line in lines)
+                            {
+                                if (line.StartsWith("event:")) continue;
+
+                                if (line.StartsWith("data:"))
+                                {
+                                    string jsonString = line.Substring(5).Trim();
+                                    if (jsonString == "[DONE]")
+                                    {
+                                        Debug.LogWarning($"[OAIWR DEBUG] Received [DONE] event in final pass. Stream ended.");
+                                        streamEndedSuccessfully = true;
+                                        break;
+                                    }
+                                    try
+                                    {
+                                        JObject dataObject = JObject.Parse(jsonString);
+                                        if (dataObject["object"]?.ToString() == "thread.message.delta")
+                                        {
+                                            if (!streamStartNotifiedToIFM)
+                                            {
+                                                InteractionFlowManager.Instance?.HandleLectureStreamStart();
+                                                streamStartNotifiedToIFM = true;
+                                                Debug.LogWarning($"[OAIWR Stream] Notified IFM about unified AI response stream start (RunType: {runType}).");
+                                            }
+                                            JArray contentDeltas = dataObject["delta"]?["content"] as JArray;
+                                            if (contentDeltas != null)
+                                            {
+                                                foreach (var deltaItem in contentDeltas)
+                                                {
+                                                    if (deltaItem["type"]?.ToString() == "text")
+                                                    {
+                                                        string textDelta = deltaItem["text"]?["value"]?.ToString();
+                                                        if (!string.IsNullOrEmpty(textDelta))
+                                                        {
+                                                            fullResponseForLogging.Append(textDelta);
+                                                            if (textToSpeechManager != null)
+                                                            {
+                                                                textToSpeechManager.AppendText(textDelta);
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    catch (Exception e) { Debug.LogError($"Error parsing stream data JSON: {e.Message} - JSON: {jsonString}"); }
+                                    if (streamEndedSuccessfully) break;
+                                }
+                            }
+
+                            buffer.Remove(0, eventLengthWithSeparator);
+                            if (streamEndedSuccessfully) break;
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+                }
+            }
+
             // --- Korutin Vége - Utófeldolgozás ---
             Debug.LogWarning($"[OAIWR_LOG] <<< CreateAssistantRun Loop Ended. Frame: {Time.frameCount}, StreamEndedSuccessfully: {streamEndedSuccessfully}, WebRequestResult: {webRequest.result}");
             // Opcionális: A teljes AI válasz logolása hibakereséshez
