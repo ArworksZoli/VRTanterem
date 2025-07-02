@@ -435,10 +435,10 @@ public class OpenAIWebRequest : MonoBehaviour
 
                         // Mivel a thread üresen jött létre, most azonnal elindítjuk az InitialGreeting run-t.
                         // Nincs szükség a korábbi `userInput` ellenőrzésre.
-                        Debug.LogWarning("[OAIWR_LOG] Thread created. Starting the INITIAL Assistant Run (InitialGreeting) with callback to IFM.HandleInitialPromptCompleted.");
+                        Debug.LogWarning("[OAIWR_LOG] Thread created. Starting the INITIAL Assistant Run (InitialGreeting). It will be handled by the standard playback completion logic.");
                         StartCoroutine(CreateAssistantRun(
                             runType: AssistantRunType.InitialGreeting,
-                            onRunCompleteCallback: InteractionFlowManager.Instance.HandleInitialPromptCompleted
+                            onRunCompleteCallback: null
                         ));
                     }
                     else

@@ -128,7 +128,7 @@ public class InteractionFlowManager : MonoBehaviour
         Debug.Log("[IFM_LOG] InitializeInteraction called.");
         if (!enabled) { Debug.LogError("[IFM_LOG] Cannot initialize, component is disabled!"); return; }
 
-        isOaiRunComplete = true;
+        isOaiRunComplete = false;
         expectingQuizAnswer = false;
         currentQuizQuestionText = string.Empty;
         lastPlayedLectureSentenceIndex = -1;
@@ -428,35 +428,6 @@ public class InteractionFlowManager : MonoBehaviour
             Debug.LogWarning($"[IFM_LOG] HandleLectureStreamStart (vagy HandleAIResponseStreamStart) called in unexpected state: {currentState}. State not changed.");
         }
         Debug.LogWarning($"[IFM_LOG] <<< HandleLectureStreamStart (vagy HandleAIResponseStreamStart) EXIT.");
-    }
-
-    public void HandleInitialPromptCompleted()
-    {
-        Debug.LogWarning($"[IFM_LOG] >>> HandleInitialPromptCompleted ENTER. Current state: {currentState}");
-
-        if (currentState == InteractionState.Lecturing || currentState == InteractionState.ProcessingUserInput || currentState == InteractionState.Idle)
-        {
-            if (currentState == InteractionState.Idle)
-            {
-                Debug.LogWarning("[IFM_LOG] HandleInitialPromptCompleted called while Idle. Correcting state.");
-            }
-
-            Debug.LogWarning("[IFM_LOG] Initial prompt stream completed. Setting flag and state for user input.");
-
-            waitingForLectureStartConfirmation = true; // Most várjuk a user válaszát az első kérdésre
-            Debug.LogWarning($"[IFM_LOG] Set waitingForLectureStartConfirmation = {waitingForLectureStartConfirmation}");
-
-            SetState(InteractionState.WaitingForUserInput); // Váltunk állapotot
-
-            // Engedélyezzük a mikrofont kis késleltetéssel
-            Debug.LogWarning("[IFM_LOG] Starting EnableSpeakButtonAfterDelay coroutine from HandleInitialPromptCompleted..."); // <<< Módosított log >>>
-            StartCoroutine(EnableSpeakButtonAfterDelay(0.3f));
-        }
-        else
-        {
-            Debug.LogWarning($"[IFM_LOG] HandleInitialPromptCompleted called in unexpected state: {currentState}. Ignoring.");
-        }
-        Debug.LogWarning($"[IFM_LOG] <<< HandleInitialPromptCompleted EXIT. Flag value: {waitingForLectureStartConfirmation}");
     }
 
     private void HandleRunCompleted()
