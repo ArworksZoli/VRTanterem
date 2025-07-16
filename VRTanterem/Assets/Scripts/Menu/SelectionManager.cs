@@ -317,6 +317,10 @@ public class SelectionManager : MonoBehaviour
             voiceDisplayNames.Add("ash", "Jenő"); // Feltételezve, hogy az "ash" helyett "alloy"-t használsz az OpenAI standard hangok miatt. Ha "ash" egyedi, akkor az maradjon.
             voiceDisplayNames.Add("nova", "Éva");
             voiceDisplayNames.Add("shimmer", "Krisztina");
+            voiceDisplayNames.Add("xjlfQQ3ynqiEyRpArrT8", "Éva");
+            voiceDisplayNames.Add("Xb7hH8MSUJpSbSDYk0k2", "Krisztina");
+            voiceDisplayNames.Add("xQ7QVYmweeFQQ6autam7", "István");
+            voiceDisplayNames.Add("M336tBVZHWWiWb4R54ui", "Jenő");
         }
         else // Alapértelmezett angol vagy más nyelv
         {
@@ -324,6 +328,10 @@ public class SelectionManager : MonoBehaviour
             voiceDisplayNames.Add("ash", "Eugene");
             voiceDisplayNames.Add("nova", "Eve");
             voiceDisplayNames.Add("shimmer", "Christine");
+            voiceDisplayNames.Add("xjlfQQ3ynqiEyRpArrT8", "Eve");
+            voiceDisplayNames.Add("Xb7hH8MSUJpSbSDYk0k2", "Christine");
+            voiceDisplayNames.Add("xQ7QVYmweeFQQ6autam7", "Stephen");
+            voiceDisplayNames.Add("M336tBVZHWWiWb4R54ui", "Eugene");
         }
         // További általános hangok, ha kellenek és nincsenek a nyelvspecifikus listában
         if (!voiceDisplayNames.ContainsKey("fable")) voiceDisplayNames.Add("fable", "Fable");
@@ -354,6 +362,10 @@ public class SelectionManager : MonoBehaviour
             voiceDisplayNames.Add("ash", "Jenő");
             voiceDisplayNames.Add("nova", "Éva");
             voiceDisplayNames.Add("shimmer", "Krisztina");
+            voiceDisplayNames.Add("xjlfQQ3ynqiEyRpArrT8", "Éva");
+            voiceDisplayNames.Add("Xb7hH8MSUJpSbSDYk0k2", "Krisztina");
+            voiceDisplayNames.Add("xQ7QVYmweeFQQ6autam7", "István");
+            voiceDisplayNames.Add("M336tBVZHWWiWb4R54ui", "Jenő");
             // ... stb. a 4 férfi/női hanghoz
         }
         else
@@ -362,6 +374,10 @@ public class SelectionManager : MonoBehaviour
             voiceDisplayNames.Add("ash", "Eugene");
             voiceDisplayNames.Add("nova", "Eve");
             voiceDisplayNames.Add("shimmer", "Christine");
+            voiceDisplayNames.Add("xjlfQQ3ynqiEyRpArrT8", "Eve");
+            voiceDisplayNames.Add("Xb7hH8MSUJpSbSDYk0k2", "Christine");
+            voiceDisplayNames.Add("xQ7QVYmweeFQQ6autam7", "Stephen");
+            voiceDisplayNames.Add("M336tBVZHWWiWb4R54ui", "Eugene");
             // ... etc.
         }
         // Add other standard voices if needed

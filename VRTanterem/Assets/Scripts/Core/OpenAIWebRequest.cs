@@ -184,7 +184,7 @@ public class OpenAIWebRequest : MonoBehaviour
         {
             Debug.Log("[OpenAIWebRequest] Initializing TextToSpeechManager...");
             
-            textToSpeechManager.Initialize(this.apiKey, selectedVoiceId);
+            textToSpeechManager.Initialize(selectedVoiceId);
         }
         
 

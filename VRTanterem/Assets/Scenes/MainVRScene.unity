@@ -20554,9 +20554,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9785a2997ae38814482855981c9a4815, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ttsProvider: 1
+  openAiApiKey: 
   ttsModel: tts-1
-  ttsResponseFormat: mp3
   ttsApiUrl: https://api.openai.com/v1/audio/speech
+  elevenLabsApiKey: 
+  elevenLabsModelId: eleven_flash_v2_5
+  elevenLabsApiUrl: https://api.elevenlabs.io/v1/text-to-speech/{voice_id}
+  elevenLabsVoiceSettings:
+    stability: 0.75
+    similarity_boost: 0.75
+  ttsResponseFormat: mp3
   ttsSpeed: 1
   maxPlaybackQueueSize: 3
   audioSource: {fileID: 576708356}
