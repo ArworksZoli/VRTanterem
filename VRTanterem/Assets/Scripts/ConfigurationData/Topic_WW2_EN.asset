@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Topic_WW2_EN
   m_EditorClassIdentifier: 
   topicName: World War II.
-  assistantId: asst_qpT5Qc4xgcad3RJe0Kc3gV43
+  assistantId: asst_uVyflfBJQPdDzE6IzeeEYqVt
   availableVoiceIds:
   - nova
   - shimmer

@@ -13,10 +13,11 @@ MonoBehaviour:
   m_Name: Topic_Sniper_EN
   m_EditorClassIdentifier: 
   topicName: Sniper
-  assistantId: asst_bvQvUKF8kRC41qAqAe7l3yJY
+  assistantId: asst_E9kFSGyxlrzCmAoyza7Ct9oN
   availableVoiceIds:
   - nova
   - shimmer
   - onyx
   - ash
   topicImage: {fileID: 21300000, guid: ebb1f3e7b8a799f439f1440de46aa8d1, type: 3}
+  keywordImages: []

@@ -32,7 +32,6 @@ public class InteractionFlowManager : MonoBehaviour
     private const float DEFAULT_SPEAK_BUTTON_ENABLE_DELAY = 0.3f;
 
     private int lastPlayedLectureSentenceIndex = -1;
-    private bool waitingForLectureStartConfirmation = false;
     private bool isOaiRunComplete = true;
     private bool userWantsToAskAtNextNaturalPause = false;
 
@@ -132,7 +131,6 @@ public class InteractionFlowManager : MonoBehaviour
         expectingQuizAnswer = false;
         currentQuizQuestionText = string.Empty;
         lastPlayedLectureSentenceIndex = -1;
-        waitingForLectureStartConfirmation = false;
         if (questionIndicatorUI != null) questionIndicatorUI.SetActive(false);
 
         // Eseményfeliratkozások
@@ -200,7 +198,7 @@ public class InteractionFlowManager : MonoBehaviour
     // Ezt hívja a WhisperMicController
     public void HandleUserQuestionReceived(string transcription)
     {
-        Debug.LogWarning($"[IFM_LOG] >>> HandleUserQuestionReceived ENTER. State: {currentState}, ExpectingQuiz: {expectingQuizAnswer}, WaitingLectureStart: {waitingForLectureStartConfirmation}, Text: '{transcription}'");
+        Debug.LogWarning($"[IFM_LOG] >>> HandleUserQuestionReceived ENTER. State: {currentState}, ExpectingQuiz: {expectingQuizAnswer}, Text: '{transcription}'");
 
         // --- Kezdeti ellenőrzések ---
         if (string.IsNullOrEmpty(transcription))
@@ -262,26 +260,6 @@ public class InteractionFlowManager : MonoBehaviour
             // A kvízválasz elküldése után reseteljük a kvíz állapotjelzőket
             expectingQuizAnswer = false;
             currentQuizQuestionText = string.Empty; // Fontos, hogy csak a sikeres küldés után, vagy ha hiba van és megszakítjuk
-        }
-        // 2. Ha nem kvízválaszra vártunk, ellenőrizzük a kezdeti előadás megerősítését
-        else if (waitingForLectureStartConfirmation)
-        {
-            Debug.LogWarning("[IFM_LOG] --- Branch: Lecture Start Confirmation ---");
-            waitingForLectureStartConfirmation = false; // Csak egyszer használjuk ezt a flaget
-                                                        // Debug.Log($"[IFM_LOG] Flag 'waitingForLectureStartConfirmation' set to false."); // Már a régi kódban is volt
-
-            if (openAIWebRequest != null)
-            {
-                Debug.LogWarning($"[IFM_LOG] Calling OAIWR.AddUserMessageAndStartLectureRun('{transcription}') for initial lecture start.");
-                isOaiRunComplete = false;
-                StartCoroutine(openAIWebRequest.AddUserMessageAndStartLectureRun(transcription));
-                Debug.LogWarning("[IFM_LOG] OAIWR.AddUserMessageAndStartLectureRun() coroutine started.");
-            }
-            else
-            {
-                Debug.LogError("[IFM_LOG] Cannot start main lecture: OpenAIWebRequest reference is null!");
-                SetState(InteractionState.Idle);
-            }
         }
         // 3. Ha sem kvízválasz, sem kezdeti megerősítés nem volt, akkor ez egy általános kérdés vagy "nincs kérdésem"
         else
@@ -409,7 +387,7 @@ public class InteractionFlowManager : MonoBehaviour
                 }
             }
         }
-        Debug.LogWarning($"[IFM_LOG] <<< HandleUserQuestionReceived EXIT. ExpectingQuiz: {expectingQuizAnswer}, WaitingLectureStart: {waitingForLectureStartConfirmation}");
+        Debug.LogWarning($"[IFM_LOG] <<< HandleUserQuestionReceived EXIT. ExpectingQuiz: {expectingQuizAnswer}");
     }
 
     public void HandleLectureStreamStart()
@@ -804,7 +782,6 @@ public class InteractionFlowManager : MonoBehaviour
 
         // 3. Belső állapotváltozók alaphelyzetbe állítása
         lastPlayedLectureSentenceIndex = -1;
-        waitingForLectureStartConfirmation = false;
         isOaiRunComplete = true;
         expectingQuizAnswer = false;
         currentQuizQuestionText = string.Empty;

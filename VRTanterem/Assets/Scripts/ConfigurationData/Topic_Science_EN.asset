@@ -13,10 +13,11 @@ MonoBehaviour:
   m_Name: Topic_Science_EN
   m_EditorClassIdentifier: 
   topicName: Science
-  assistantId: asst_HYMEyGGFw5FvGNNsTCQkGveD
+  assistantId: asst_oaAUbKpdI0BxDshQrLayu7LD
   availableVoiceIds:
   - nova
   - shimmer
   - onyx
   - ash
   topicImage: {fileID: 21300000, guid: 2d3a3ae8c2701ef4a85e4ce3d83d1084, type: 3}
+  keywordImages: []
