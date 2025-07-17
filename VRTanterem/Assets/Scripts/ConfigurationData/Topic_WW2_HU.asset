@@ -13,7 +13,13 @@ MonoBehaviour:
   m_Name: Topic_WW2_HU
   m_EditorClassIdentifier: 
   topicName: "II. Vil\xE1gh\xE1bor\xFA"
-  assistantId: asst_uVyflfBJQPdDzE6IzeeEYqVt
+  assistantMappings:
+  - Mode: 0
+    AssistantId: asst_MhN1CRhWrUUz2FOMYazEVR6G
+  - Mode: 1
+    AssistantId: asst_c2LZOqkqr1TL5jvLgGeVZ64K
+  - Mode: 2
+    AssistantId: asst_HyahINKCgaDHEICk2KsIOWAd
   availableVoiceIds:
   - xjlfQQ3ynqiEyRpArrT8
   - Xb7hH8MSUJpSbSDYk0k2

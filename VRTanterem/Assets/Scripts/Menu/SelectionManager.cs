@@ -6,36 +6,34 @@ using System.Linq;
 
 public class SelectionManager : MonoBehaviour
 {
-    // ... (Változók ugyanazok maradnak: availableLanguages, panelek, gomblisták, selected változók) ...
     [Header("Configuration Data")]
-    [Tooltip("Húzd ide az összes elérhető LanguageConfig ScriptableObject assetet.")]
     [SerializeField] private List<LanguageConfig> availableLanguages;
 
     [Header("UI Panels")]
     [SerializeField] private GameObject languagePanel;
     [SerializeField] private GameObject subjectPanel;
     [SerializeField] private GameObject topicPanel;
+    [SerializeField] private GameObject modePanel; // <<< ÚJ
     [SerializeField] private GameObject voicePanel;
     private GameObject currentActivePanel;
     private Stack<GameObject> panelHistory = new Stack<GameObject>();
 
     [Header("UI Buttons (Assign in Inspector)")]
-    [Tooltip("Húzd ide a LanguagePanel gombjait a megfelelő sorrendben.")]
     [SerializeField] private List<Button> languageButtons;
-    [Tooltip("Húzd ide a SubjectPanel gombjait a megfelelő sorrendben.")]
     [SerializeField] private List<Button> subjectButtons;
-    [Tooltip("Húzd ide a TopicPanel gombjait a megfelelő sorrendben.")]
     [SerializeField] private List<Button> topicButtons;
-    [Tooltip("Húzd ide a VoicePanel gombjait a megfelelő sorrendben.")]
+    [SerializeField] private List<Button> modeButtons; // <<< ÚJ
     [SerializeField] private List<Button> voiceButtons;
 
     [Header("Dynamic Texts")]
-    [Tooltip("Az a TextMeshPro komponens, ami a 'Kérem várjon...' üzenetet írja ki.")]
     [SerializeField] private TextMeshProUGUI pleaseWaitText;
 
+    // --- Kiválasztott állapotok ---
     private LanguageConfig selectedLanguage;
     private SubjectConfig selectedSubject;
     private TopicConfig selectedTopic;
+    private InteractionMode selectedMode; // <<< ÚJ
+    private string finalAssistantId; // <<< ÚJ: A végleges, kiválasztott Assistant ID
     private string selectedVoiceId;
     private string selectedFantasyVoiceName;
 
@@ -47,16 +45,16 @@ public class SelectionManager : MonoBehaviour
 
     public void InitializeMenu()
     {
-        // ... (Ugyanaz, mint előbb: panelek elrejtése, ellenőrzések) ...
         languagePanel.SetActive(false);
         subjectPanel.SetActive(false);
         topicPanel.SetActive(false);
+        modePanel.SetActive(false); // <<< ÚJ
         voicePanel.SetActive(false);
 
         panelHistory.Clear();
 
-        if (availableLanguages == null || availableLanguages.Count == 0) { /*...*/ return; }
-        if (languagePanel == null || languageButtons == null || languageButtons.Count == 0) { /*...*/ return; }
+        if (availableLanguages == null || availableLanguages.Count == 0) { return; }
+        if (languagePanel == null || languageButtons == null || languageButtons.Count == 0) { return; }
 
         PopulateLanguagePanel();
         languagePanel.SetActive(true);
@@ -249,7 +247,7 @@ public class SelectionManager : MonoBehaviour
                 // --- Listener Hozzáadása ---
                 btn.onClick.RemoveAllListeners(); // Először törölj minden régit
                 btn.onClick.AddListener(() => SelectTopic(topic));
-                Debug.Log($"Button '{btn.name}': Added listener for topic '{topic.topicName}' (ID: {topic.assistantId})"); // Logolás a listener hozzáadásáról
+                Debug.Log($"Button '{btn.name}': Added listener for topic '{topic.topicName}'");
 
                 // --- Gomb Aktiválása ---
                 btn.gameObject.SetActive(true);
@@ -276,28 +274,86 @@ public class SelectionManager : MonoBehaviour
 
         topicPanel.SetActive(false);
 
-        Debug.Log("Checking availableVoiceIds...");
+        // --- DINAMIKUS DÖNTÉS ---
+        if (topic.assistantMappings == null || topic.assistantMappings.Count == 0)
+        {
+            Debug.LogError($"KRITIKUS HIBA: A '{topic.topicName}' témához nincsenek Assistant ID-k hozzárendelve a 'assistantMappings' listában!");
+            GoBack(); // Visszalépünk, mert innen nem lehet továbblépni
+            return;
+        }
+
+        if (topic.assistantMappings.Count == 1)
+        {
+            // Ha csak egy mód van, automatikusan kiválasztjuk és átugorjuk a panelt
+            Debug.Log($"A '{topic.topicName}' témához csak egy mód van. Automatikus kiválasztás és továbblépés...");
+            var onlyOption = topic.assistantMappings[0];
+            SelectMode(onlyOption.Mode, onlyOption.AssistantId); // <<< KÖZVETLEN HÍVÁS
+        }
+        else
+        {
+            // Ha több mód van, megjelenítjük a választó panelt
+            Debug.Log($"A '{topic.topicName}' témához több mód is van. A Mód választó panel megjelenítése...");
+            PopulateModePanel();
+            modePanel.SetActive(true);
+            currentActivePanel = modePanel;
+        }
+    }
+
+    void PopulateModePanel()
+    {
+        var modes = selectedTopic.assistantMappings;
+        int configCount = modes.Count;
+        int buttonCount = modeButtons.Count;
+
+        for (int i = 0; i < buttonCount; i++)
+        {
+            Button btn = modeButtons[i];
+            if (btn == null) continue;
+
+            if (i < configCount)
+            {
+                var modeMapping = modes[i];
+                // A gomb szövegét az enum nevéből vesszük (pl. "Lecture")
+                SetButtonText(btn, modeMapping.Mode.ToString());
+                btn.onClick.RemoveAllListeners();
+                btn.onClick.AddListener(() => SelectMode(modeMapping.Mode, modeMapping.AssistantId));
+                btn.gameObject.SetActive(true);
+            }
+            else
+            {
+                btn.gameObject.SetActive(false); // Felesleges gombok elrejtése
+            }
+        }
+    }
+
+    public void SelectMode(InteractionMode mode, string assistantId)
+    {
+        Debug.Log($"Mode selected: {mode}, Assistant ID: {assistantId}");
+        selectedMode = mode;
+        finalAssistantId = assistantId;
+
+        if (currentActivePanel != null)
+        {
+            panelHistory.Push(currentActivePanel);
+        }
+
+        if (modePanel.activeSelf) // Csak akkor rejtsük el, ha látható volt
+        {
+            modePanel.SetActive(false);
+        }
+
+        // --- Folytatás a Hangválasztóval ---
         if (selectedTopic.availableVoiceIds == null || selectedTopic.availableVoiceIds.Count == 0)
         {
-            Debug.LogWarning($"No voices configured for {topic.topicName}. Proceeding to Finalize/Skipping voice panel.");
-            // Ha itt nincs hangválasztás, és egyből finalizálunk, akkor a topicPanel volt az utolsó "menü" panel
-            // A currentActivePanel itt a topicPanel marad (ami most false). A GoBack() visszahozná.
+            Debug.LogWarning($"Nincsenek hangok beállítva a '{selectedTopic.topicName}' témához. Finalizálás...");
             FinalizeSelectionAndStart();
-            return;
         }
-
-        Debug.Log("Checking voiceButtons list...");
-        if (voiceButtons == null || voiceButtons.Count == 0)
+        else
         {
-            Debug.LogError("SelectionManager: VoicePanel buttons are not assigned! Aborting.");
-            return;
+            PopulateVoicePanel();
+            voicePanel.SetActive(true);
+            currentActivePanel = voicePanel;
         }
-
-        Debug.Log("Checks passed, calling PopulateVoicePanel...");
-        PopulateVoicePanel();
-        Debug.Log("Activating voicePanel...");
-        voicePanel.SetActive(true);
-        currentActivePanel = voicePanel;
     }
 
     private string GetFantasyNameForVoiceId(string voiceId)
@@ -420,96 +476,80 @@ public class SelectionManager : MonoBehaviour
 
     void FinalizeSelectionAndStart()
     {
+        // <<< MÓDOSÍTOTT LOGIKA >>>
         Debug.Log("[SelectionManager] FinalizeSelectionAndStart called.");
 
-        // Közvetlenül az elején ellenőrizzük a selectedTopic-ot
-        if (selectedTopic == null)
+        if (selectedLanguage == null || selectedSubject == null || selectedTopic == null || string.IsNullOrEmpty(finalAssistantId) || string.IsNullOrEmpty(selectedVoiceId))
         {
-            Debug.LogError("[SelectionManager] FinalizeSelectionAndStart called, but selectedTopic is NULL!");
-            return; // Vagy más hibakezelés
-        }
-        else
-        {
-            // Írjuk ki a topic nevét és az ID-ját, amit át fogunk adni
-            Debug.Log($"[SelectionManager] Finalizing. Topic Name: '{selectedTopic.topicName}', Assistant ID from Topic: '{selectedTopic.assistantId}'");
-        }
-
-        // --- 1. Ellenőrizzük, hogy minden szükséges adat ki van-e választva ---
-        if (selectedLanguage == null || selectedSubject == null || selectedTopic == null || string.IsNullOrEmpty(selectedVoiceId))
-        {
-            Debug.LogError("[SelectionManager] Selection incomplete! Cannot proceed to finalize.");
-            // Opcionálisan itt is visszaugorhatnánk a menü elejére
+            Debug.LogError("[SelectionManager] Selection incomplete! Cannot proceed to finalize. Hiányzó adatok: " +
+                           (selectedLanguage == null ? "Nyelv, " : "") +
+                           (selectedSubject == null ? "Tantárgy, " : "") +
+                           (selectedTopic == null ? "Téma, " : "") +
+                           (string.IsNullOrEmpty(finalAssistantId) ? "Assistant ID, " : "") +
+                           (string.IsNullOrEmpty(selectedVoiceId) ? "Hang ID" : ""));
             InitializeMenu();
             return;
         }
 
-        // --- 2. Ellenőrizzük a kritikus adatokat (Assistant ID) ---
-        // Különösen fontos, mert enélkül az AppStateManager sem tud mit kezdeni vele.
-        if (string.IsNullOrEmpty(selectedTopic.assistantId))
-        {
-            Debug.LogError($"[SelectionManager] Critical Error: The selected topic '{selectedTopic.topicName}' does not have an Assistant ID assigned in its configuration! Cannot start interaction.");
-            // Itt is érdemes lehet visszalépni vagy hibaüzenetet adni a felhasználónak.
-            InitializeMenu();
-            return;
-        }
-
-        // --- 3. Logoljuk a végleges választást ---
         Debug.Log($"[SelectionManager] All selections complete. Handing over to AppStateManager with:" +
                   $"\n - Language: {selectedLanguage.displayName}" +
                   $"\n - Subject: {selectedSubject.subjectName}" +
                   $"\n - Topic: {selectedTopic.topicName}" +
+                  $"\n - Mode: {selectedMode}" + // <<< ÚJ
+                  $"\n - Assistant ID (Final): {finalAssistantId}" + // <<< MÓDOSÍTVA
                   $"\n - Voice ID (Technical): {selectedVoiceId}" +
-                  $"\n - Voice Name (Fantasy): {selectedFantasyVoiceName}" +
-                  $"\n - Assistant ID: {selectedTopic.assistantId}");
+                  $"\n - Voice Name (Fantasy): {selectedFantasyVoiceName}");
 
-        // --- 4. Átadjuk az irányítást az AppStateManager-nek (CSAK EGYSZER!) ---
         if (AppStateManager.Instance != null)
         {
             Debug.Log($"[SelectionManager] Calling AppStateManager.StartInteraction via Instance...");
-            AppStateManager.Instance.StartInteraction(selectedLanguage, selectedSubject, selectedTopic, selectedVoiceId, selectedFantasyVoiceName);
+            // Átadjuk a végleges Assistant ID-t is!
+            AppStateManager.Instance.StartInteraction(selectedLanguage, selectedSubject, selectedTopic, selectedVoiceId, selectedFantasyVoiceName, finalAssistantId);
             Debug.Log("[SelectionManager] Handover to AppStateManager successful.");
         }
         else
         {
-            // Ha nincs AppStateManager.Instance, az nagy hiba.
-            Debug.LogError("[SelectionManager] CRITICAL ERROR: AppStateManager.Instance is null! Cannot start the main application logic.");
-            // Itt lehetne valamilyen fallback vagy hibaállapot.
+            Debug.LogError("[SelectionManager] CRITICAL ERROR: AppStateManager.Instance is null!");
         }
     }
 
     public void GoBack()
     {
+        // <<< MÓDOSÍTOTT LOGIKA >>>
         if (panelHistory.Count > 0)
         {
             GameObject previousPanel = panelHistory.Pop();
 
-            // Jelenlegi aktív panel deaktiválása (ha van)
             if (currentActivePanel != null)
             {
                 currentActivePanel.SetActive(false);
             }
 
-            // Előző panel aktiválása
             previousPanel.SetActive(true);
-            currentActivePanel = previousPanel; // Frissítjük az aktuális aktív panelt
+            currentActivePanel = previousPanel;
 
-            // "Megszakítjuk" a kiválasztást, ami az előző panelről a következőre vezetett.
-            // Ez biztosítja, hogy ha a felhasználó visszalép, majd másikat választ, ne maradjanak "beragadt" értékek.
-            if (currentActivePanel == languagePanel)
+            // Állapotok resetelése a visszalépésnek megfelelően
+            if (currentActivePanel == topicPanel)
             {
-                selectedSubject = null;
-                selectedTopic = null;
+                selectedMode = default; // Enum alaphelyzetbe állítása
+                finalAssistantId = null;
                 selectedVoiceId = null;
                 selectedFantasyVoiceName = null;
             }
             else if (currentActivePanel == subjectPanel)
             {
                 selectedTopic = null;
+                selectedMode = default;
+                finalAssistantId = null;
                 selectedVoiceId = null;
                 selectedFantasyVoiceName = null;
             }
-            else if (currentActivePanel == topicPanel)
+            else if (currentActivePanel == languagePanel)
             {
+                selectedSubject = null;
+                selectedTopic = null;
+                selectedMode = default;
+                finalAssistantId = null;
                 selectedVoiceId = null;
                 selectedFantasyVoiceName = null;
             }
@@ -518,7 +558,7 @@ public class SelectionManager : MonoBehaviour
         }
         else
         {
-            Debug.LogWarning("No panel in history to go back to. Already at the first panel or history is empty.");
+            Debug.LogWarning("No panel in history to go back to.");
         }
     }
 }

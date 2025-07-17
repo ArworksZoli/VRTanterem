@@ -137,7 +137,7 @@ public class AppStateManager : MonoBehaviour
 
     // --- Fő Vezérlő Metódus ---
 
-    public void StartInteraction(LanguageConfig lang, SubjectConfig subj, TopicConfig topic, string voiceId, string fantasyVoiceName)
+    public void StartInteraction(LanguageConfig lang, SubjectConfig subj, TopicConfig topic, string voiceId, string fantasyVoiceName, string finalAssistantId)
     {
         Debug.LogWarning($"[AppStateManager_LOG] StartInteraction CALLED - Frame: {Time.frameCount}");
         // 1. Bemeneti adatok logolása és ellenőrzése
@@ -146,12 +146,12 @@ public class AppStateManager : MonoBehaviour
             Debug.LogError("[AppStateManager_LOG] StartInteraction RECEIVED a NULL Topic object!");
             return;
         }
-        Debug.Log($"[AppStateManager_LOG] StartInteraction RECEIVED. Topic Name: '{topic.topicName}', Assistant ID: '{topic.assistantId}', Voice ID: '{voiceId}', Fantasy Voice Name: '{fantasyVoiceName}'");
+        Debug.Log($"[AppStateManager_LOG] StartInteraction RECEIVED. Topic: '{topic.topicName}', Final Assistant ID: '{finalAssistantId}', Voice: '{voiceId}', Fantasy Name: '{fantasyVoiceName}'");
 
         // 2. Konfiguráció validálása és mentése
-        if (lang == null || subj == null || string.IsNullOrEmpty(voiceId) || string.IsNullOrEmpty(topic.assistantId) || string.IsNullOrEmpty(fantasyVoiceName))
+        if (lang == null || subj == null || string.IsNullOrEmpty(voiceId) || string.IsNullOrEmpty(finalAssistantId) || string.IsNullOrEmpty(fantasyVoiceName))
         {
-            Debug.LogError("[AppStateManager_LOG] Critical Error: Received incomplete configuration (lang, subj, voiceId, assistantId, or fantasyVoiceName is missing)! Cannot proceed.");
+            Debug.LogError("[AppStateManager_LOG] Critical Error: Received incomplete configuration!");
             return;
         }
 
@@ -160,9 +160,9 @@ public class AppStateManager : MonoBehaviour
         CurrentTopic = topic;
         CurrentVoiceId = voiceId;
         CurrentFantasyVoiceName = fantasyVoiceName;
-        CurrentAssistantId = topic.assistantId;
+        CurrentAssistantId = finalAssistantId;
 
-        Debug.Log($"[AppStateManager_LOG] Configuration saved. Assistant ID: {CurrentAssistantId}, Voice ID: {CurrentVoiceId}, Fantasy Voice Name: {CurrentFantasyVoiceName}");
+        Debug.Log($"[AppStateManager_LOG] Configuration saved. Final Assistant ID: {CurrentAssistantId}, Voice ID: {CurrentVoiceId}");
 
         // --- 3. LectureImageController Inicializálása ---
 

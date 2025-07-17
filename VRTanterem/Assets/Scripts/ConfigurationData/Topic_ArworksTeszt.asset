@@ -13,7 +13,9 @@ MonoBehaviour:
   m_Name: Topic_ArworksTeszt
   m_EditorClassIdentifier: 
   topicName: Arworks teszt
-  assistantId: asst_oDyOkxe4njvpIxsmTplMPXQL
+  assistantMappings:
+  - Mode: 0
+    AssistantId: asst_oDyOkxe4njvpIxsmTplMPXQL
   availableVoiceIds:
   - xjlfQQ3ynqiEyRpArrT8
   - Xb7hH8MSUJpSbSDYk0k2

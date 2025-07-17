@@ -13,7 +13,9 @@ MonoBehaviour:
   m_Name: Topic_NikolaTeslaHU
   m_EditorClassIdentifier: 
   topicName: Nikola Tesla
-  assistantId: asst_yw54nGKIFdVvpYCQDqCynMV4
+  assistantMappings:
+  - Mode: 0
+    AssistantId: asst_yw54nGKIFdVvpYCQDqCynMV4
   availableVoiceIds:
   - xjlfQQ3ynqiEyRpArrT8
   - Xb7hH8MSUJpSbSDYk0k2

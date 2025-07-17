@@ -13,7 +13,9 @@ MonoBehaviour:
   m_Name: Topic_Sniper_HU
   m_EditorClassIdentifier: 
   topicName: "Mesterl\xF6v\xE9szet"
-  assistantId: asst_E9kFSGyxlrzCmAoyza7Ct9oN
+  assistantMappings:
+  - Mode: 0
+    AssistantId: asst_E9kFSGyxlrzCmAoyza7Ct9oN
   availableVoiceIds:
   - xjlfQQ3ynqiEyRpArrT8
   - Xb7hH8MSUJpSbSDYk0k2

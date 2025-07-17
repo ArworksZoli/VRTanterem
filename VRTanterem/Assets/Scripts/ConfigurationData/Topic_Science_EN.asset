@@ -13,7 +13,9 @@ MonoBehaviour:
   m_Name: Topic_Science_EN
   m_EditorClassIdentifier: 
   topicName: Science
-  assistantId: asst_oaAUbKpdI0BxDshQrLayu7LD
+  assistantMappings:
+  - Mode: 0
+    AssistantId: asst_oaAUbKpdI0BxDshQrLayu7LD
   availableVoiceIds:
   - xjlfQQ3ynqiEyRpArrT8
   - Xb7hH8MSUJpSbSDYk0k2
