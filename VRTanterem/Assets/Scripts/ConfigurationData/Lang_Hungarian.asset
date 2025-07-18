@@ -23,26 +23,20 @@ MonoBehaviour:
   AskQuestionPrompt: "Mi a k\xE9rd\xE9sed?"
   PleaseWaitPrompt: "K\xE9rem v\xE1rjon, hamarosan felteheti a k\xE9rd\xE9st!"
   ResumeLecturePrompt: "T\xE9rj\xFCnk akkor vissza oda, ahol abbahagytuk."
-  AIInstructionOnInterruptionResponse: "FIGYELEM: Kor\xE1bban te (az AI) \xE1llt\xE1l
-    meg az el\u0151ad\xE1sban, \xE9s megk\xE9rdezted a felhaszn\xE1l\xF3t\xF3l, hogy
-    van-e k\xE9rd\xE9se. A felhaszn\xE1l\xF3 most v\xE1laszolt erre a felh\xEDv\xE1sodra.
-    A FELADATOD A K\xD6VETKEZ\u0150, TERM\xC9SZETES BESZ\xC9DFOLYAM SZERINT: 1. EL\u0150SZ\xD6R
-    \xC9S KIZ\xC1R\xD3LAG adj egy nagyon r\xF6vid, k\xF6zvetlen v\xE1laszt a felhaszn\xE1l\xF3
-    mostani k\xE9rd\xE9s\xE9re vagy megjegyz\xE9s\xE9re. A v\xE1laszodnak a felhaszn\xE1l\xF3
-    aktu\xE1lis inputj\xE1ra kell vonatkoznia. 2. MIUT\xC1N befejezted ezt a r\xF6vid
-    v\xE1laszt, tarts egy r\xF6vid, term\xE9szetes sz\xFCnetet, majd KIFEJEZETTEN
-    k\xE9rdezd meg \xDAJRA a felhaszn\xE1l\xF3t\xF3l: 'Van esetleg tov\xE1bbi k\xE9rd\xE9se?'
-    KRITIKUSAN FONTOS: NE k\xE9rdezd meg az \xFAjabb 'Van esetleg tov\xE1bbi k\xE9rd\xE9se?'
-    k\xE9rd\xE9st a felhaszn\xE1l\xF3 aktu\xE1lis inputj\xE1ra adott v\xE1laszod
-    EL\u0150TT! NE folytasd az el\u0151ad\xE1st ebben a k\xF6rben! A v\xE1laszod
-    NEM tartalmazhat semmilyen \xFAj el\u0151ad\xE1s-r\xE9szletet vagy inform\xE1ci\xF3t
-    a f\u0151 t\xE9m\xE1val kapcsolatban, hacsak a felhaszn\xE1l\xF3 expliciten nem
-    azt k\xE9rte, hogy folytasd. A TELJES v\xE1laszod ebben a k\xF6rben KIZ\xC1R\xD3LAG
-    a felhaszn\xE1l\xF3 aktu\xE1lis inputj\xE1ra adott r\xF6vid v\xE1laszb\xF3l \xC9S
-    az azt k\xF6vet\u0151 'Van esetleg tov\xE1bbi k\xE9rd\xE9se?' \xFAjb\xF3li visszak\xE9rdez\xE9sb\u0151l
-    \xE1llhat. Semmi m\xE1sb\xF3l. P\xE9lda a helyes v\xE1laszra: '[Itt a r\xF6vid
-    v\xE1laszod a felhaszn\xE1l\xF3 aktu\xE1lis inputj\xE1ra.] (r\xF6vid sz\xFCnet)
-    Van esetleg tov\xE1bbi k\xE9rd\xE9se?'"
+  AIInstructionOnInterruptionResponse: "FIGYELEM: A felhaszn\xE1l\xF3 k\xF6zbesz\xF3lt
+    vagy k\xE9rdezett. A feladatod, hogy erre a helyzetnek megfelel\u0151en, term\xE9szetesen
+    reag\xE1lj.  1.  **V\xC1LASZOLJ K\xD6ZVETLEN\xDCL:** Adj relev\xE1ns \xE9s l\xE9nyegre
+    t\xF6r\u0151 v\xE1laszt a felhaszn\xE1l\xF3 aktu\xE1lis felvet\xE9s\xE9re. 2. 
+    **IGAZODJ A KONTEXTUSHOZ:** A v\xE1laszod st\xEDlus\xE1t \xE9s m\xE9lys\xE9g\xE9t
+    igaz\xEDtsd az interakci\xF3 aktu\xE1lis jelleg\xE9hez (legyen az el\u0151ad\xE1s,
+    konzult\xE1ci\xF3 vagy vizsga). B\xEDzz az alapvet\u0151 instrukci\xF3idban,
+    hogy eld\xF6ntsd, mennyire legy\xE9l r\xE9szletes. 3.  **NE VEDD \xC1T AZ IR\xC1NY\xCDT\xC1ST:**
+    A v\xE1laszod ut\xE1n ne t\xE9rj ki magadt\xF3l \xFAj t\xE9m\xE1ra \xE9s ne folytasd
+    az el\u0151ad\xE1st, hacsak a felhaszn\xE1l\xF3 egy\xE9rtelm\u0171en nem ezt
+    k\xE9ri. C\xE9lod a felhaszn\xE1l\xF3i input megv\xE1laszol\xE1sa, majd a sz\xF3
+    \xE1tad\xE1sa.  A l\xE9nyeg, hogy a p\xE1rbesz\xE9d term\xE9szetes maradjon,
+    \xE9s a te v\xE1laszod illeszkedjen a kontextusba an\xE9lk\xFCl, hogy eltereln\xE9d
+    a f\u0151 csap\xE1sir\xE1nyt."
   ExplicitQuizIntroducers:
   - "ellen\u0151rz\u0151 k\xE9rd\xE9s k\xF6vetkezik"
   - "most pedig egy kv\xEDzk\xE9rd\xE9s"
